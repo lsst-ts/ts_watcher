@@ -1,0 +1,9 @@
+rules:
+- class: TestConfiguredSeverities
+  configs:
+  - severities: [2, 3, 1]
+    interval: 1
+    name: aname
+- class: TesNoConfig
+  configs:
+  - name: {}

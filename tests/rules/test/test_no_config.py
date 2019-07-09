@@ -19,11 +19,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .base import *
-from .model import *
-from .rules import *
+import types
+import unittest
 
-try:
-    from .version import *
-except ImportError:
-    pass
+from lsst.ts import watcher
+
+
+class TestNoConfigTestCase(unittest.TestCase):
+    def test_basics(self):
+        self.assertIsNone(watcher.rules.test.NoConfig.get_schema())
+
+        rule = watcher.rules.test.NoConfig(config=types.SimpleNamespace())
+        self.assertEqual(rule.remote_info_list, [])
+        self.assertEqual(rule.name, "test.NoConfig")
+        self.assertIsInstance(rule.alarm, watcher.Alarm)
+        self.assertEqual(rule.alarm.name, rule.name)
+        self.assertTrue(rule.alarm.nominal)
+        with self.assertRaises(RuntimeError):
+            rule(topic_callback=None)
+
+
+if __name__ == "__main__":
+    unittest.main()

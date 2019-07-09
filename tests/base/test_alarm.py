@@ -23,7 +23,6 @@ import copy
 import time
 import unittest
 
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -35,7 +34,7 @@ class AlarmTestCase(unittest.TestCase):
     def callback(self, alarm):
         self.ncalls += 1
 
-    def alarm_iter(self, name="an_alarm"):
+    def alarm_iter(self, name="test.alarm"):
         """Return an iterator over alarms with all allowed values of
         severity and max_severity.
 
@@ -50,11 +49,11 @@ class AlarmTestCase(unittest.TestCase):
         """
         def _alarm_iter_impl():
             # generate alarms without a callback
-            severities = list(AlarmSeverity)
-            alarm = watcher.Alarm(name=name, callback=None)
+            severities = list(watcher.base.AlarmSeverity)
+            alarm = watcher.base.Alarm(name=name, callback=None)
             yield alarm
             for i, severity in enumerate(severities[1:]):
-                alarm = watcher.Alarm(name=name, callback=None)
+                alarm = watcher.base.Alarm(name=name, callback=None)
                 reason = f"alarm_iter set severity={severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
                 self.assertTrue(updated)
@@ -62,7 +61,7 @@ class AlarmTestCase(unittest.TestCase):
 
             for i, max_severity in enumerate(severities[1:]):
                 for severity in severities[0:i+1]:
-                    alarm = watcher.Alarm(name=name, callback=None)
+                    alarm = watcher.base.Alarm(name=name, callback=None)
                     updated = alarm.set_severity(severity=max_severity, reason=reason)
                     self.assertTrue(updated)
                     reason = f"alarm_iter set severity to {severity} after setting it to {max_severity}"
@@ -78,7 +77,7 @@ class AlarmTestCase(unittest.TestCase):
         name = "stella"
         severity_set = set()
         nitems = 0
-        nseverities = len(AlarmSeverity)
+        nseverities = len(watcher.base.AlarmSeverity)
         predicted_nitems = nseverities * (nseverities + 1) // 2
         for alarm in self.alarm_iter(name=name):
             nitems += 1
@@ -97,7 +96,7 @@ class AlarmTestCase(unittest.TestCase):
         This is a rather crude test in that it sets fields to
         invalid values.
         """
-        alarm0 = watcher.Alarm(name="foo", callback=self.callback)
+        alarm0 = watcher.base.Alarm(name="foo", callback=self.callback)
         alarm = copy.copy(alarm0)
         self.assertTrue(alarm == alarm0)
         self.assertFalse(alarm != alarm0)
@@ -117,13 +116,13 @@ class AlarmTestCase(unittest.TestCase):
 
     def test_constructor(self):
         name = "test_fairly_long_alarm_name"
-        alarm = watcher.Alarm(name=name, callback=self.callback)
+        alarm = watcher.base.Alarm(name=name, callback=self.callback)
         self.assertEqual(alarm.name, name)
         self.assertEqual(alarm.callback, self.callback)
         self.assertTrue(alarm.nominal)
         self.assertFalse(alarm.acknowledged)
-        self.assertEqual(alarm.severity, AlarmSeverity.NONE)
-        self.assertEqual(alarm.max_severity, AlarmSeverity.NONE)
+        self.assertEqual(alarm.severity, watcher.base.AlarmSeverity.NONE)
+        self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.NONE)
         self.assertEqual(alarm.reason, "")
         self.assertEqual(alarm.acknowledged_by, "")
         self.assertTrue(alarm.enabled)
@@ -131,7 +130,7 @@ class AlarmTestCase(unittest.TestCase):
 
     def test_none_severity_when_nominal(self):
         """Test that set_severity to NONE has no effect if nominal."""
-        alarm = watcher.Alarm(name="an_alarm", callback=self.callback)
+        alarm = watcher.base.Alarm(name="an_alarm", callback=self.callback)
         self.assertTrue(alarm.nominal)
         prev_timestamp_severity_oldest = alarm.timestamp_severity_oldest
         prev_timestamp_severity_newest = alarm.timestamp_severity_newest
@@ -139,10 +138,10 @@ class AlarmTestCase(unittest.TestCase):
         prev_timestamp_acknowledged = alarm.timestamp_acknowledged
 
         reason = "this reason will be ignored"
-        updated = alarm.set_severity(severity=AlarmSeverity.NONE, reason=reason)
+        updated = alarm.set_severity(severity=watcher.base.AlarmSeverity.NONE, reason=reason)
         self.assertFalse(updated)
-        self.assertEqual(alarm.severity, AlarmSeverity.NONE)
-        self.assertEqual(alarm.max_severity, AlarmSeverity.NONE)
+        self.assertEqual(alarm.severity, watcher.base.AlarmSeverity.NONE)
+        self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.NONE)
         self.assertEqual(alarm.reason, "")
         self.assertFalse(alarm.acknowledged)
         self.assertEqual(alarm.acknowledged_by, "")
@@ -159,7 +158,7 @@ class AlarmTestCase(unittest.TestCase):
         desired_ncalls = 0
         for alarm in self.alarm_iter():
             alarm0 = copy.copy(alarm)
-            for severity in reversed(list(AlarmSeverity)):
+            for severity in reversed(list(watcher.base.AlarmSeverity)):
                 if severity >= alarm.severity:
                     continue
                 curr_tai = salobj.tai_from_utc(time.time())
@@ -184,7 +183,7 @@ class AlarmTestCase(unittest.TestCase):
         """Test that max_severity tracks increasing severity."""
         desired_ncalls = 0
         for alarm in self.alarm_iter():
-            for severity in AlarmSeverity:
+            for severity in watcher.base.AlarmSeverity:
                 if severity <= alarm.max_severity:
                     continue
                 curr_tai = salobj.tai_from_utc(time.time())
@@ -223,7 +222,7 @@ class AlarmTestCase(unittest.TestCase):
                 desired_ncalls += 1
                 self.assertEqual(alarm.severity, alarm0.severity)
                 self.assertEqual(alarm.max_severity, alarm0.max_severity)
-                if alarm0.severity == AlarmSeverity.NONE:
+                if alarm0.severity == watcher.base.AlarmSeverity.NONE:
                     self.assertEqual(alarm.reason, alarm0.reason)
                 else:
                     self.assertEqual(alarm.reason, reason)
@@ -243,7 +242,7 @@ class AlarmTestCase(unittest.TestCase):
         for alarm0 in self.alarm_iter():
             if alarm0.nominal:
                 continue
-            for ack_severity in AlarmSeverity:
+            for ack_severity in watcher.base.AlarmSeverity:
                 alarm = copy.copy(alarm0)
                 if alarm0.nominal:
                     # ack has no effect
@@ -263,9 +262,9 @@ class AlarmTestCase(unittest.TestCase):
                     self.assertEqual(alarm.severity, alarm0.severity)
                     self.assertTrue(alarm.acknowledged)
                     self.assertEqual(alarm.acknowledged_by, user)
-                    if alarm0.severity == AlarmSeverity.NONE:
+                    if alarm0.severity == watcher.base.AlarmSeverity.NONE:
                         # alarm is reset to nominal
-                        self.assertEqual(alarm.max_severity, AlarmSeverity.NONE)
+                        self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.NONE)
                         self.assertTrue(alarm.nominal)
                     else:
                         # alarm is still active
@@ -300,7 +299,7 @@ class AlarmTestCase(unittest.TestCase):
             self.assertEqual(alarm, alarm0)
 
             # acknowledge the alarm
-            for ack_severity in AlarmSeverity:
+            for ack_severity in watcher.base.AlarmSeverity:
                 alarm = copy.copy(alarm0)
                 if ack_severity < alarm.max_severity:
                     continue
@@ -308,7 +307,7 @@ class AlarmTestCase(unittest.TestCase):
                 desired_ncalls += 1
                 self.assertTrue(updated)
                 self.assertTrue(alarm.acknowledged)
-                if alarm0.severity == AlarmSeverity.NONE:
+                if alarm0.severity == watcher.base.AlarmSeverity.NONE:
                     self.assertTrue(alarm.nominal)
                 else:
                     self.assertFalse(alarm.nominal)
@@ -341,7 +340,7 @@ class AlarmTestCase(unittest.TestCase):
             self.assertFalse(alarm0.acknowledged)
 
             # acknowledge the alarm
-            for ack_severity in AlarmSeverity:
+            for ack_severity in watcher.base.AlarmSeverity:
                 alarm = copy.copy(alarm0)
                 if ack_severity < alarm.max_severity:
                     continue
@@ -349,13 +348,13 @@ class AlarmTestCase(unittest.TestCase):
                 desired_ncalls += 1
                 self.assertTrue(updated)
                 self.assertTrue(alarm.acknowledged)
-                if alarm0.severity == AlarmSeverity.NONE:
+                if alarm0.severity == watcher.base.AlarmSeverity.NONE:
                     self.assertTrue(alarm.nominal)
                 else:
                     self.assertFalse(alarm.nominal)
 
                 acked_alarm = alarm
-                for severity in AlarmSeverity:
+                for severity in watcher.base.AlarmSeverity:
                     alarm = copy.copy(acked_alarm)
                     tai0 = salobj.tai_from_utc(time.time())
                     reason = f"set severity to {severity} after ack"
@@ -369,14 +368,14 @@ class AlarmTestCase(unittest.TestCase):
                         else:
                             self.assertGreaterEqual(alarm.timestamp_severity_oldest, tai0)
                         self.assertGreaterEqual(alarm.timestamp_severity_newest, tai0)
-                    if severity == AlarmSeverity.NONE:
+                    if severity == watcher.base.AlarmSeverity.NONE:
                         if acked_alarm.nominal:
                             self.assertFalse(updated)
                             self.assertEqual(alarm, acked_alarm)
                         else:
                             # alarm should be reset
                             self.assertTrue(updated)
-                            self.assertEqual(alarm.max_severity, AlarmSeverity.NONE)
+                            self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.NONE)
                             self.assertEqual(alarm.reason, "")
                             self.assertFalse(alarm.acknowledged)
                             self.assertGreaterEqual(alarm.timestamp_max_severity, tai0)
@@ -400,3 +399,7 @@ class AlarmTestCase(unittest.TestCase):
                                              acked_alarm.timestamp_acknowledged)
 
         self.assertEqual(self.ncalls, desired_ncalls)
+
+
+if __name__ == "__main__":
+    unittest.main()

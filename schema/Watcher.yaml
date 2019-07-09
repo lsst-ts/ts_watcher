@@ -1,0 +1,38 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/lsst-ts/ts_watcher/Watcher.yaml
+title: Watcher v1
+description: Configuration for the Watcher
+type: object
+required: [rules]
+additionalProperties: false
+properties:
+  disabled_sal_components:
+    description: >-
+      Names of SAL components that the Watcher will ignored.
+      The format is component_name:index where the colon and index are optional if the index is 0.
+    type: array
+    default: []
+    items:
+      type: string
+  rules:
+    description: Rules and rule configuration.
+    type: array
+    items:
+      type: object
+      required: [class, configs]
+      additionalProperties: false
+      properties:
+        classname:
+          description: >-
+            Name of rule class, e.g. Heartbeat.
+            If the class is in a subdirectory of "rules" separate the fields with a period, e.g. at.AnAuxTelRule.
+          type: string
+        configs:
+          description: >-
+            Configuration for each instance of the rule.
+            The data will be validated against the rule's schema.
+            Use a pair of curly braces for an empty config.
+          type: array
+          minItems: 1
+          items:
+            type: object
