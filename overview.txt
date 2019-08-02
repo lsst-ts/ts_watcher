@@ -1,0 +1,57 @@
+Overview (this will be incorporated into the sphinx documentation):
+
+The Watcher is a CSC that monitors SAL components and generates alarm events which are
+intended to be displayed on the LOVE interface.
+The Watcher requiremens are document LTS-897 and the rationale for having a Watcher is described here: https://confluence.lsstcorp.org/display/LTS/The+Watcher%3A+A+Proposal.
+
+The most fundamental objects that make up the Watcher are rules and alarms. Rules are instances of subclasses of base.BaseRule and they monitor topics from remote SAL components and based on that information they set the severity of alarms. Alarms are instances of base.Alarm and they contains the state of an alarm, including the current severity, whether the alarm has been acknowledged, and the maximum severity seen since last acknowledgement.
+
+There is a one to one relationship between rules and alarms; every rule contains its associated alarm.
+
+Each alarm must have a unique name.
+This name is displayed in LOVE and is used to aknowledge alarms 
+
+Many rule classes can define more than one rule; for example the Enabled rule monitors whether a CSC is in the ENABLED state, and there is instance of the Enabled rule for each CSC being monitored.
+
+Rules can be configured.
+For instance the Enabled rule is configured with the name and index of the CSC that it monitors.
+The configuration is provided when the rule is instantiated and is validated against a schema specified by the rule as BaseRule.get_schema.
+
+All rules must be defined in modules in the python/lsst/ts/watcher/rules directory or subdirectories.
+
+The set of rules used by the Watcher, and their configuration, is specified by the CSC configuration.
+This will typically specify most, but not all rules which are available, and will likely be large.
+The configuration also has a list of disabled rules which is intended to make it easy to disable a few rules (e.g. when a subsystem is down) without having to delete the configuration for those rules from the configuration file.
+
+The Model class manages all the rules that are in use.
+It is the model that uses the watcher configuration to construct rules, construct salobj Remotes and wire everything together.
+The model also disables rules when the Watcher CSC is not in the ENABLED state.
+
+
+Subtleties, or What Are Those Support Classes?
+
+In order to reduce resource usage, Remotes and Topics are only constructed if needed and are shared if possible.
+Thus if more than one rule needs a Remote, only one instance of that Remote is constructed.
+Similarly if more than one rule needs a Topic, only one instance is constructed.
+
+The TopicCallback class is used to support sharing topics, since a topic can only call back to a single function.
+
+Since rules share remotes and topics, a rule does not construct remotes or topics.
+Instead a rule specifies the topics it needs by constructing RemoteInfo objects, which the Model uses to construct the remotes and topics and connect them to the rule.
+
+A rule can only see the topics that it specifies it wants.
+Furthermore, a rule can only get the current value of a topic.
+Both of these are done in order to reduce or eliminate interactions between different rules.
+For example if a rule could see additional topics then those topics would only exist because some other rule specified them, which is unreliable since that other rule might not be used.
+Also if a rule could wait for the next value of a topic it could easily interfere with other rules.
+This isolation is implemented with RemoteWrapper: the rule will have one RemoteWrapper for each RemoteInfo specified by the rule.
+
+
+The basic pattern in the Model:
+- Parse the configuration.
+- For each rule specified in the config:
+  - Construct the Rule, passing in the specified configuration.
+  - For each RemoteInfo the rule specifies, connect the rule to an existing Remote (if possible) or construct new one (if not), and add topics to the remote if necessary.
+    Also construct a RemoteWrapper and attach it to the rule.
+- Once all rules are constructed, call ``start`` on each Remote to start it reading.
+- Enable all rules when the Watcher is enabled and disable them otherwise.

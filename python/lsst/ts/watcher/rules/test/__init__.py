@@ -19,11 +19,5 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .base import *
-from .model import *
-from .rules import *
-
-try:
-    from .version import *
-except ImportError:
-    pass
+from .configured_severities import *
+from .no_config import *

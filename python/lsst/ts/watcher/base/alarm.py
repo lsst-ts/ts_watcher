@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["Alarm"]
+__all__ = ["AlarmSeverity", "Alarm"]
 
 import time
 
@@ -34,10 +34,8 @@ class Alarm:
     ----------
     name : `str`
         Name of alarm. This must be unique among all alarms
-        and should be of the form system_[subsystem_...]_name
+        and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
-        Use underscores instead of dots to make the regular expressions
-        or glob expressions easier to write.
     callback : ``callable``
         Function or coroutine to call whenever the alarm changes state.
     """
