@@ -151,7 +151,7 @@ class Model:
                                        readonly=True, include=[], start=False)
                 self.remotes[remote_info.key] = remote
             wrapper = base.RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
-            setattr(rule, wrapper.get_attr_name(), wrapper)
+            setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
                 topic = getattr(remote, topic_name, None)
                 if topic is None:

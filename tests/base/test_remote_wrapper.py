@@ -49,6 +49,8 @@ class RemoteWrapperTestCase(unittest.TestCase):
                     self.assertFalse(hasattr(remote, name))
 
                 wrapper = watcher.base.RemoteWrapper(remote=remote, topic_names=topic_names)
+                desired_attr_name = remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
+                self.assertEqual(wrapper.attr_name, desired_attr_name)
 
                 # Check that all topics have been added
                 for name in topic_names:

@@ -82,7 +82,8 @@ class RemoteWrapper:
             else:
                 raise ValueError(f"Unknown topic prefix in {topic_name:r}: must be 'tel_' or 'evt_'")
 
-    def get_attr_name(self):
+    @property
+    def attr_name(self):
         """Get the rule attribute name for this remote wrapper.
         """
         return f"{self.name.lower()}_{self.index}"
