@@ -85,7 +85,28 @@ class AlarmTestCase(unittest.TestCase):
             self.assertEqual(alarm.name, name)
             self.assertGreaterEqual(alarm.max_severity, alarm.severity)
             self.assertFalse(alarm.acknowledged)
-            self.assertTrue(alarm.enabled)
+            self.assertEqual(alarm.acknowledged_by, "")
+            self.assertFalse(alarm.escalated)
+            self.assertEqual(alarm.escalate_to, "")
+            self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
+            self.assertEqual(alarm.muted_by, "")
+            if nitems == 1:
+                # first state is NONE, alarm is nominal
+                self.assertTrue(alarm.nominal)
+                self.assertEqual(alarm.timestamp_severity_oldest, 0)
+                self.assertEqual(alarm.timestamp_severity_newest, 0)
+                self.assertEqual(alarm.timestamp_max_severity, 0)
+            else:
+                self.assertFalse(alarm.nominal)
+                self.assertGreater(alarm.timestamp_severity_oldest, 0)
+                self.assertGreater(alarm.timestamp_severity_newest, 0)
+                self.assertGreater(alarm.timestamp_max_severity, 0)
+            self.assertGreaterEqual(alarm.timestamp_severity_newest, alarm.timestamp_severity_oldest)
+            self.assertEqual(alarm.timestamp_acknowledged, 0)
+            self.assertEqual(alarm.timestamp_auto_acknowledge, 0)
+            self.assertEqual(alarm.timestamp_auto_unacknowledge, 0)
+            self.assertEqual(alarm.timestamp_escalate, 0)
+            self.assertEqual(alarm.timestamp_unmute, 0)
             severity_set.add((alarm.severity, alarm.max_severity))
         self.assertEqual(nitems, predicted_nitems)
         self.assertEqual(nitems, len(severity_set))
@@ -125,7 +146,7 @@ class AlarmTestCase(unittest.TestCase):
         self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.NONE)
         self.assertEqual(alarm.reason, "")
         self.assertEqual(alarm.acknowledged_by, "")
-        self.assertTrue(alarm.enabled)
+        self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
         self.assertTrue(alarm.nominal)
 
     def test_none_severity_when_nominal(self):
@@ -145,7 +166,7 @@ class AlarmTestCase(unittest.TestCase):
         self.assertEqual(alarm.reason, "")
         self.assertFalse(alarm.acknowledged)
         self.assertEqual(alarm.acknowledged_by, "")
-        self.assertTrue(alarm.enabled)
+        self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.timestamp_severity_oldest, prev_timestamp_severity_oldest)
         self.assertEqual(alarm.timestamp_severity_newest, prev_timestamp_severity_newest)
@@ -174,7 +195,7 @@ class AlarmTestCase(unittest.TestCase):
                 self.assertGreaterEqual(alarm.timestamp_severity_newest, curr_tai)
                 self.assertEqual(alarm.timestamp_max_severity, alarm0.timestamp_max_severity)
                 self.assertEqual(alarm.timestamp_acknowledged, alarm0.timestamp_acknowledged)
-                self.assertTrue(alarm.enabled)
+                self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
                 self.assertFalse(alarm.nominal)
 
         self.assertEqual(self.ncalls, desired_ncalls)
@@ -196,7 +217,7 @@ class AlarmTestCase(unittest.TestCase):
                 self.assertEqual(alarm.reason, reason)
                 self.assertFalse(alarm.acknowledged)
                 self.assertEqual(alarm.acknowledged_by, "")
-                self.assertTrue(alarm.enabled)
+                self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
                 self.assertFalse(alarm.nominal)
                 self.assertGreaterEqual(alarm.timestamp_severity_oldest, curr_tai)
                 self.assertGreaterEqual(alarm.timestamp_severity_newest, curr_tai)
@@ -228,7 +249,7 @@ class AlarmTestCase(unittest.TestCase):
                     self.assertEqual(alarm.reason, reason)
                 self.assertFalse(alarm.acknowledged)
                 self.assertEqual(alarm.acknowledged_by, "")
-                self.assertTrue(alarm.enabled)
+                self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
                 self.assertEqual(alarm.timestamp_severity_oldest, alarm0.timestamp_severity_oldest)
                 self.assertGreaterEqual(alarm.timestamp_severity_newest, curr_tai)
                 self.assertEqual(alarm.timestamp_max_severity, alarm0.timestamp_max_severity)
@@ -330,6 +351,16 @@ class AlarmTestCase(unittest.TestCase):
                     self.assertEqual(alarm.timestamp_max_severity, acked_alarm.timestamp_max_severity)
 
         self.assertEqual(self.ncalls, desired_ncalls)
+
+    def test_reset(self):
+        name = "alarm"
+        blank_alarm = watcher.base.Alarm(name=name, callback=None)
+        blank_alarm.callback = self.callback
+        for alarm in self.alarm_iter(name=name):
+            if not alarm.nominal:
+                self.assertNotEqual(alarm, blank_alarm)
+            alarm.reset()
+            self.assertEqual(alarm, blank_alarm)
 
     def test_set_severity_when_acknowledged(self):
         user = "skipper"
