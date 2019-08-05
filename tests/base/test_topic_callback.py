@@ -78,7 +78,7 @@ class TopicCallbackTestCase(unittest.TestCase):
                 topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
                                                        rule=rule,
                                                        model=model)
-                self.assertEqual(topic_callback.topic_name, "evt_summaryState")
+                self.assertEqual(topic_callback.attr_name, "evt_summaryState")
                 self.assertEqual(topic_callback.remote_name, "Test")
                 self.assertEqual(topic_callback.remote_index, self.index)
                 self.assertEqual(topic_callback.get(), None)
