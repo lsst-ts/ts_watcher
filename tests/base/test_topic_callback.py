@@ -23,6 +23,7 @@ import asyncio
 import types
 import unittest
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -86,7 +87,7 @@ class TopicCallbackTestCase(unittest.TestCase):
 
                 controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
                 await asyncio.sleep(0.001)
-                self.assertEqual(read_severities, [watcher.base.AlarmSeverity.WARNING])
+                self.assertEqual(read_severities, [AlarmSeverity.WARNING])
 
         asyncio.get_event_loop().run_until_complete(doit())
 
@@ -110,7 +111,7 @@ class TopicCallbackTestCase(unittest.TestCase):
                 controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
                 await asyncio.sleep(0.001)
 
-                self.assertEqual(read_severities, [watcher.base.AlarmSeverity.WARNING])
+                self.assertEqual(read_severities, [AlarmSeverity.WARNING])
                 # rule2 has not been added so read_severities2 should be empty
                 self.assertEqual(read_severities2, [])
 
@@ -123,9 +124,9 @@ class TopicCallbackTestCase(unittest.TestCase):
                 topic_callback.add_rule(rule2)
                 controller.evt_summaryState.set_put(summaryState=salobj.State.FAULT, force_output=True)
                 await asyncio.sleep(0.001)
-                self.assertEqual(read_severities, [watcher.base.AlarmSeverity.WARNING,
-                                                   watcher.base.AlarmSeverity.SERIOUS])
-                self.assertEqual(read_severities2, [watcher.base.AlarmSeverity.SERIOUS])
+                self.assertEqual(read_severities, [AlarmSeverity.WARNING,
+                                                   AlarmSeverity.SERIOUS])
+                self.assertEqual(read_severities2, [AlarmSeverity.SERIOUS])
 
         asyncio.get_event_loop().run_until_complete(doit())
 

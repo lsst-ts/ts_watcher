@@ -23,6 +23,7 @@ import asyncio
 import types
 import unittest
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -37,8 +38,8 @@ class TestConfiguredSeveritiesTestCase(unittest.TestCase):
             Rule name (one field in a longer name).
         interval : `float`
             Interval between severities (seconds).
-        severities : `list` [`int`]
-            A list of severities as `base.AlarmSeverity` constants.
+        severities : `list` [`lsst.ts.idl.enums.Watcher.AlarmSeverity`]
+            A list of severities.
         """
         schema = watcher.rules.test.ConfiguredSeverities.get_schema()
         validator = salobj.DefaultingValidator(schema)
@@ -57,9 +58,9 @@ class TestConfiguredSeveritiesTestCase(unittest.TestCase):
         self.assertIsNotNone(schema)
         name = "arulename"
         interval = 1.23
-        severities = [watcher.base.AlarmSeverity.WARNING,
-                      watcher.base.AlarmSeverity.CRITICAL,
-                      watcher.base.AlarmSeverity.NONE]
+        severities = [AlarmSeverity.WARNING,
+                      AlarmSeverity.CRITICAL,
+                      AlarmSeverity.NONE]
         config = self.make_config(name=name, interval=interval, severities=severities)
         desired_rule_name = f"test.ConfiguredSeverities.{name}"
 
@@ -75,11 +76,11 @@ class TestConfiguredSeveritiesTestCase(unittest.TestCase):
     def test_run(self):
         async def doit():
             interval = 0.01
-            severities = [watcher.base.AlarmSeverity.WARNING,
-                          watcher.base.AlarmSeverity.CRITICAL,
-                          watcher.base.AlarmSeverity.WARNING,
-                          watcher.base.AlarmSeverity.SERIOUS,
-                          watcher.base.AlarmSeverity.NONE]
+            severities = [AlarmSeverity.WARNING,
+                          AlarmSeverity.CRITICAL,
+                          AlarmSeverity.WARNING,
+                          AlarmSeverity.SERIOUS,
+                          AlarmSeverity.NONE]
             config = self.make_config(name="arbitrary", interval=interval, severities=severities)
             rule = watcher.rules.test.ConfiguredSeverities(config=config)
 

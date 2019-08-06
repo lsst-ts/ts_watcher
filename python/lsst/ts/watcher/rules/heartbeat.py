@@ -24,6 +24,7 @@ __all__ = ["Heartbeat"]
 import asyncio
 import yaml
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts.watcher import base
 
@@ -89,7 +90,7 @@ class Heartbeat(base.BaseRule):
     async def heartbeat_timer(self):
         """Heartbeat timer."""
         await asyncio.sleep(self.config.timeout)
-        self.alarm.set_severity(severity=base.AlarmSeverity.SERIOUS,
+        self.alarm.set_severity(severity=AlarmSeverity.SERIOUS,
                                 reason=f"Heartbeat event not seen in {self.config.timeout} seconds")
 
     def restart_timer(self):

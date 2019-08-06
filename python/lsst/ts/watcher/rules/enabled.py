@@ -23,6 +23,7 @@ __all__ = ["Enabled"]
 
 import yaml
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts.watcher import base
 
@@ -82,10 +83,10 @@ class Enabled(base.BaseRule):
         if state == salobj.State.ENABLED:
             return base.NoneNoReason
         elif state == salobj.State.FAULT:
-            return base.AlarmSeverity.SERIOUS, "FAULT state"
+            return AlarmSeverity.SERIOUS, "FAULT state"
         else:
             try:
                 state_name = salobj.State(state).name
             except Exception:
                 state_name = str(state)
-            return base.AlarmSeverity.WARNING, f"{state_name} state"
+            return AlarmSeverity.WARNING, f"{state_name} state"

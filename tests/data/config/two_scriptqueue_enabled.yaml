@@ -1,0 +1,5 @@
+rules:
+- classname: Enabled
+  configs:
+  - name: ScriptQueue:1
+  - name: ScriptQueue:2

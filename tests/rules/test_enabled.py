@@ -25,6 +25,7 @@ import unittest
 
 import yaml
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -113,11 +114,11 @@ class EnabledTestCase(unittest.TestCase):
                                   salobj.State.DISABLED,
                                   salobj.State.ENABLED):
                         if state == salobj.State.ENABLED:
-                            expected_severities.append(watcher.base.AlarmSeverity.NONE)
+                            expected_severities.append(AlarmSeverity.NONE)
                         elif state == salobj.State.FAULT:
-                            expected_severities.append(watcher.base.AlarmSeverity.SERIOUS)
+                            expected_severities.append(AlarmSeverity.SERIOUS)
                         else:
-                            expected_severities.append(watcher.base.AlarmSeverity.WARNING)
+                            expected_severities.append(AlarmSeverity.WARNING)
 
                         controller.evt_summaryState.set_put(summaryState=state, force_output=True)
                         # give the remote a chance to read the data

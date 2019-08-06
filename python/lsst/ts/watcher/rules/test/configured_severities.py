@@ -39,13 +39,13 @@ class ConfiguredSeverities(base.BaseRule):
     Raises
     ------
     RuntimeError
-        If ``__call__` is called. When used as a normal rule
+        If ``__call__`` is called. When used as a normal rule
         this method should never be called because the rule
         specifies topics to call it.
 
     Notes
     -----
-    The alarm name is f"test.ConfiguredSeverities.{config.name}"
+    The alarm name is ``f"test.ConfiguredSeverities.{config.name}"``
     """
     def __init__(self, config):
         super().__init__(config=config,
@@ -68,7 +68,7 @@ class ConfiguredSeverities(base.BaseRule):
                     descrption: Interval between severities (seconds).
                     type: number
                 severities:
-                    description: A list of severities as base.AlarmSeverity constants.
+                    description: A list of severities as lsst.ts.idl.enums.Watcher.AlarmSeverity constants.
                     type: array
                     items:
                         type: integer

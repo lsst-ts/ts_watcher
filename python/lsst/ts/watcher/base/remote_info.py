@@ -58,18 +58,20 @@ class RemoteInfo:
     callback_names : `list` [`str`] (optional)
         Names of telemetry or topic names for which the rule is called
         when a sample is read. If None then no such topics.
-        Each name must include prefix "evt_" or "tel_" for event or telemetry.
+        Each name must include prefix ``evt_`` or ``tel_``
+        for event or telemetry.
         For example ["evt_FilterChangeInPosition", "evt_TrackingTarget"]
     poll_names : `list` [`str`] (optional)
         Names of telemetry or topic names for which are available to the rule,
         but do not trigger a callback. If None then no such topics.
-        Each name must include prefix "evt_" or "tel_" for event or telemetry.
+        Each name must include prefix ``evt_`` or ``tel_``
+        for event or telemetry.
 
     Raises
     ------
     ValueError
         If any name in ``callback_names`` or ``poll_names`` does not begin
-        with "evt_" or "tel_".
+        with ``evt_`` or ``tel_``.
     ValueError
         If the same name appears more than once in
         ``callback_names + poll_names``, in other words, more than once

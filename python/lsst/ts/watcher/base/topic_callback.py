@@ -45,7 +45,7 @@ class TopicCallback:
 
     @property
     def attr_name(self):
-        """Get the topic name, with an 'evt_' or 'tel_' prefix.
+        """Get the topic name, with an ``evt_`` or ``tel_`` prefix.
 
         This is the name of the wrapped topic attribute in `RemoteWrapper`.
         """

@@ -165,7 +165,7 @@ class Model:
         ----------
         name : `str`
             Alarm name
-        severity : `AlarmSeverity` or `int`
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. If the severity goes above
             this level the alarm will unacknowledge itself.
         user : `str`

@@ -25,6 +25,7 @@ import unittest
 
 import yaml
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -110,12 +111,12 @@ class HeartbeatTestCase(unittest.TestCase):
 
                     await asyncio.sleep(timeout*2)
                     self.assertFalse(alarm.nominal)
-                    self.assertEqual(alarm.severity, watcher.base.AlarmSeverity.SERIOUS)
+                    self.assertEqual(alarm.severity, AlarmSeverity.SERIOUS)
                     controller.evt_heartbeat.put()
                     await asyncio.sleep(0.001)
                     self.assertFalse(alarm.nominal)
-                    self.assertEqual(alarm.severity, watcher.base.AlarmSeverity.NONE)
-                    self.assertEqual(alarm.max_severity, watcher.base.AlarmSeverity.SERIOUS)
+                    self.assertEqual(alarm.severity, AlarmSeverity.NONE)
+                    self.assertEqual(alarm.max_severity, AlarmSeverity.SERIOUS)
 
         asyncio.new_event_loop().run_until_complete(doit())
 

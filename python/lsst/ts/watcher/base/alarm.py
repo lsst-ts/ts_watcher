@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["AlarmSeverity", "Alarm"]
+__all__ = ["Alarm"]
 
 import time
 
@@ -63,7 +63,7 @@ class Alarm:
 
         Parameters
         ----------
-        severity : `AlarmSeverity` or `int`
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. If the severity goes above
             this level the alarm will unacknowledge itself.
         user : `str`
@@ -137,7 +137,7 @@ class Alarm:
 
         Parameters
         ----------
-        severity : `AlarmSeverity` or `int`
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             New severity.
         reason : `str`
             The reason for this state; this should be a brief message

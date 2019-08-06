@@ -37,7 +37,7 @@ class RemoteWrapper:
     remote : `lsst.ts.salobj.Remote`
         Remote to wrap.
     topic_names : `list` [`str`]
-        List of names of topics to wrap, with an "evt_" or "tel_" prefix.
+        List of names of topics to wrap, with an ``evt_`` or ``tel_`` prefix.
 
     Raises
     ------

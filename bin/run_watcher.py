@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # This file is part of ts_watcher.
 #
 # Developed for the LSST Data Management System.
@@ -16,15 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+from lsst.ts import watcher
 
-from .base import *
-from .rules import *
-from .model import *
-from .watcher_csc import *
-
-try:
-    from .version import *
-except ImportError:
-    pass
+watcher.WatcherCsc.main(index=0)
