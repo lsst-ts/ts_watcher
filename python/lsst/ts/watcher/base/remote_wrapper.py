@@ -52,10 +52,10 @@ class RemoteWrapper:
     of topics that `BaseRule` should not use, such as ``next``.
     """
     def __init__(self, remote, topic_names):
-        # A dict of topic attribute name: topic. For example:
-        # "evt_summaryState": lsst.ts.salobj.RemoteEvent(...)
         self.name = remote.salinfo.name
         self.index = remote.salinfo.index
+        # A dict of topic attribute name: topic. For example:
+        # "evt_summaryState": lsst.ts.salobj.RemoteEvent(...)
         self._topics = dict()
         event_names = frozenset(remote.salinfo.event_names)
         telemetry_names = frozenset(remote.salinfo.telemetry_names)

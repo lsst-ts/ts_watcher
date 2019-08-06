@@ -87,7 +87,7 @@ class EnabledTestCase(unittest.TestCase):
 
             async with salobj.Controller(name=name, index=index) as controller:
                 async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
-                    model.enabled = True
+                    model.enable()
 
                     self.assertEqual(len(model.rules), 1)
                     rule_name = f"Enabled.{name}:{index}"
