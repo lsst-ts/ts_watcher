@@ -71,8 +71,9 @@ class Heartbeat(base.BaseRule):
                 timeout:
                     description: Maximum allowed time between heartbeat events (sec)
                     type: number
+                    default: 3
 
-            required: [name, timeout]
+            required: [name]
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
