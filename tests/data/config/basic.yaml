@@ -1,9 +1,9 @@
 rules:
-- classname: TestConfiguredSeverities
+- classname: test.ConfiguredSeverities
   configs:
   - severities: [2, 3, 1]
     interval: 1
     name: aname
-- classname: TesNoConfig
+- classname: test.NoConfig
   configs:
-  - name: {}
+    - {}
