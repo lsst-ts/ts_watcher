@@ -1,12 +1,12 @@
 disabled_sal_components:
 - ATCamera
 rules:
-- class: Heartbeat
+- classname: Heartbeat
   configs:
   - name: ATDome
   - name: ATCamera
   - name: ScriptQueue:2
-- class: Enabled
+- classname: Enabled
   configs:
   - name: ATDome
   - name: ATCamera

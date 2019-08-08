@@ -19,7 +19,7 @@ properties:
     type: array
     items:
       type: object
-      required: [class, configs]
+      required: [classname, configs]
       additionalProperties: false
       properties:
         classname:
