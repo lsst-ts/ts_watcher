@@ -1,0 +1,5 @@
+rules:
+- classname: test.NoConfig
+  configs:
+  - name: {}
+  invalid_extra_rules_field: arbitrary_data

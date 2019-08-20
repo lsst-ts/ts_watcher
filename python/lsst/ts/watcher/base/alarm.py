@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["AlarmSeverity", "Alarm"]
+__all__ = ["Alarm"]
 
 import time
 
@@ -43,99 +43,27 @@ class Alarm:
         self.name = name
         self.callback = callback
 
-        self.severity = AlarmSeverity.NONE
-        self.max_severity = AlarmSeverity.NONE
-        self.reason = ""
-        self.acknowledged = False
-        self.acknowledged_by = ""
-        self.enabled = True
+        self.muted_severity = AlarmSeverity.NONE
+        self.muted_by = ""
+        self.timestamp_unmute = 0
+        self.reset()
 
-        self.timestamp_severity_oldest = 0
-        self.timestamp_severity_newest = 0
-        self.timestamp_max_severity = 0
-        self.timestamp_acknowledged = 0
+    @property
+    def nominal(self):
+        """True if alarm is in nominal state: severity = max severity = NONE.
 
-    def __eq__(self, other):
-        """Return True if two alarms are the same, including state.
-
-        Primarily intended for unit testing.
+        When the alarm is in nominal state it should not be displayed
+        in the Watcher GUI.
         """
-        for field in ("name",
-                      "callback",
-                      "severity",
-                      "max_severity",
-                      "reason",
-                      "acknowledged",
-                      "acknowledged_by",
-                      "enabled",
-                      "timestamp_severity_oldest",
-                      "timestamp_severity_newest",
-                      "timestamp_max_severity",
-                      "timestamp_acknowledged"):
-            if getattr(self, field) != getattr(other, field):
-                return False
-        return True
-
-    def __ne__(self, other):
-        """Return True if two alarms differ, including state.
-
-        Primarily intended for unit testing.
-        """
-        return not self.__eq__(other)
-
-    def set_severity(self, severity, reason):
-        """Set the severity.
-
-        Parameters
-        ----------
-        severity : `AlarmSeverity` or `int`
-            New severity.
-        reason : `str`
-            The reason for this state; this should be a brief message
-            explaining what is wrong. Ignored if severity is NONE.
-
-        Returns
-        -------
-        updated : `bool`
-            True if the alarm state changed (i.e. if any fields were modified),
-            False otherwise.
-        """
-        severity = AlarmSeverity(severity)
-        if severity == AlarmSeverity.NONE and self.nominal:
-            # ignore NONE state when alarm is alread nominal
-            return False
-
-        curr_tai = salobj.tai_from_utc(time.time())
-        if self.severity != severity:
-            self.timestamp_severity_oldest = curr_tai
-            self.severity = severity
-        if self.severity != AlarmSeverity.NONE:
-            self.reason = reason
-        self.timestamp_severity_newest = curr_tai
-        if self.severity == AlarmSeverity.NONE and self.acknowledged:
-            # reset the alarm
-            self.reason = ""
-            self.acknowledged = False
-            self.max_severity = AlarmSeverity.NONE
-            self.timestamp_acknowledged = curr_tai
-            self.timestamp_max_severity = curr_tai
-        elif self.severity > self.max_severity:
-            if self.acknowledged:
-                self.acknowledged = False
-                self.acknowledged_by = ""
-                self.timestamp_acknowledged = curr_tai
-            self.max_severity = self.severity
-            self.timestamp_max_severity = curr_tai
-
-        self._run_callback()
-        return True
+        return self.severity == AlarmSeverity.NONE \
+            and self.max_severity == AlarmSeverity.NONE
 
     def acknowledge(self, severity, user):
         """Acknowledge the alarm. A no-op if nominal or acknowledged.
 
         Parameters
         ----------
-        severity : `AlarmSeverity` or `int`
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. If the severity goes above
             this level the alarm will unacknowledge itself.
         user : `str`
@@ -179,6 +107,78 @@ class Alarm:
         self._run_callback()
         return True
 
+    def reset(self):
+        """Reset the alarm to nominal state.
+
+        Do not set the muted and timestamp_unmute fields.
+        Do not call the callback function.
+
+        This is designed to be called when enabling the model.
+        It sets too many fields to be called by set_severity.
+        """
+        self.severity = AlarmSeverity.NONE
+        self.max_severity = AlarmSeverity.NONE
+        self.reason = ""
+        self.acknowledged = False
+        self.acknowledged_by = ""
+        self.escalated = False
+        self.escalate_to = ""
+
+        self.timestamp_severity_oldest = 0
+        self.timestamp_severity_newest = 0
+        self.timestamp_max_severity = 0
+        self.timestamp_acknowledged = 0
+        self.timestamp_auto_acknowledge = 0
+        self.timestamp_auto_unacknowledge = 0
+        self.timestamp_escalate = 0
+
+    def set_severity(self, severity, reason):
+        """Set the severity.
+
+        Parameters
+        ----------
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+            New severity.
+        reason : `str`
+            The reason for this state; this should be a brief message
+            explaining what is wrong. Ignored if severity is NONE.
+
+        Returns
+        -------
+        updated : `bool`
+            True if the alarm state changed (i.e. if any fields were modified),
+            False otherwise.
+        """
+        severity = AlarmSeverity(severity)
+        if severity == AlarmSeverity.NONE and self.nominal:
+            # ignore NONE state when alarm is alread nominal
+            return False
+
+        curr_tai = salobj.tai_from_utc(time.time())
+        if self.severity != severity:
+            self.timestamp_severity_oldest = curr_tai
+            self.severity = severity
+        if self.severity != AlarmSeverity.NONE:
+            self.reason = reason
+        self.timestamp_severity_newest = curr_tai
+        if self.severity == AlarmSeverity.NONE and self.acknowledged:
+            # reset the alarm
+            self.reason = ""
+            self.acknowledged = False
+            self.max_severity = AlarmSeverity.NONE
+            self.timestamp_acknowledged = curr_tai
+            self.timestamp_max_severity = curr_tai
+        elif self.severity > self.max_severity:
+            if self.acknowledged:
+                self.acknowledged = False
+                self.acknowledged_by = ""
+                self.timestamp_acknowledged = curr_tai
+            self.max_severity = self.severity
+            self.timestamp_max_severity = curr_tai
+
+        self._run_callback()
+        return True
+
     def unacknowledge(self):
         """Unacknowledge the alarm. A no-op if nominal or not acknowledged.
 
@@ -199,15 +199,41 @@ class Alarm:
         self._run_callback()
         return True
 
-    @property
-    def nominal(self):
-        """True if alarm is in nominal state: severity = max severity = NONE.
+    def __eq__(self, other):
+        """Return True if two alarms are the same, including state.
 
-        When the alarm is in nominal state it should not be displayed
-        in the Watcher GUI.
+        Primarily intended for unit testing.
         """
-        return self.severity == AlarmSeverity.NONE \
-            and self.max_severity == AlarmSeverity.NONE
+        for field in ("name",
+                      "severity",
+                      "reason",
+                      "max_severity",
+                      "acknowledged",
+                      "acknowledged_by",
+                      "escalated",
+                      "escalate_to",
+                      "muted_severity",
+                      "muted_by",
+                      "timestamp_severity_oldest",
+                      "timestamp_severity_newest",
+                      "timestamp_max_severity",
+                      "timestamp_acknowledged",
+                      "timestamp_auto_acknowledge",
+                      "timestamp_auto_unacknowledge",
+                      "timestamp_escalate",
+                      "timestamp_unmute",
+                      "callback",
+                      ):
+            if getattr(self, field) != getattr(other, field):
+                return False
+        return True
+
+    def __ne__(self, other):
+        """Return True if two alarms differ, including state.
+
+        Primarily intended for unit testing.
+        """
+        return not self.__eq__(other)
 
     def _run_callback(self):
         if self.callback:

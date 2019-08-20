@@ -38,7 +38,7 @@ class NoConfig(base.BaseRule):
     Raises
     ------
     RuntimeError
-        If ``__call__` is called. When used as a normal alarm
+        If ``__call__`` is called. When used as a normal alarm
         this method should never be called because the rule
         specifies topics to call it.
 

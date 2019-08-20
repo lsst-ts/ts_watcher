@@ -37,7 +37,7 @@ class RemoteWrapper:
     remote : `lsst.ts.salobj.Remote`
         Remote to wrap.
     topic_names : `list` [`str`]
-        List of names of topics to wrap, with an "evt_" or "tel_" prefix.
+        List of names of topics to wrap, with an ``evt_`` or ``tel_`` prefix.
 
     Raises
     ------
@@ -52,10 +52,10 @@ class RemoteWrapper:
     of topics that `BaseRule` should not use, such as ``next``.
     """
     def __init__(self, remote, topic_names):
-        # A dict of topic attribute name: topic. For example:
-        # "evt_summaryState": lsst.ts.salobj.RemoteEvent(...)
         self.name = remote.salinfo.name
         self.index = remote.salinfo.index
+        # A dict of topic attribute name: topic. For example:
+        # "evt_summaryState": lsst.ts.salobj.RemoteEvent(...)
         self._topics = dict()
         event_names = frozenset(remote.salinfo.event_names)
         telemetry_names = frozenset(remote.salinfo.telemetry_names)
@@ -82,7 +82,8 @@ class RemoteWrapper:
             else:
                 raise ValueError(f"Unknown topic prefix in {topic_name:r}: must be 'tel_' or 'evt_'")
 
-    def get_attr_name(self):
+    @property
+    def attr_name(self):
         """Get the rule attribute name for this remote wrapper.
         """
         return f"{self.name.lower()}_{self.index}"

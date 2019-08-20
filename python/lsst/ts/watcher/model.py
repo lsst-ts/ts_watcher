@@ -50,7 +50,7 @@ def get_rule_class(classname):
 
 
 class Model:
-    """A Watcher alarm.
+    """Watcher model: constructs and manages rules and alarms.
 
     Parameters
     ----------
@@ -58,14 +58,28 @@ class Model:
         DDS Domain.
     config : `types.SimpleNamespace`
         Watcher configuration validated against the Watcher schema.
+    alarm_callback : ``callable`` (optional)
+        Function to call when an alarm changes state.
+        It receives one argument: the alarm.
+        If None then no callback occurs.
     """
-    def __init__(self, domain, config):
+    def __init__(self, domain, config, alarm_callback=None):
         self.domain = domain
+        self.alarm_callback = alarm_callback
+
+        self._enabled = False
+        self.enable_task = salobj.make_done_future()
+
         # dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote
         self.remotes = dict()
+        """A dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote.
+        """
+
         # dict of rule_name: Rule
         self.rules = dict()
-        self._enabled = False
+        """A dict of rule_name: Rule.
+        """
+
         # convert the name of each disabled sal component from a string
         # in the form ``name`` or ``name:index`` to a tuple ``(name, index)``.
         config.disabled_sal_components = [salobj.name_to_name_index(name)
@@ -92,24 +106,47 @@ class Model:
                 if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
                     self.add_rule(rule)
 
+        # accumulate a list of topics that have callback functions
+        self._topics_with_callbacks = list()
+        for remote in self.remotes.values():
+            for name in dir(remote):
+                if name[0:4] in ("evt_", "tel_"):
+                    topic = getattr(remote, name)
+                    if topic.callback is not None:
+                        self._topics_with_callbacks.append(topic)
+
+        self.start_task = asyncio.ensure_future(self.start())
+
     @property
     def enabled(self):
         """Get or set the enabled state of the Watcher model.
-
-        The model should be enabled when the CSC is in the ENABLED state,
-        and disabled otherwise.
         """
         return self._enabled
 
-    @enabled.setter
-    def enabled(self, enabled):
-        self._enabled = bool(enabled)
+    def enable(self):
+        """Enable the model. A no-op if already enabled.
+        """
         if self._enabled:
-            for rule in self.rules.values():
-                rule.start()
-        else:
-            for rule in self.rules.values():
-                rule.stop()
+            return
+        self._enabled = True
+        callback_coros = []
+        for rule in self.rules.values():
+            rule.alarm.reset()
+            rule.start()
+        for remote in self.remotes.values():
+            for topic in self._topics_with_callbacks:
+                data = topic.get(flush=False)
+                if data is not None:
+                    callback_coros.append(topic._run_callback(data))
+        self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
+
+    def disable(self):
+        """Disable the model. A no-op if already disabled.
+        """
+        if not self._enabled:
+            return
+        self._enabled = False
+        self.enable_task.cancel()
 
     async def start(self):
         """Start all remotes."""
@@ -118,8 +155,24 @@ class Model:
     async def close(self):
         """Stop rules and close remotes.
         """
-        self.enabled = False
+        self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
+
+    def acknowledge_alarm(self, name, severity, user):
+        """Acknowledge the named alarm.
+
+        Parameters
+        ----------
+        name : `str`
+            Alarm name
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+            Severity to acknowledge. If the severity goes above
+            this level the alarm will unacknowledge itself.
+        user : `str`
+            Name of user; used to set acknowledged_by.
+        """
+        rule = self.rules[name]
+        rule.alarm.acknowledge(severity=severity, user=user)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -151,7 +204,7 @@ class Model:
                                        readonly=True, include=[], start=False)
                 self.remotes[remote_info.key] = remote
             wrapper = base.RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
-            setattr(rule, wrapper.get_attr_name(), wrapper)
+            setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
                 topic = getattr(remote, topic_name, None)
                 if topic is None:
@@ -163,9 +216,6 @@ class Model:
                     topic.callback.add_rule(rule)
         # add the rule
         self.rules[rule.name] = rule
-
-    def alarm_callback(self, alarm):
-        pass
 
     async def __aenter__(self):
         await self.start()

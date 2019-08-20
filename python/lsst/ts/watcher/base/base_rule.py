@@ -23,6 +23,7 @@ __all__ = ["NoneNoReason", "BaseRule", "RuleDisabled"]
 
 import abc
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from . import alarm
 
 
@@ -32,7 +33,7 @@ class RuleDisabled(Exception):
 
 
 # __call__ may return this if the alarm severity is NONE
-NoneNoReason = (alarm.AlarmSeverity.NONE, "")
+NoneNoReason = (AlarmSeverity.NONE, "")
 
 
 class BaseRule(abc.ABC):
