@@ -133,11 +133,10 @@ class Model:
         for rule in self.rules.values():
             rule.alarm.reset()
             rule.start()
-        for remote in self.remotes.values():
-            for topic in self._topics_with_callbacks:
-                data = topic.get(flush=False)
-                if data is not None:
-                    callback_coros.append(topic._run_callback(data))
+        for topic in self._topics_with_callbacks:
+            data = topic.get(flush=False)
+            if data is not None:
+                callback_coros.append(topic._run_callback(data))
         self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
 
     def disable(self):
@@ -218,7 +217,7 @@ class Model:
         self.rules[rule.name] = rule
 
     async def __aenter__(self):
-        await self.start()
+        await self.start_task
         return self
 
     async def __aexit__(self, type, value, traceback):
