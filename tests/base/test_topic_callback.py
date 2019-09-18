@@ -74,9 +74,9 @@ class TopicCallbackTestCase(asynctest.TestCase):
 
         rule, read_severities = self.make_enabled_rule()
 
-        async with salobj.Controller(name="Test", index=self.index) as controller:
-            remote = salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                                   readonly=True, include=["summaryState"])
+        async with salobj.Controller(name="Test", index=self.index) as controller, \
+                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
+                              readonly=True, include=["summaryState"]) as remote:
             topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
                                                    rule=rule,
                                                    model=model)
@@ -96,9 +96,9 @@ class TopicCallbackTestCase(asynctest.TestCase):
         rule, read_severities = self.make_enabled_rule()
         rule2, read_severities2 = self.make_enabled_rule()
 
-        async with salobj.Controller(name="Test", index=self.index) as controller:
-            remote = salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                                   readonly=True, include=["summaryState"])
+        async with salobj.Controller(name="Test", index=self.index) as controller, \
+                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
+                              readonly=True, include=["summaryState"]) as remote:
             topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
                                                    rule=rule,
                                                    model=model)
