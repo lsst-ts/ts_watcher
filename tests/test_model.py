@@ -24,6 +24,8 @@ import types
 import unittest
 import yaml
 
+import asynctest
+
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
@@ -107,90 +109,84 @@ class OneEnabledRuleHarness:
         await self.controller.close()
 
 
-class ModelTestCase(unittest.TestCase):
+class ModelTestCase(asynctest.TestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_domain()
 
-    def test_acknowledge_alarm(self):
-        async def doit():
-            user = "test_ack_alarm"
+    async def test_acknowledge_alarm(self):
+        user = "test_ack_alarm"
 
-            async with OneEnabledRuleHarness() as harness:
+        async with OneEnabledRuleHarness() as harness:
 
-                harness.model.enable()
-                await harness.model.enable_task
+            harness.model.enable()
+            await harness.model.enable_task
 
-                self.assertTrue(harness.rule.alarm.nominal)
-                self.assertFalse(harness.rule.alarm.acknowledged)
+            self.assertTrue(harness.rule.alarm.nominal)
+            self.assertFalse(harness.rule.alarm.acknowledged)
 
-                await harness.write_states([salobj.State.STANDBY])
+            await harness.write_states([salobj.State.STANDBY])
 
-                self.assertFalse(harness.rule.alarm.nominal)
-                self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.WARNING)
+            self.assertFalse(harness.rule.alarm.nominal)
+            self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.WARNING)
 
-                harness.model.acknowledge_alarm(name=harness.rule.name,
-                                                severity=AlarmSeverity.WARNING,
-                                                user=user)
-                self.assertTrue(harness.rule.alarm.acknowledged)
-                self.assertEqual(harness.rule.alarm.acknowledged_by, user)
+            harness.model.acknowledge_alarm(name=harness.rule.name,
+                                            severity=AlarmSeverity.WARNING,
+                                            user=user)
+            self.assertTrue(harness.rule.alarm.acknowledged)
+            self.assertEqual(harness.rule.alarm.acknowledged_by, user)
 
-        asyncio.new_event_loop().run_until_complete(doit())
+    async def test_enable(self):
+        async with OneEnabledRuleHarness() as harness:
 
-    def test_enable(self):
-        async def doit():
-            async with OneEnabledRuleHarness() as harness:
+            self.assertEqual(len(harness.model.rules), 1)
 
-                self.assertEqual(len(harness.model.rules), 1)
+            # Enable the model and write ENABLED several times.
+            # This triggers the rule callback but that does not
+            # change the state of the alarm.
+            harness.model.enable()
+            await harness.model.enable_task
+            await harness.write_states((salobj.State.ENABLED,
+                                        salobj.State.ENABLED,
+                                        salobj.State.ENABLED))
 
-                # Enable the model and write ENABLED several times.
-                # This triggers the rule callback but that does not
-                # change the state of the alarm.
-                harness.model.enable()
-                await harness.model.enable_task
-                await harness.write_states((salobj.State.ENABLED,
-                                            salobj.State.ENABLED,
-                                            salobj.State.ENABLED))
+            self.assertTrue(harness.rule.alarm.nominal)
+            self.assertEqual(harness.read_severities, [])
 
-                self.assertTrue(harness.rule.alarm.nominal)
-                self.assertEqual(harness.read_severities, [])
+            # Disable the model and issue several events that would
+            # trigger an alarm if the model was enabled. Since the
+            # model is disabled the alarm does not change states.
+            harness.model.disable()
+            await harness.write_states((salobj.State.FAULT,
+                                        salobj.State.STANDBY))
+            self.assertTrue(harness.rule.alarm.nominal)
+            self.assertEqual(harness.read_severities, [])
+            self.assertEqual(harness.read_max_severities, [])
 
-                # Disable the model and issue several events that would
-                # trigger an alarm if the model was enabled. Since the
-                # model is disabled the alarm does not change states.
-                harness.model.disable()
-                await harness.write_states((salobj.State.FAULT,
-                                            salobj.State.STANDBY))
-                self.assertTrue(harness.rule.alarm.nominal)
-                self.assertEqual(harness.read_severities, [])
-                self.assertEqual(harness.read_max_severities, [])
+            # Enable the model. This will trigger a callback with
+            # the current state of the event (STANDBY).
+            # Note that the earlier FAULT event is is ignored
+            # because it arrived while disabled.
+            harness.model.enable()
+            await harness.model.enable_task
+            self.assertFalse(harness.rule.alarm.nominal)
+            self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.WARNING)
+            self.assertEqual(harness.read_severities, [AlarmSeverity.WARNING])
+            self.assertEqual(harness.read_max_severities, [AlarmSeverity.WARNING])
 
-                # Enable the model. This will trigger a callback with
-                # the current state of the event (STANDBY).
-                # Note that the earlier FAULT event is is ignored
-                # because it arrived while disabled.
-                harness.model.enable()
-                await harness.model.enable_task
-                self.assertFalse(harness.rule.alarm.nominal)
-                self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.WARNING)
-                self.assertEqual(harness.read_severities, [AlarmSeverity.WARNING])
-                self.assertEqual(harness.read_max_severities, [AlarmSeverity.WARNING])
-
-                # Issue more events; they should be processed normally.
-                await harness.write_states((salobj.State.FAULT,
-                                            salobj.State.STANDBY))
-                self.assertFalse(harness.rule.alarm.nominal)
-                self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.SERIOUS)
-                self.assertEqual(harness.read_severities, [AlarmSeverity.WARNING,
+            # Issue more events; they should be processed normally.
+            await harness.write_states((salobj.State.FAULT,
+                                        salobj.State.STANDBY))
+            self.assertFalse(harness.rule.alarm.nominal)
+            self.assertEqual(harness.rule.alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(harness.rule.alarm.max_severity, AlarmSeverity.SERIOUS)
+            self.assertEqual(harness.read_severities, [AlarmSeverity.WARNING,
+                                                       AlarmSeverity.SERIOUS,
+                                                       AlarmSeverity.WARNING])
+            self.assertEqual(harness.read_max_severities, [AlarmSeverity.WARNING,
                                                            AlarmSeverity.SERIOUS,
-                                                           AlarmSeverity.WARNING])
-                self.assertEqual(harness.read_max_severities, [AlarmSeverity.WARNING,
-                                                               AlarmSeverity.SERIOUS,
-                                                               AlarmSeverity.SERIOUS])
-
-        asyncio.new_event_loop().run_until_complete(doit())
+                                                           AlarmSeverity.SERIOUS])
 
 
 if __name__ == "__main__":
