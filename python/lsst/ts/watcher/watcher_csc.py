@@ -117,5 +117,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
 
     def do_mute(self, data):
-        self.assert_enabled("acknowledge")
-        raise salobj.ExpectedError("The mute command is not yet implemented")
+        self.assert_enabled("mute")
+        self.model.mute_alarm(name=data.name, duration=data.duration,
+                              severity=data.severity, user=data.mutedBy)
+
+    def do_unmute(self, data):
+        self.assert_enabled("unmute")
+        self.model.unmute_alarm(name=data.name)

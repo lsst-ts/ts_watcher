@@ -37,11 +37,17 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config
 
 
 class Harness:
-    def __init__(self, initial_state, config_dir=None):
+    """Make a Watcher CSC and a remote for it.
+
+    Parameters
+    ----------
+    config_dir : `str` (optional)
+        Directory of configuration files, or None for the standard.
+    """
+    def __init__(self, config_dir):
         salobj.test_utils.set_random_lsst_dds_domain()
         self.csc = watcher.WatcherCsc(
-            config_dir=config_dir,
-            initial_state=initial_state)
+            config_dir=config_dir)
         self.remote = salobj.Remote(domain=self.csc.domain, name="Watcher", index=0)
 
     async def __aenter__(self):
@@ -59,8 +65,7 @@ class CscTestCase(asynctest.TestCase):
         print()
 
     async def test_initial_info(self):
-        async with Harness(initial_state=salobj.State.STANDBY,
-                           config_dir=TEST_CONFIG_DIR) as harness:
+        async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
             state = await harness.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
             self.assertEqual(state.summaryState, salobj.State.STANDBY)
 
@@ -80,7 +85,7 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(rule_names, expected_rule_names)
 
     async def test_default_config_dir(self):
-        async with Harness(initial_state=salobj.State.STANDBY) as harness:
+        async with Harness(config_dir=None) as harness:
             self.assertEqual(harness.csc.summary_state, salobj.State.STANDBY)
 
             desired_config_pkg_name = "ts_config_ocs"
@@ -91,7 +96,7 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(harness.csc.config_dir, desired_config_dir)
 
     async def test_configuration_invalid(self):
-        async with Harness(initial_state=salobj.State.STANDBY, config_dir=TEST_CONFIG_DIR) as harness:
+        async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
             self.assertEqual(harness.csc.summary_state, salobj.State.STANDBY)
             state = await harness.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
             self.assertEqual(state.summaryState, salobj.State.STANDBY)
@@ -106,7 +111,7 @@ class CscTestCase(asynctest.TestCase):
 
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
-        async with Harness(initial_state=salobj.State.STANDBY, config_dir=TEST_CONFIG_DIR) as harness:
+        async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
             self.assertEqual(harness.csc.summary_state, salobj.State.STANDBY)
             state = await harness.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
             self.assertEqual(state.summaryState, salobj.State.STANDBY)
@@ -150,6 +155,69 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(alarm.severity, AlarmSeverity.NONE)
             self.assertEqual(alarm.maxSeverity, AlarmSeverity.NONE)
             self.assertFalse(alarm.acknowledged)
+
+    async def test_mute(self):
+        """Test the mute and unmute command."""
+        async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
+            await salobj.set_summary_state(harness.remote, state=salobj.State.ENABLED,
+                                           settingsToApply="enabled.yaml")
+            nrules = len(harness.csc.model.rules)
+
+            user1 = "test_mute 1"
+            # Mute all alarms for a short time,
+            # then wait for them to unmute themselves.
+            await harness.remote.cmd_mute.set_start(name="Enabled.*",
+                                                    duration=0.1,
+                                                    severity=AlarmSeverity.SERIOUS,
+                                                    mutedBy=user1,
+                                                    timeout=STD_TIMEOUT)
+
+            # The first batch of alarm events should be for the muted alarms.
+            muted_names = set()
+            while len(muted_names) < nrules:
+                data = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+                self.assertEqual(data.mutedSeverity, AlarmSeverity.SERIOUS)
+                self.assertEqual(data.mutedBy, user1)
+                if data.name in muted_names:
+                    raise self.fail(f"Duplicate alarm event for muting {data.name}")
+                muted_names.add(data.name)
+
+            # The next batch of alarm events should be for the unmuted alarms.
+            unmuted_names = set()
+            while len(unmuted_names) < nrules:
+                data = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+                self.assertEqual(data.mutedSeverity, AlarmSeverity.NONE)
+                self.assertEqual(data.mutedBy, "")
+                if data.name in unmuted_names:
+                    raise self.fail(f"Duplicate alarm event for auto-unmuting {data.name}")
+                unmuted_names.add(data.name)
+
+            # Now mute one rule for a long time, then explicitly unmute it.
+            user2 = "test_mute 2"
+            full_name = "Enabled.ScriptQueue:2"
+            self.assertIn(full_name, harness.csc.model.rules)
+            await harness.remote.cmd_mute.set_start(name=full_name,
+                                                    duration=5,
+                                                    severity=AlarmSeverity.SERIOUS,
+                                                    mutedBy=user2,
+                                                    timeout=STD_TIMEOUT)
+            data = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(data.name, full_name)
+            self.assertEqual(data.mutedSeverity, AlarmSeverity.SERIOUS)
+            self.assertEqual(data.mutedBy, user2)
+            # There should be the only alarm event from the mute command.
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=1)
+
+            await harness.remote.cmd_unmute.set_start(name=full_name,
+                                                      timeout=STD_TIMEOUT)
+            data = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(data.name, full_name)
+            self.assertEqual(data.mutedSeverity, AlarmSeverity.NONE)
+            self.assertEqual(data.mutedBy, "")
+            # There should be the only alarm event from the unmute command.
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=1)
 
     async def test_run(self):
         salobj.test_utils.set_random_lsst_dds_domain()
