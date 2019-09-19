@@ -22,6 +22,7 @@
 __all__ = ["get_rule_class", "Model"]
 
 import asyncio
+import re
 import types
 
 from lsst.ts import salobj
@@ -158,20 +159,20 @@ class Model:
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
 
     def acknowledge_alarm(self, name, severity, user):
-        """Acknowledge the named alarm.
+        """Acknowledge one or more alarms.
 
         Parameters
         ----------
         name : `str`
-            Alarm name
+            Regular expression for alarm name(s) to acknowledge.
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. If the severity goes above
             this level the alarm will unacknowledge itself.
         user : `str`
             Name of user; used to set acknowledged_by.
         """
-        rule = self.rules[name]
-        rule.alarm.acknowledge(severity=severity, user=user)
+        for rule in self.get_rules(name):
+            rule.alarm.acknowledge(severity=severity, user=user)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -215,6 +216,23 @@ class Model:
                     topic.callback.add_rule(rule)
         # add the rule
         self.rules[rule.name] = rule
+
+    def get_rules(self, name_regex):
+        """Get all rules whose name matches the specified regular expression.
+
+        Parameters
+        ----------
+        name_regex : `str`
+            Rule/alarm name.
+            If a regular expression then return all matching rules.
+
+        Returns
+        -------
+        rules : `generator`
+            An iterator over rules.
+        """
+        compiled_re = re.compile(name_regex)
+        return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
 
     async def __aenter__(self):
         await self.start_task
