@@ -155,6 +155,8 @@ class Model:
     async def close(self):
         """Stop rules and close remotes.
         """
+        for rule in self.rules.values():
+            rule.alarm.close()
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
 

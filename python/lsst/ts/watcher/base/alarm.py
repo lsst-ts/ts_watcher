@@ -62,6 +62,11 @@ class Alarm:
         return self.severity == AlarmSeverity.NONE \
             and self.max_severity == AlarmSeverity.NONE
 
+    def close(self):
+        """Cancel pending tasks.
+        """
+        self.unmute_task.cancel()
+
     def acknowledge(self, severity, user):
         """Acknowledge the alarm. A no-op if nominal or acknowledged.
 

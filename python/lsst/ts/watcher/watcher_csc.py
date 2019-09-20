@@ -60,6 +60,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def get_config_pkg():
         return "ts_config_ocs"
 
+    async def close_tasks(self):
+        await super().close_tasks()
+        if self.model is not None:
+            await self.model.close()
+
     async def configure(self, config):
         if self.model is not None:
             # this should not happen, but in case it does shut down
