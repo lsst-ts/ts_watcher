@@ -235,6 +235,9 @@ class Alarm:
         """
         return not self.__eq__(other)
 
+    def __repr__(self):
+        return f"Alarm(name={self.name})"
+
     def _run_callback(self):
         if self.callback:
             self.callback(self)

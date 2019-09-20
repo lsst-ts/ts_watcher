@@ -363,6 +363,12 @@ class AlarmTestCase(unittest.TestCase):
             alarm.reset()
             self.assertEqual(alarm, blank_alarm)
 
+    def test_repr(self):
+        name = "Something.else"
+        alarm = watcher.base.Alarm(name=name, callback=None)
+        self.assertIn(name, repr(alarm))
+        self.assertIn("Alarm", repr(alarm))
+
     def test_set_severity_when_acknowledged(self):
         user = "skipper"
         desired_ncalls = 0

@@ -179,3 +179,6 @@ class BaseRule(abc.ABC):
         the timer sets alarm severity > ``NONE``.
         """
         raise NotImplementedError("Subclasses must override")
+
+    def __repr__(self):
+        return f"{type(self).__name__}(name={self.name})"

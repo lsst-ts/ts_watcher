@@ -72,6 +72,8 @@ class TestConfiguredSeveritiesTestCase(unittest.TestCase):
         self.assertTrue(rule.alarm.nominal)
         with self.assertRaises(RuntimeError):
             rule(topic_callback=None)
+        self.assertIn(name, repr(rule))
+        self.assertIn("test.ConfiguredSeverities", repr(rule))
 
     def test_run(self):
         async def doit():
