@@ -95,6 +95,7 @@ class EnabledRulesHarness:
     def alarm_callback(self, alarm):
         self.read_severities[alarm.name].append(alarm.severity)
         self.read_max_severities[alarm.name].append(alarm.max_severity)
+        # Print the state to aid debugging test failures.
         print(f"alarm_callback({alarm.name}, severity={alarm.severity!r}): "
               f"read_severities={self.read_severities[alarm.name]}")
 
@@ -153,18 +154,24 @@ class ModelTestCase(asynctest.TestCase):
         self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
         self.assertEqual(alarm.muted_by, "")
 
+    def check_initial_conditions(self, harness):
+        """Check that all alarms are in the expected initial state.
+        """
+        for rule in harness.model.rules.values():
+            self.assertTrue(rule.alarm.nominal)
+            self.assertFalse(rule.alarm.acknowledged)
+            self.assertFalse(rule.alarm.muted)
+            self.assertNotMuted(rule.alarm)
+
     async def test_acknowledge_full_name(self):
         user = "test_ack_alarm"
         remote_names = ["ScriptQueue:5", "Test:7"]
         nrules = len(remote_names)
 
         async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            # Check initial conditions.
             full_rule_name = f"Enabled.{remote_names[0]}"
             self.assertIn(full_rule_name, harness.model.rules)
-            for rule in harness.model.rules.values():
-                self.assertTrue(rule.alarm.nominal)
-                self.assertFalse(rule.alarm.acknowledged)
+            self.check_initial_conditions(harness)
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
@@ -193,11 +200,8 @@ class ModelTestCase(asynctest.TestCase):
         nrules = len(remote_names)
 
         async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            # Check initial conditions.
             self.assertEqual(len(harness.model.rules), nrules)
-            for rule in harness.model.rules.values():
-                self.assertTrue(rule.alarm.nominal)
-                self.assertFalse(rule.alarm.acknowledged)
+            self.check_initial_conditions(harness)
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
@@ -313,11 +317,9 @@ class ModelTestCase(asynctest.TestCase):
         remote_names = ["ScriptQueue:5", "Test:7"]
 
         async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            # Check initial conditions.
             full_rule_name = f"Enabled.{remote_names[0]}"
             self.assertIn(full_rule_name, harness.model.rules)
-            for rule in harness.model.rules.values():
-                self.assertNotMuted(rule.alarm)
+            self.check_initial_conditions(harness)
 
             # Mute one rule by full name.
             harness.model.mute_alarm(name=full_rule_name,
@@ -343,10 +345,8 @@ class ModelTestCase(asynctest.TestCase):
         nrules = len(remote_names)
 
         async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            # Check initial conditions.
             self.assertEqual(len(harness.model.rules), nrules)
-            for rule in harness.model.rules.values():
-                self.assertNotMuted(rule.alarm)
+            self.check_initial_conditions(harness)
 
             # Mute the ScriptQueue alarms but not Test.
             harness.model.mute_alarm(name="Enabled.ScriptQueue.*",

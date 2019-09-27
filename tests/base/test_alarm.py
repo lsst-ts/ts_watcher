@@ -406,8 +406,11 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertTrue(alarm.muted)
                 self.assertEqual(alarm.muted_by, user)
                 self.assertEqual(alarm.muted_severity, severity)
+                # Check that timestamp_unmute is close to and no less than
+                # the current time + duration.
                 self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
                 self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
+                # Wait for the alrm to unmute itself.
                 await callback.next(timeout=STD_TIMEOUT + duration)
                 self.assertFalse(alarm.muted)
                 self.assertEqual(alarm.muted_by, "")
@@ -434,15 +437,19 @@ class AlarmTestCase(asynctest.TestCase):
 
                 # make sure failures also leave muted alarm state unchanged
                 alarm.mute(duration=good_duration, severity=good_severity, user=good_user)
-                muted_alarm = copy.copy(alarm)
                 self.assertTrue(alarm.muted)
                 self.assertEqual(alarm.muted_by, good_user)
                 self.assertEqual(alarm.muted_severity, good_severity)
+                muted_alarm = copy.copy(alarm)
 
                 with self.assertRaises(ValueError):
                     alarm.mute(duration=bad_duration, severity=good_severity, user=failed_user)
+                self.assertEqual(alarm, muted_alarm)
+
                 with self.assertRaises(ValueError):
                     alarm.mute(duration=good_duration, severity=bad_severity, user=failed_user)
+                self.assertEqual(alarm, muted_alarm)
+
                 with self.assertRaises(ValueError):
                     alarm.mute(duration=bad_duration, severity=bad_severity, user=failed_user)
                 self.assertEqual(alarm, muted_alarm)
