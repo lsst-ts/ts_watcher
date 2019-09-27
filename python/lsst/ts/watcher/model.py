@@ -22,6 +22,7 @@
 __all__ = ["get_rule_class", "Model"]
 
 import asyncio
+import re
 import types
 
 from lsst.ts import salobj
@@ -58,7 +59,7 @@ class Model:
         DDS Domain.
     config : `types.SimpleNamespace`
         Watcher configuration validated against the Watcher schema.
-    alarm_callback : ``callable`` (optional)
+    alarm_callback : callable (optional)
         Function to call when an alarm changes state.
         It receives one argument: the alarm.
         If None then no callback occurs.
@@ -133,11 +134,10 @@ class Model:
         for rule in self.rules.values():
             rule.alarm.reset()
             rule.start()
-        for remote in self.remotes.values():
-            for topic in self._topics_with_callbacks:
-                data = topic.get(flush=False)
-                if data is not None:
-                    callback_coros.append(topic._run_callback(data))
+        for topic in self._topics_with_callbacks:
+            data = topic.get(flush=False)
+            if data is not None:
+                callback_coros.append(topic._run_callback(data))
         self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
 
     def disable(self):
@@ -155,24 +155,26 @@ class Model:
     async def close(self):
         """Stop rules and close remotes.
         """
+        for rule in self.rules.values():
+            rule.alarm.close()
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
 
     def acknowledge_alarm(self, name, severity, user):
-        """Acknowledge the named alarm.
+        """Acknowledge one or more alarms.
 
         Parameters
         ----------
         name : `str`
-            Alarm name
+            Regular expression for alarm name(s) to acknowledge.
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. If the severity goes above
             this level the alarm will unacknowledge itself.
         user : `str`
             Name of user; used to set acknowledged_by.
         """
-        rule = self.rules[name]
-        rule.alarm.acknowledge(severity=severity, user=user)
+        for rule in self.get_rules(name):
+            rule.alarm.acknowledge(severity=severity, user=user)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -217,8 +219,53 @@ class Model:
         # add the rule
         self.rules[rule.name] = rule
 
+    def get_rules(self, name_regex):
+        """Get all rules whose name matches the specified regular expression.
+
+        Parameters
+        ----------
+        name_regex : `str`
+            Regular expression for alarm name(s) to return.
+
+        Returns
+        -------
+        rules : `generator`
+            An iterator over rules.
+        """
+        compiled_re = re.compile(name_regex)
+        return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
+
+    def mute_alarm(self, name, duration, severity, user):
+        """Mute one or more alarms for a specified duration.
+
+        Parameters
+        ----------
+        name : `str`
+            Regular expression for alarm name(s) to mute.
+        duration : `float`
+            How long to mute the alarm (sec)
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+            Severity to mute; used to set the ``mutedSeverity`` field of
+            the ``alarm`` event.
+        user : `str`
+            Name of user; used to set acknowledged_by.
+        """
+        for rule in self.get_rules(name):
+            rule.alarm.mute(duration=duration, severity=severity, user=user)
+
+    def unmute_alarm(self, name):
+        """Unmute one or more alarms.
+
+        Parameters
+        ----------
+        name : `str`
+            Regular expression for alarm name(s) to unmute.
+        """
+        for rule in self.get_rules(name):
+            rule.alarm.unmute()
+
     async def __aenter__(self):
-        await self.start()
+        await self.start_task
         return self
 
     async def __aexit__(self, type, value, traceback):

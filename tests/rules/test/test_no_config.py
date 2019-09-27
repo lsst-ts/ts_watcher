@@ -29,14 +29,17 @@ class TestNoConfigTestCase(unittest.TestCase):
     def test_basics(self):
         self.assertIsNone(watcher.rules.test.NoConfig.get_schema())
 
+        desired_rule_name = "test.NoConfig"
         rule = watcher.rules.test.NoConfig(config=types.SimpleNamespace())
         self.assertEqual(rule.remote_info_list, [])
-        self.assertEqual(rule.name, "test.NoConfig")
+        self.assertEqual(rule.name, desired_rule_name)
         self.assertIsInstance(rule.alarm, watcher.Alarm)
         self.assertEqual(rule.alarm.name, rule.name)
         self.assertTrue(rule.alarm.nominal)
         with self.assertRaises(RuntimeError):
             rule(topic_callback=None)
+        self.assertIn(rule.name, repr(rule))
+        self.assertIn(desired_rule_name, repr(rule))
 
 
 if __name__ == "__main__":

@@ -74,6 +74,8 @@ class HeartbeatTestCase(unittest.TestCase):
         remote_info = rule.remote_info_list[0]
         self.assertEqual(remote_info.name, name)
         self.assertEqual(remote_info.index, 0)
+        self.assertIn(name, repr(rule))
+        self.assertIn("Heartbeat", repr(rule))
 
     def test_call(self):
         async def doit():

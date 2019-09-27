@@ -23,6 +23,8 @@ import asyncio
 import types
 import unittest
 
+import asynctest
+
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
@@ -38,7 +40,7 @@ class MockModel:
         self.enabled = enabled
 
 
-class TopicCallbackTestCase(unittest.TestCase):
+class TopicCallbackTestCase(asynctest.TestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_domain()
         self.index = next(index_gen)
@@ -67,68 +69,62 @@ class TopicCallbackTestCase(unittest.TestCase):
 
         return rule, read_severities
 
-    def test_basics(self):
+    async def test_basics(self):
         model = MockModel(enabled=True)
 
         rule, read_severities = self.make_enabled_rule()
 
-        async def doit():
-            async with salobj.Controller(name="Test", index=self.index) as controller:
-                remote = salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                                       readonly=True, include=["summaryState"])
-                topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
-                                                       rule=rule,
-                                                       model=model)
-                self.assertEqual(topic_callback.attr_name, "evt_summaryState")
-                self.assertEqual(topic_callback.remote_name, "Test")
-                self.assertEqual(topic_callback.remote_index, self.index)
-                self.assertEqual(topic_callback.get(), None)
-                self.assertEqual(read_severities, [])
+        async with salobj.Controller(name="Test", index=self.index) as controller, \
+                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
+                              readonly=True, include=["summaryState"]) as remote:
+            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
+                                                   rule=rule,
+                                                   model=model)
+            self.assertEqual(topic_callback.attr_name, "evt_summaryState")
+            self.assertEqual(topic_callback.remote_name, "Test")
+            self.assertEqual(topic_callback.remote_index, self.index)
+            self.assertEqual(topic_callback.get(), None)
+            self.assertEqual(read_severities, [])
 
-                controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
-                await asyncio.sleep(0.001)
-                self.assertEqual(read_severities, [AlarmSeverity.WARNING])
+            controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await asyncio.sleep(0.001)
+            self.assertEqual(read_severities, [AlarmSeverity.WARNING])
 
-        asyncio.get_event_loop().run_until_complete(doit())
-
-    def test_add_rule(self):
+    async def test_add_rule(self):
         model = MockModel(enabled=True)
 
         rule, read_severities = self.make_enabled_rule()
         rule2, read_severities2 = self.make_enabled_rule()
 
-        async def doit():
-            async with salobj.Controller(name="Test", index=self.index) as controller:
-                remote = salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                                       readonly=True, include=["summaryState"])
-                topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
-                                                       rule=rule,
-                                                       model=model)
+        async with salobj.Controller(name="Test", index=self.index) as controller, \
+                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
+                              readonly=True, include=["summaryState"]) as remote:
+            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
+                                                   rule=rule,
+                                                   model=model)
 
-                self.assertEqual(read_severities, [])
-                self.assertEqual(read_severities2, [])
+            self.assertEqual(read_severities, [])
+            self.assertEqual(read_severities2, [])
 
-                controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
-                await asyncio.sleep(0.001)
+            controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await asyncio.sleep(0.001)
 
-                self.assertEqual(read_severities, [AlarmSeverity.WARNING])
-                # rule2 has not been added so read_severities2 should be empty
-                self.assertEqual(read_severities2, [])
+            self.assertEqual(read_severities, [AlarmSeverity.WARNING])
+            # rule2 has not been added so read_severities2 should be empty
+            self.assertEqual(read_severities2, [])
 
-                # cannot add a rule with the same name as an existing rule
-                with self.assertRaises(ValueError):
-                    topic_callback.add_rule(rule2)
-
-                # modify the rule and try again
-                rule2.alarm.name = rule2.alarm.name + "modified"
+            # cannot add a rule with the same name as an existing rule
+            with self.assertRaises(ValueError):
                 topic_callback.add_rule(rule2)
-                controller.evt_summaryState.set_put(summaryState=salobj.State.FAULT, force_output=True)
-                await asyncio.sleep(0.001)
-                self.assertEqual(read_severities, [AlarmSeverity.WARNING,
-                                                   AlarmSeverity.SERIOUS])
-                self.assertEqual(read_severities2, [AlarmSeverity.SERIOUS])
 
-        asyncio.get_event_loop().run_until_complete(doit())
+            # modify the rule and try again
+            rule2.alarm.name = rule2.alarm.name + "modified"
+            topic_callback.add_rule(rule2)
+            controller.evt_summaryState.set_put(summaryState=salobj.State.FAULT, force_output=True)
+            await asyncio.sleep(0.001)
+            self.assertEqual(read_severities, [AlarmSeverity.WARNING,
+                                               AlarmSeverity.SERIOUS])
+            self.assertEqual(read_severities2, [AlarmSeverity.SERIOUS])
 
 
 if __name__ == "__main__":

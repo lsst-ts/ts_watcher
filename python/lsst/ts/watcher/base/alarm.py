@@ -21,6 +21,7 @@
 
 __all__ = ["Alarm"]
 
+import asyncio
 import time
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -36,17 +37,20 @@ class Alarm:
         Name of alarm. This must be unique among all alarms
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
-    callback : ``callable``
+    callback : callable
         Function or coroutine to call whenever the alarm changes state.
     """
     def __init__(self, name, callback):
         self.name = name
         self.callback = callback
-
-        self.muted_severity = AlarmSeverity.NONE
-        self.muted_by = ""
-        self.timestamp_unmute = 0
+        self.unmute_task = salobj.make_done_future()
         self.reset()
+
+    @property
+    def muted(self):
+        """Is this alarm muted?
+        """
+        return self.muted_severity != AlarmSeverity.NONE
 
     @property
     def nominal(self):
@@ -57,6 +61,11 @@ class Alarm:
         """
         return self.severity == AlarmSeverity.NONE \
             and self.max_severity == AlarmSeverity.NONE
+
+    def close(self):
+        """Cancel pending tasks.
+        """
+        self.unmute_task.cancel()
 
     def acknowledge(self, severity, user):
         """Acknowledge the alarm. A no-op if nominal or acknowledged.
@@ -78,7 +87,7 @@ class Alarm:
         Raises
         ------
         ValueError
-            If ``severity < self.max_severity``
+            If ``severity < self.max_severity``.
 
         Notes
         -----
@@ -107,10 +116,75 @@ class Alarm:
         self._run_callback()
         return True
 
+    def mute(self, duration, severity, user):
+        """Mute this alarm for a specified duration and severity.
+
+        Parameters
+        ----------
+        duration : `float`
+            How long to mute the alarm (sec).
+        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+            Severity to mute. If the alarm's current or max severity
+            goes above this level the alarm should be displayed.
+        user : `str`
+            Name of user who muted this alarm. Used to set ``muted_by``.
+
+        Raises
+        ------
+        ValueError
+            If ``duration <= 0``, ``severity == AlarmSeverity.NONE``
+            or ``severity`` is not a valid ``AlarmSeverity`` enum value.
+
+        Notes
+        -----
+        An alarm cannot have multiple mute levels and durations.
+        If mute is called multiple times, the most recent call
+        overwrites information from earlier calls.
+        """
+        if duration <= 0:
+            raise ValueError(f"duration={duration} must be positive")
+        severity = AlarmSeverity(severity)
+        if severity == AlarmSeverity.NONE:
+            raise ValueError(f"severity={severity!r} must be > NONE")
+        self.muted_by = user
+        self.muted_severity = severity
+        curr_tai = salobj.tai_from_utc(time.time())
+        self.timestamp_unmute = curr_tai + duration
+        self.unmute_task.cancel()
+        self.unmute_task = asyncio.create_task(self.unmute_after(duration=duration))
+        self._run_callback()
+
+    def unmute(self, run_callback=True):
+        """Unmute this alarm.
+
+        Parameters
+        ----------
+        run_callback : `bool` (optional)
+            Run the callback function?
+        """
+        self.muted_by = ""
+        self.muted_severity = AlarmSeverity.NONE
+        self.timestamp_unmute = 0
+        self.unmute_task.cancel()
+        if run_callback:
+            self._run_callback()
+
+    async def unmute_after(self, duration):
+        """Unmute this alarm after a specified duration.
+
+        Parameters
+        ----------
+        duration : `float`
+            How long to mute the alarm (sec).
+        """
+        if duration <= 0:
+            raise ValueError(f"duration={duration} must be positive")
+        await asyncio.sleep(duration)
+        self.unmute()
+
     def reset(self):
         """Reset the alarm to nominal state.
 
-        Do not set the muted and timestamp_unmute fields.
         Do not call the callback function.
 
         This is designed to be called when enabling the model.
@@ -131,6 +205,8 @@ class Alarm:
         self.timestamp_auto_acknowledge = 0
         self.timestamp_auto_unacknowledge = 0
         self.timestamp_escalate = 0
+
+        self.unmute(run_callback=False)
 
     def set_severity(self, severity, reason):
         """Set the severity.
@@ -165,6 +241,7 @@ class Alarm:
             # reset the alarm
             self.reason = ""
             self.acknowledged = False
+            self.acknowledged_by = ""
             self.max_severity = AlarmSeverity.NONE
             self.timestamp_acknowledged = curr_tai
             self.timestamp_max_severity = curr_tai
@@ -212,6 +289,7 @@ class Alarm:
                       "acknowledged_by",
                       "escalated",
                       "escalate_to",
+                      "muted",
                       "muted_severity",
                       "muted_by",
                       "timestamp_severity_oldest",
@@ -234,6 +312,9 @@ class Alarm:
         Primarily intended for unit testing.
         """
         return not self.__eq__(other)
+
+    def __repr__(self):
+        return f"Alarm(name={self.name})"
 
     def _run_callback(self):
         if self.callback:

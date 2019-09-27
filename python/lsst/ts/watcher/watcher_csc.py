@@ -60,6 +60,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def get_config_pkg():
         return "ts_config_ocs"
 
+    async def close_tasks(self):
+        await super().close_tasks()
+        if self.model is not None:
+            await self.model.close()
+
     async def configure(self, config):
         if self.model is not None:
             # this should not happen, but in case it does shut down
@@ -117,5 +122,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
 
     def do_mute(self, data):
-        self.assert_enabled("acknowledge")
-        raise salobj.ExpectedError("The mute command is not yet implemented")
+        self.assert_enabled("mute")
+        self.model.mute_alarm(name=data.name, duration=data.duration,
+                              severity=data.severity, user=data.mutedBy)
+
+    def do_unmute(self, data):
+        self.assert_enabled("unmute")
+        self.model.unmute_alarm(name=data.name)

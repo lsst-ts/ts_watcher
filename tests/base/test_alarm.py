@@ -19,28 +19,52 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
 import copy
+import itertools
 import time
 import unittest
+
+import asynctest
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
 
-class AlarmTestCase(unittest.TestCase):
+STD_TIMEOUT = 2  # seconds
+
+
+class AsyncCallback:
+    """Callback functor with a future that is set done when called."""
+    def __init__(self):
+        self._future = asyncio.Future()
+
+    def __call__(self, alarm):
+        if not self._future.done():
+            self._future.set_result(alarm)
+
+    async def next(self, timeout):
+        await asyncio.wait_for(self._future, timeout=timeout)
+        self._future = asyncio.Future()
+
+
+class AlarmTestCase(asynctest.TestCase):
     def setUp(self):
         self.ncalls = 0
 
     def callback(self, alarm):
         self.ncalls += 1
 
-    def alarm_iter(self, name="test.alarm"):
+    def alarm_iter(self, callback, name="test.alarm"):
         """Return an iterator over alarms with all allowed values of
         severity and max_severity.
 
         Parameters
         ----------
+        callback : callable or `None`
+            Callback function; must take one argument: an alarm.
+            None for no callback function.
         name : `str`
             Name of alarm.
 
@@ -71,7 +95,7 @@ class AlarmTestCase(unittest.TestCase):
                     yield alarm
 
         for alarm in _alarm_iter_impl():
-            alarm.callback = self.callback
+            alarm.callback = callback
             yield alarm
 
     def test_alarm_iter(self):
@@ -80,7 +104,7 @@ class AlarmTestCase(unittest.TestCase):
         nitems = 0
         nseverities = len(AlarmSeverity)
         predicted_nitems = nseverities * (nseverities + 1) // 2
-        for alarm in self.alarm_iter(name=name):
+        for alarm in self.alarm_iter(name=name, callback=self.callback):
             nitems += 1
             self.assertEqual(self.ncalls, 0)
             self.assertEqual(alarm.name, name)
@@ -122,19 +146,24 @@ class AlarmTestCase(unittest.TestCase):
         alarm = copy.copy(alarm0)
         self.assertTrue(alarm == alarm0)
         self.assertFalse(alarm != alarm0)
-        properties = set(["nominal"])
+        properties = set(["muted", "nominal"])
         for fieldname in dir(alarm):
-            if fieldname.startswith("__"):
-                continue
-            if fieldname in properties:
-                continue
-            value = getattr(alarm, fieldname)
-            if fieldname != "callback" and callable(value):
-                continue
-            alarm = copy.copy(alarm0)
-            setattr(alarm, fieldname, 5)
-            self.assertFalse(alarm == alarm0)
-            self.assertTrue(alarm != alarm0)
+            with self.subTest(fieldname=fieldname):
+                if fieldname.startswith("__"):
+                    continue
+                if fieldname in properties:
+                    continue
+                value = getattr(alarm, fieldname)
+                # ignore methods
+                if fieldname != "callback" and callable(value):
+                    continue
+                # ignore tasks
+                if fieldname.endswith("_task"):
+                    continue
+                alarm = copy.copy(alarm0)
+                setattr(alarm, fieldname, 5)
+                self.assertFalse(alarm == alarm0)
+                self.assertTrue(alarm != alarm0)
 
     def test_constructor(self):
         name = "test_fairly_long_alarm_name"
@@ -178,7 +207,7 @@ class AlarmTestCase(unittest.TestCase):
     def test_decreasing_severity(self):
         """Test that decreasing severity does not decrease max_severity."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter():
+        for alarm in self.alarm_iter(callback=self.callback):
             alarm0 = copy.copy(alarm)
             for severity in reversed(list(AlarmSeverity)):
                 if severity >= alarm.severity:
@@ -204,7 +233,7 @@ class AlarmTestCase(unittest.TestCase):
     def test_increasing_severity(self):
         """Test that max_severity tracks increasing severity."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter():
+        for alarm in self.alarm_iter(callback=self.callback):
             for severity in AlarmSeverity:
                 if severity <= alarm.max_severity:
                     continue
@@ -229,7 +258,7 @@ class AlarmTestCase(unittest.TestCase):
     def test_repeating_severity(self):
         """Test setting the same severity multiple times."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter():
+        for alarm in self.alarm_iter(callback=self.callback):
             alarm0 = copy.copy(alarm)
 
             curr_tai = salobj.tai_from_utc(time.time())
@@ -261,7 +290,7 @@ class AlarmTestCase(unittest.TestCase):
     def test_acknowledge(self):
         user = "skipper"
         desired_ncalls = 0
-        for alarm0 in self.alarm_iter():
+        for alarm0 in self.alarm_iter(callback=self.callback):
             if alarm0.nominal:
                 continue
             for ack_severity in AlarmSeverity:
@@ -309,7 +338,7 @@ class AlarmTestCase(unittest.TestCase):
     def test_unacknowledge(self):
         user = "skipper"
         desired_ncalls = 0
-        for alarm0 in self.alarm_iter():
+        for alarm0 in self.alarm_iter(callback=self.callback):
             if alarm0.nominal:
                 continue
             self.assertFalse(alarm0.acknowledged)
@@ -357,16 +386,117 @@ class AlarmTestCase(unittest.TestCase):
         name = "alarm"
         blank_alarm = watcher.base.Alarm(name=name, callback=None)
         blank_alarm.callback = self.callback
-        for alarm in self.alarm_iter(name=name):
+        for alarm in self.alarm_iter(name=name, callback=self.callback):
             if not alarm.nominal:
                 self.assertNotEqual(alarm, blank_alarm)
             alarm.reset()
             self.assertEqual(alarm, blank_alarm)
 
+    async def test_mute_valid(self):
+        user = "otho"
+        duration = 0.05
+        for severity in AlarmSeverity:
+            if severity == AlarmSeverity.NONE:
+                continue  # invalid value
+            callback = AsyncCallback()
+            for alarm in self.alarm_iter(name=user, callback=callback):
+                alarm.mute(duration=duration, severity=severity, user=user)
+                curr_tai = salobj.tai_from_utc(time.time())
+                await callback.next(timeout=STD_TIMEOUT)
+                self.assertTrue(alarm.muted)
+                self.assertEqual(alarm.muted_by, user)
+                self.assertEqual(alarm.muted_severity, severity)
+                # Check that timestamp_unmute is close to and no less than
+                # the current time + duration.
+                self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
+                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
+                # Wait for the alrm to unmute itself.
+                await callback.next(timeout=STD_TIMEOUT + duration)
+                self.assertFalse(alarm.muted)
+                self.assertEqual(alarm.muted_by, "")
+                self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
+                self.assertEqual(alarm.timestamp_unmute, 0)
+
+    async def test_mute_invalid(self):
+        good_user = "otho"
+        failed_user = "user associated with invalid mute command"
+        good_duration = 5
+        good_severity = AlarmSeverity.WARNING
+        for alarm in self.alarm_iter(name=good_user, callback=None):
+            for bad_duration, bad_severity in itertools.product((0, -0.01), (AlarmSeverity.NONE, -53)):
+                # check that mute raises ValueError for invalid values
+                # and leaves the alarm state unchanged
+                initial_alarm = copy.copy(alarm)
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=bad_duration, severity=good_severity, user=failed_user)
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=good_duration, severity=bad_severity, user=failed_user)
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=bad_duration, severity=bad_severity, user=failed_user)
+                self.assertEqual(alarm, initial_alarm)
+
+                # make sure failures also leave muted alarm state unchanged
+                alarm.mute(duration=good_duration, severity=good_severity, user=good_user)
+                self.assertTrue(alarm.muted)
+                self.assertEqual(alarm.muted_by, good_user)
+                self.assertEqual(alarm.muted_severity, good_severity)
+                muted_alarm = copy.copy(alarm)
+
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=bad_duration, severity=good_severity, user=failed_user)
+                self.assertEqual(alarm, muted_alarm)
+
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=good_duration, severity=bad_severity, user=failed_user)
+                self.assertEqual(alarm, muted_alarm)
+
+                with self.assertRaises(ValueError):
+                    alarm.mute(duration=bad_duration, severity=bad_severity, user=failed_user)
+                self.assertEqual(alarm, muted_alarm)
+
+                alarm.unmute()  # kill unmute timer
+
+    async def test_unmute(self):
+        user = "otho"
+        duration = 5
+        for severity in AlarmSeverity:
+            if severity == AlarmSeverity.NONE:
+                continue  # invalid value
+            for alarm in self.alarm_iter(name=user, callback=self.callback):
+                self.ncalls = 0
+                # check that unmute on unmuted alarm is a no-op
+                original_alarm = copy.copy(alarm)
+                alarm.unmute()
+                self.assertEqual(alarm, original_alarm)
+                self.assertEqual(self.ncalls, 1)
+
+                # mute alarm and unmute it again before it unmutes itself
+                alarm.mute(duration=duration, severity=severity, user=user)
+                curr_tai = salobj.tai_from_utc(time.time())
+                self.assertEqual(self.ncalls, 2)
+                self.assertTrue(alarm.muted)
+                self.assertEqual(alarm.muted_by, user)
+                self.assertEqual(alarm.muted_severity, severity)
+                self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
+                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
+
+                alarm.unmute()
+                self.assertEqual(self.ncalls, 3)
+                # give asyncio a chance to cancel the mute task
+                await asyncio.sleep(0)
+                self.assertTrue(alarm.unmute_task.done())
+                self.assertEqual(alarm, original_alarm)
+
+    def test_repr(self):
+        name = "Something.else"
+        alarm = watcher.base.Alarm(name=name, callback=None)
+        self.assertIn(name, repr(alarm))
+        self.assertIn("Alarm", repr(alarm))
+
     def test_set_severity_when_acknowledged(self):
         user = "skipper"
         desired_ncalls = 0
-        for alarm0 in self.alarm_iter():
+        for alarm0 in self.alarm_iter(callback=self.callback):
             if alarm0.nominal:
                 continue
             self.assertFalse(alarm0.acknowledged)
