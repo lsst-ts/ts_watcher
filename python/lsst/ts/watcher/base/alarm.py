@@ -37,7 +37,7 @@ class Alarm:
         Name of alarm. This must be unique among all alarms
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
-    callback : ``callable``
+    callback : callable
         Function or coroutine to call whenever the alarm changes state.
     """
     def __init__(self, name, callback):
@@ -87,7 +87,7 @@ class Alarm:
         Raises
         ------
         ValueError
-            If ``severity < self.max_severity``
+            If ``severity < self.max_severity``.
 
         Notes
         -----
@@ -117,23 +117,29 @@ class Alarm:
         return True
 
     def mute(self, duration, severity, user):
-        """Mute this alarm for a specified duration.
+        """Mute this alarm for a specified duration and severity.
 
         Parameters
         ----------
         duration : `float`
-            How long to mute the alarm (sec)
+            How long to mute the alarm (sec).
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
-            Severity to mute. If the severity goes above
-            this level the alarm will be shown.
+            Severity to mute. If the alarm's current or max severity
+            goes above this level the alarm should be displayed.
         user : `str`
-            Name of user; used to set muted_by.
+            Name of user who muted this alarm. Used to set ``muted_by``.
 
         Raises
         ------
         ValueError
             If ``duration <= 0``, ``severity == AlarmSeverity.NONE``
             or ``severity`` is not a valid ``AlarmSeverity`` enum value.
+
+        Notes
+        -----
+        An alarm cannot have multiple mute levels and durations.
+        If mute is called multiple times, the most recent call
+        overwrites information from earlier calls.
         """
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")
@@ -169,7 +175,7 @@ class Alarm:
         Parameters
         ----------
         duration : `float`
-            How long to mute the alarm (sec)
+            How long to mute the alarm (sec).
         """
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")

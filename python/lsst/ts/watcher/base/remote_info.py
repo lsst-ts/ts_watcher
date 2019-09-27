@@ -30,7 +30,7 @@ def as_tuple(seq):
     Parameters
     ----------
     seq : `list` of [``any``] (optional)
-
+        Sequence to convert.
 
     Raises
     ------

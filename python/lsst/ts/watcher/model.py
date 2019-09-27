@@ -59,7 +59,7 @@ class Model:
         DDS Domain.
     config : `types.SimpleNamespace`
         Watcher configuration validated against the Watcher schema.
-    alarm_callback : ``callable`` (optional)
+    alarm_callback : callable (optional)
         Function to call when an alarm changes state.
         It receives one argument: the alarm.
         If None then no callback occurs.
@@ -225,8 +225,7 @@ class Model:
         Parameters
         ----------
         name_regex : `str`
-            Rule/alarm name.
-            If a regular expression then return all matching rules.
+            Regular expression for alarm name(s) to return.
 
         Returns
         -------

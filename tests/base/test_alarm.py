@@ -62,7 +62,7 @@ class AlarmTestCase(asynctest.TestCase):
 
         Parameters
         ----------
-        callback : ``callable`` or `None`
+        callback : callable or `None`
             Callback function; must take one argument: an alarm.
             None for no callback function.
         name : `str`
@@ -408,7 +408,7 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertEqual(alarm.muted_severity, severity)
                 self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
                 self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
-                await callback.next(timeout=STD_TIMEOUT)
+                await callback.next(timeout=STD_TIMEOUT + duration)
                 self.assertFalse(alarm.muted)
                 self.assertEqual(alarm.muted_by, "")
                 self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
