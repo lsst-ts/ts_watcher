@@ -23,12 +23,14 @@ import asyncio
 import types
 import unittest
 
+import asynctest
+
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
 
-class TestConfiguredSeveritiesTestCase(unittest.TestCase):
+class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
     def make_config(self, name, interval, severities):
         """Make a config for the TestConfiguredSeverities rule.
 
@@ -75,29 +77,26 @@ class TestConfiguredSeveritiesTestCase(unittest.TestCase):
         self.assertIn(name, repr(rule))
         self.assertIn("test.ConfiguredSeverities", repr(rule))
 
-    def test_run(self):
-        async def doit():
-            interval = 0.01
-            severities = [AlarmSeverity.WARNING,
-                          AlarmSeverity.CRITICAL,
-                          AlarmSeverity.WARNING,
-                          AlarmSeverity.SERIOUS,
-                          AlarmSeverity.NONE]
-            config = self.make_config(name="arbitrary", interval=interval, severities=severities)
-            rule = watcher.rules.test.ConfiguredSeverities(config=config)
+    async def test_run(self):
+        interval = 0.01
+        severities = [AlarmSeverity.WARNING,
+                      AlarmSeverity.CRITICAL,
+                      AlarmSeverity.WARNING,
+                      AlarmSeverity.SERIOUS,
+                      AlarmSeverity.NONE]
+        config = self.make_config(name="arbitrary", interval=interval, severities=severities)
+        rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
-            read_severities = []
+        read_severities = []
 
-            def alarm_callback(alarm):
-                nonlocal read_severities
-                read_severities.append(alarm.severity)
+        def alarm_callback(alarm):
+            nonlocal read_severities
+            read_severities.append(alarm.severity)
 
-            rule.alarm.callback = alarm_callback
-            rule.start()
-            await asyncio.wait_for(rule.run_timer, timeout=2)
-            self.assertEqual(read_severities, severities)
-
-        asyncio.new_event_loop().run_until_complete(doit())
+        rule.alarm.callback = alarm_callback
+        rule.start()
+        await asyncio.wait_for(rule.run_timer, timeout=2)
+        self.assertEqual(read_severities, severities)
 
 
 if __name__ == "__main__":

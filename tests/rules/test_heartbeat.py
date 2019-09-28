@@ -23,6 +23,7 @@ import asyncio
 import types
 import unittest
 
+import asynctest
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -32,7 +33,7 @@ from lsst.ts import watcher
 LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 
-class HeartbeatTestCase(unittest.TestCase):
+class HeartbeatTestCase(asynctest.TestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_domain()
 
@@ -77,50 +78,47 @@ class HeartbeatTestCase(unittest.TestCase):
         self.assertIn(name, repr(rule))
         self.assertIn("Heartbeat", repr(rule))
 
-    def test_call(self):
-        async def doit():
-            name = "ScriptQueue"
-            index = 5
-            timeout = 0.2
+    async def test_call(self):
+        name = "ScriptQueue"
+        index = 5
+        timeout = 0.2
 
-            watcher_config_dict = yaml.safe_load(f"""
-                disabled_sal_components: []
-                rules:
-                - classname: Heartbeat
-                  configs:
-                  - name: {name}:{index}
-                    timeout: {timeout}
-                """)
-            watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        watcher_config_dict = yaml.safe_load(f"""
+            disabled_sal_components: []
+            rules:
+            - classname: Heartbeat
+              configs:
+              - name: {name}:{index}
+                timeout: {timeout}
+            """)
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-            async with salobj.Controller(name=name, index=index) as controller:
-                async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
-                    model.enable()
+        async with salobj.Controller(name=name, index=index) as controller:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
+                model.enable()
 
-                    self.assertEqual(len(model.rules), 1)
-                    rule_name = f"Heartbeat.{name}:{index}"
-                    rule = model.rules[rule_name]
-                    alarm = rule.alarm
+                self.assertEqual(len(model.rules), 1)
+                rule_name = f"Heartbeat.{name}:{index}"
+                rule = model.rules[rule_name]
+                alarm = rule.alarm
 
-                    controller.evt_heartbeat.put()
-                    await asyncio.sleep(0.001)
-                    self.assertTrue(alarm.nominal)
+                controller.evt_heartbeat.put()
+                await asyncio.sleep(0.001)
+                self.assertTrue(alarm.nominal)
 
-                    await asyncio.sleep(timeout/2)
-                    controller.evt_heartbeat.put()
-                    await asyncio.sleep(0.001)
-                    self.assertTrue(alarm.nominal)
+                await asyncio.sleep(timeout/2)
+                controller.evt_heartbeat.put()
+                await asyncio.sleep(0.001)
+                self.assertTrue(alarm.nominal)
 
-                    await asyncio.sleep(timeout*2)
-                    self.assertFalse(alarm.nominal)
-                    self.assertEqual(alarm.severity, AlarmSeverity.SERIOUS)
-                    controller.evt_heartbeat.put()
-                    await asyncio.sleep(0.001)
-                    self.assertFalse(alarm.nominal)
-                    self.assertEqual(alarm.severity, AlarmSeverity.NONE)
-                    self.assertEqual(alarm.max_severity, AlarmSeverity.SERIOUS)
-
-        asyncio.new_event_loop().run_until_complete(doit())
+                await asyncio.sleep(timeout*2)
+                self.assertFalse(alarm.nominal)
+                self.assertEqual(alarm.severity, AlarmSeverity.SERIOUS)
+                controller.evt_heartbeat.put()
+                await asyncio.sleep(0.001)
+                self.assertFalse(alarm.nominal)
+                self.assertEqual(alarm.severity, AlarmSeverity.NONE)
+                self.assertEqual(alarm.max_severity, AlarmSeverity.SERIOUS)
 
 
 if __name__ == "__main__":
