@@ -61,9 +61,6 @@ class Harness:
 
 
 class CscTestCase(asynctest.TestCase):
-    def setUp(self):
-        print()
-
     async def test_initial_info(self):
         async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
             state = await harness.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
