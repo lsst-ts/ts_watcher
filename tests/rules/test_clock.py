@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import time
 import types
 import unittest
 
@@ -42,7 +43,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
     async def aput(self, dt):
         """Write a sample with ``private_sndStamp = current time + dt``.
         """
-        self.data.private_sndStamp = salobj.current_tai() + dt
+        self.data.private_sndStamp = salobj.tai_from_utc(time.time()) + dt
         self.data.private_revCode = self.rev_code
         self.data.private_host = self.salinfo.domain.host
         self.data.private_origin = self.salinfo.domain.origin
