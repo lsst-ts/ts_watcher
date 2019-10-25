@@ -57,7 +57,7 @@ Contributing
 ============
 
 ``lsst.ts.watcher`` is developed at https://github.com/lsst-ts/ts_watcher.
-You can find Jira issues for this module under the `ts_watcher <https://jira.lsstcorp.org/issues/?jql=project%20%3D%20DM%20AND%20component%20%3D%20ts_watcher>`_ component.
+You can find Jira issues for this module using `labels=ts_watcher <https://jira.lsstcorp.org/issues/?jql=project%20%3D%20DM%20AND%20labels%20%20%3D%20ts_watcher>`_.
 
 .. _lsst.ts.watcher-pyapi:
 
