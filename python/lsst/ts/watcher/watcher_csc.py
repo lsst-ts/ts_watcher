@@ -113,8 +113,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             force_output=True,
         )
 
-    def report_summary_state(self):
-        super().report_summary_state()
+    async def handle_summary_state(self):
         self._enable_or_disable_model()
 
     def do_acknowledge(self, data):
