@@ -32,6 +32,7 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
+NODATA_TIMEOUT = 0.1  # timeout when no data is expected (sec)
 LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
@@ -152,6 +153,94 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(alarm.severity, AlarmSeverity.NONE)
             self.assertEqual(alarm.maxSeverity, AlarmSeverity.NONE)
             self.assertFalse(alarm.acknowledged)
+
+    async def test_show_alarms(self):
+        """Test the showAlarms command."""
+        async with Harness(config_dir=TEST_CONFIG_DIR) as harness:
+            self.assertEqual(harness.csc.summary_state, salobj.State.STANDBY)
+            state = await harness.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
+            self.assertEqual(state.summaryState, salobj.State.STANDBY)
+
+            await salobj.set_summary_state(harness.remote, state=salobj.State.ENABLED,
+                                           settingsToApply="enabled.yaml")
+
+            # All alarms should be nominal, so showAlarms should output
+            # no alarm events.
+            for rule in harness.csc.model.rules.values():
+                self.assertTrue(rule.alarm.nominal)
+            await harness.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
+            # Make summary state writers for CSCs in `enabled.yaml`.
+            atdome_salinfo = salobj.SalInfo(domain=harness.csc.domain, name="ATDome", index=0)
+            atdome_state = salobj.topics.ControllerEvent(salinfo=atdome_salinfo, name="summaryState")
+            scriptqueue_salinfo = salobj.SalInfo(domain=harness.csc.domain, name="ScriptQueue", index=2)
+            scriptqueue_state = salobj.topics.ControllerEvent(salinfo=scriptqueue_salinfo,
+                                                              name="summaryState")
+
+            # Fire the ATDome alarm.
+            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(alarm.name, "Enabled.ATDome:0")
+            self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(alarm.maxSeverity, AlarmSeverity.WARNING)
+            self.assertFalse(alarm.acknowledged)
+
+            # Fire the ScriptQueue:2 alarm.
+            scriptqueue_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(alarm.name, "Enabled.ScriptQueue:2")
+            self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(alarm.maxSeverity, AlarmSeverity.WARNING)
+            self.assertFalse(alarm.acknowledged)
+
+            # We expect no more alarm events (yet).
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
+            # Send the showAlarms command. This should trigger the same
+            # two alarm events that we have already seen (in either order).
+            await harness.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
+            alarm_names = []
+            for i in range(2):
+                alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+                alarm_names.append(alarm.name)
+                self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
+                self.assertEqual(alarm.maxSeverity, AlarmSeverity.WARNING)
+                self.assertFalse(alarm.acknowledged)
+            self.assertEqual(set(alarm_names), set(("Enabled.ATDome:0", "Enabled.ScriptQueue:2")))
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
+            # Acknowledge the ATDome alarm.
+            user = "test_show_alarms"
+            await harness.remote.cmd_acknowledge.set_start(name="Enabled.ATDome:0",
+                                                           severity=AlarmSeverity.WARNING,
+                                                           acknowledgedBy=user)
+            alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(alarm.maxSeverity, AlarmSeverity.WARNING)
+            self.assertTrue(alarm.acknowledged)
+            self.assertEqual(alarm.acknowledgedBy, user)
+
+            # Set ATDome state to ENABLED; this should reset the alarm.
+            atdome_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(alarm.severity, AlarmSeverity.NONE)
+            self.assertEqual(alarm.maxSeverity, AlarmSeverity.NONE)
+            self.assertFalse(alarm.acknowledged)
+
+            # Send the showAlarms command again. This should trigger
+            # just one alarm: Enabled.ScriptQueue:2.
+            await harness.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
+            alarm = await harness.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
+            self.assertEqual(alarm.name, "Enabled.ScriptQueue:2")
+            self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
+            self.assertEqual(alarm.maxSeverity, AlarmSeverity.WARNING)
+            self.assertFalse(alarm.acknowledged)
+            with self.assertRaises(asyncio.TimeoutError):
+                await harness.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
     async def test_mute(self):
         """Test the mute and unmute command."""
