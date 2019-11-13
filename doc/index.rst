@@ -76,3 +76,10 @@ Python API reference
 .. automodapi:: lsst.ts.watcher.rules.test
     :no-main-docstr:
     :no-inheritance-diagram:
+
+Revision History
+================
+
+.. toctree::
+    revision_history
+    :maxdepth: 1
