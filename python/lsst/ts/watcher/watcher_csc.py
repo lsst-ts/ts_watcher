@@ -122,10 +122,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
 
     def do_mute(self, data):
+        """Mute one or more alarms.
+        """
         self.assert_enabled("mute")
         self.model.mute_alarm(name=data.name, duration=data.duration,
                               severity=data.severity, user=data.mutedBy)
 
     def do_unmute(self, data):
+        """Unmute one or more alarms.
+        """
         self.assert_enabled("unmute")
         self.model.unmute_alarm(name=data.name)
