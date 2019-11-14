@@ -29,7 +29,8 @@ from lsst.ts.watcher import base
 
 
 class ConfiguredSeverities(base.BaseRule):
-    """A test rule that transitions through a specified list of severities.
+    """A test rule that transitions through a specified list of severities,
+    repeatedly.
 
     Parameters
     ----------
@@ -65,7 +66,7 @@ class ConfiguredSeverities(base.BaseRule):
                     description: Rule name (one field in a longer name).
                     type: string
                 interval:
-                    descrption: Interval between severities (seconds).
+                    description: Interval between severities (seconds).
                     type: number
                 severities:
                     description: A list of severities as lsst.ts.idl.enums.Watcher.AlarmSeverity constants.
