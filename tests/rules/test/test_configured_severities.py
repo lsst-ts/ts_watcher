@@ -88,15 +88,24 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
         read_severities = []
+        # Number of cycles of these severities to read; arbitrary
+        # but should be > 1 to check that the severities repeat.
+        num_cycles_to_read = 3
+        num_events_to_read = num_cycles_to_read * len(severities)
+        done_future = asyncio.Future()
 
         def alarm_callback(alarm):
             nonlocal read_severities
             read_severities.append(alarm.severity)
+            if len(read_severities) >= num_events_to_read and not done_future.done():
+                done_future.set_result(None)
 
         rule.alarm.callback = alarm_callback
         rule.start()
-        await asyncio.wait_for(rule.run_timer, timeout=2)
-        self.assertEqual(read_severities, severities)
+        await asyncio.wait_for(done_future, timeout=2)
+        rule.stop()
+        expected_severities = severities*num_cycles_to_read
+        self.assertEqual(read_severities, expected_severities)
 
 
 if __name__ == "__main__":

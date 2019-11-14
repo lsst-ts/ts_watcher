@@ -22,6 +22,7 @@
 __all__ = ["ConfiguredSeverities"]
 
 import asyncio
+import itertools
 import yaml
 
 from lsst.ts import salobj
@@ -89,8 +90,8 @@ class ConfiguredSeverities(base.BaseRule):
         self.run_timer.cancel()
 
     async def run(self):
-        """Run through the configured severities."""
-        for severity in self.config.severities:
+        """Run through the configured severities, repeatedly, forever."""
+        for severity in itertools.cycle(self.config.severities):
             await asyncio.sleep(self.config.interval)
             self.alarm.set_severity(severity=severity, reason="Commanded severity")
 
