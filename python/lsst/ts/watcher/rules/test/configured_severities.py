@@ -22,6 +22,7 @@
 __all__ = ["ConfiguredSeverities"]
 
 import asyncio
+import itertools
 import yaml
 
 from lsst.ts import salobj
@@ -29,7 +30,8 @@ from lsst.ts.watcher import base
 
 
 class ConfiguredSeverities(base.BaseRule):
-    """A test rule that transitions through a specified list of severities.
+    """A test rule that transitions through a specified list of severities,
+    repeatedly.
 
     Parameters
     ----------
@@ -65,7 +67,7 @@ class ConfiguredSeverities(base.BaseRule):
                     description: Rule name (one field in a longer name).
                     type: string
                 interval:
-                    descrption: Interval between severities (seconds).
+                    description: Interval between severities (seconds).
                     type: number
                 severities:
                     description: A list of severities as lsst.ts.idl.enums.Watcher.AlarmSeverity constants.
@@ -88,8 +90,8 @@ class ConfiguredSeverities(base.BaseRule):
         self.run_timer.cancel()
 
     async def run(self):
-        """Run through the configured severities."""
-        for severity in self.config.severities:
+        """Run through the configured severities, repeatedly, forever."""
+        for severity in itertools.cycle(self.config.severities):
             await asyncio.sleep(self.config.interval)
             self.alarm.set_severity(severity=severity, reason="Commanded severity")
 

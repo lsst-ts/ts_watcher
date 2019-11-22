@@ -74,7 +74,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.model.disable()
             asyncio.ensure_future(self.model.close())
 
-        self.model = Model(domain=self.domain, config=config, alarm_callback=self.alarm_callback)
+        self.model = Model(domain=self.domain, config=config, alarm_callback=self.output_alarm)
         await self.model.start_task
         self._enable_or_disable_model()
 
@@ -86,8 +86,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
         elif self.model is not None:
             self.model.disable()
 
-    def alarm_callback(self, alarm):
-        """Callback function for alarms.
+    def output_alarm(self, alarm):
+        """Output the alarm event for one alarm.
         """
         if self.summary_state != salobj.State.ENABLED:
             return
@@ -113,8 +113,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             force_output=True,
         )
 
-    def report_summary_state(self):
-        super().report_summary_state()
+    async def handle_summary_state(self):
         self._enable_or_disable_model()
 
     def do_acknowledge(self, data):
@@ -122,10 +121,35 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
 
     def do_mute(self, data):
+        """Mute one or more alarms.
+        """
         self.assert_enabled("mute")
         self.model.mute_alarm(name=data.name, duration=data.duration,
                               severity=data.severity, user=data.mutedBy)
 
+    async def do_showAlarms(self, data):
+        """Show all alarms.
+        """
+        # Make a list of active (not nominal) alarms and iterate over it,
+        # reporting alarm events and yielding the event loop.
+        # Using our own list assures that what we are iterating over
+        # will not change, even if alarms change state during this command.
+        # Note: alarms may change state while this command is running.
+        # There are two cases:
+        # * An alarm becomes inactive: we check for this and skip it.
+        # * An alarm becomes active: the alarm is not in our list,
+        #   but the state change triggers an alarm event,
+        #   (though not from this command) so the user sees it.
+        active_alarms = [rule.alarm for rule in self.model.rules.values() if not rule.alarm.nominal]
+        for alarm in active_alarms:
+            if alarm.nominal:
+                # The alarm became inactive while this command was running.
+                continue
+            self.output_alarm(alarm)
+            await asyncio.sleep(0.001)
+
     def do_unmute(self, data):
+        """Unmute one or more alarms.
+        """
         self.assert_enabled("unmute")
         self.model.unmute_alarm(name=data.name)

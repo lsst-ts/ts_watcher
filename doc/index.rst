@@ -15,17 +15,22 @@ The CSC configuration specifies which of the available rules are used and the co
 Using lsst.ts.watcher
 =====================
 
-The most fundamental objects that make up the Watcher are rules and alarms. Rules monitor topics from remote SAL components and, based on that information, set the severity of alarms. Alarms contains the state of an alarm, including the current severity, whether the alarm has been acknowledged, and the maximum severity seen since last acknowledgement. Rules are instances of subclasses of `base.BaseRule`. Alarms are instances of `base.Alarm`.
+The fundamental objects that make up the Watcher are rules and alarms.
+Rules monitor topics from remote SAL components and, based on that information, set the severity of alarms.
+Alarms contains the state of an alarm, including the current severity, whether the alarm has been acknowledged, and the maximum severity seen since last acknowledgement.
+Rules are instances of *subclasses* of `base.BaseRule`.
+Alarms are instances of `base.Alarm`.
 
-There is a one to one relationship between rules and alarms; every rule contains an associated alarm.
+There is a one to one relationship between rules and alarms: every rule contains one associated alarm.
 
 The set of rules used by the Watcher and the configuration of each rule is specified by the CSC configuration.
-A typical Watcher configuration file will specify most, but not all rules which are available, and will likely be large.
+The configuration options for each rule are specified by a schema provided by the rule.
+A typical Watcher configuration file will specify most available rules, and will likely be large.
 The Watcher configuration also has a list of disabled SAL components, for the situation that a subsystem is down for maintenance or repair.
-Rules that use a disabled SAL component are not be loaded.
+Rules that use a disabled SAL component are not loaded.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    writing_rules.rst
    displaying_alarms.rst
@@ -76,3 +81,10 @@ Python API reference
 .. automodapi:: lsst.ts.watcher.rules.test
     :no-main-docstr:
     :no-inheritance-diagram:
+
+Revision History
+================
+
+.. toctree::
+    revision_history
+    :maxdepth: 1
