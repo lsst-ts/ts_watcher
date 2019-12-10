@@ -46,7 +46,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     Raises
     ------
     salobj.ExpectedError
-        If initial_state or initial_simulation_mode is invalid.
+        If initial_state is invalid.
     """
     def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY):
         schema_path = pathlib.Path(__file__).resolve().parents[4].joinpath("schema", "Watcher.yaml")
@@ -54,7 +54,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # the Watcher model is created when the CSC is configured
         self.model = None
         super().__init__("Watcher", index=0, schema_path=schema_path, config_dir=config_dir,
-                         initial_state=initial_state, initial_simulation_mode=0)
+                         initial_state=initial_state)
 
     @staticmethod
     def get_config_pkg():
