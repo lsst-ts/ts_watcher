@@ -6,10 +6,19 @@
 Revision History
 ################
 
-v1.0.0
+v0.4.0
 ======
 
-First official release.
+Update for ts_salobj 5.2: rename initial_simulation_mode to simulation_mode.
+
+* ts_salobj 5.2
+* ts_xml 4.5
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
+v0.3.0
+======
 
 Add the ``showAlarms`` command.
 Make the ``test.ConfiguredSeverities`` rule cycle forever.
