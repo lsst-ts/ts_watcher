@@ -116,12 +116,12 @@ class Alarm:
         self._run_callback()
         return True
 
-    def mute(self, duration, severity, user):
-        """Mute this alarm for a specified duration and severity.
+    def mute(self, timespan, severity, user):
+        """Mute this alarm for a specified timespan and severity.
 
         Parameters
         ----------
-        duration : `float`
+        timespan : `float`
             How long to mute the alarm (sec).
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to mute. If the alarm's current or max severity
@@ -132,26 +132,26 @@ class Alarm:
         Raises
         ------
         ValueError
-            If ``duration <= 0``, ``severity == AlarmSeverity.NONE``
+            If ``timespan <= 0``, ``severity == AlarmSeverity.NONE``
             or ``severity`` is not a valid ``AlarmSeverity`` enum value.
 
         Notes
         -----
-        An alarm cannot have multiple mute levels and durations.
+        An alarm cannot have multiple mute levels and timespans.
         If mute is called multiple times, the most recent call
         overwrites information from earlier calls.
         """
-        if duration <= 0:
-            raise ValueError(f"duration={duration} must be positive")
+        if timespan <= 0:
+            raise ValueError(f"timespan={timespan} must be positive")
         severity = AlarmSeverity(severity)
         if severity == AlarmSeverity.NONE:
             raise ValueError(f"severity={severity!r} must be > NONE")
         self.muted_by = user
         self.muted_severity = severity
         curr_tai = salobj.tai_from_utc(time.time())
-        self.timestamp_unmute = curr_tai + duration
+        self.timestamp_unmute = curr_tai + timespan
         self.unmute_task.cancel()
-        self.unmute_task = asyncio.create_task(self.unmute_after(duration=duration))
+        self.unmute_task = asyncio.create_task(self.unmute_after(timespan=timespan))
         self._run_callback()
 
     def unmute(self, run_callback=True):
@@ -169,17 +169,17 @@ class Alarm:
         if run_callback:
             self._run_callback()
 
-    async def unmute_after(self, duration):
-        """Unmute this alarm after a specified duration.
+    async def unmute_after(self, timespan):
+        """Unmute this alarm after a specified timespan.
 
         Parameters
         ----------
-        duration : `float`
+        timespan : `float`
             How long to mute the alarm (sec).
         """
-        if duration <= 0:
-            raise ValueError(f"duration={duration} must be positive")
-        await asyncio.sleep(duration)
+        if timespan <= 0:
+            raise ValueError(f"timespan={timespan} must be positive")
+        await asyncio.sleep(timespan)
         self.unmute()
 
     def reset(self):

@@ -323,7 +323,7 @@ class ModelTestCase(asynctest.TestCase):
 
             # Mute one rule by full name.
             harness.model.mute_alarm(name=full_rule_name,
-                                     duration=5,
+                                     timespan=5,
                                      severity=AlarmSeverity.WARNING,
                                      user=user)
             for name, rule in harness.model.rules.items():
@@ -350,7 +350,7 @@ class ModelTestCase(asynctest.TestCase):
 
             # Mute the ScriptQueue alarms but not Test.
             harness.model.mute_alarm(name="Enabled.ScriptQueue.*",
-                                     duration=5,
+                                     timespan=5,
                                      severity=AlarmSeverity.WARNING,
                                      user=user)
             for name, rule in harness.model.rules.items():

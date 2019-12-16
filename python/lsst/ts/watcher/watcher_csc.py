@@ -124,7 +124,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         """Mute one or more alarms.
         """
         self.assert_enabled("mute")
-        self.model.mute_alarm(name=data.name, duration=data.duration,
+        self.model.mute_alarm(name=data.name, timespan=data.timespan,
                               severity=data.severity, user=data.mutedBy)
 
     async def do_showAlarms(self, data):

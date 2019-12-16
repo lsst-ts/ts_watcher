@@ -235,14 +235,14 @@ class Model:
         compiled_re = re.compile(name_regex)
         return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
 
-    def mute_alarm(self, name, duration, severity, user):
-        """Mute one or more alarms for a specified duration.
+    def mute_alarm(self, name, timespan, severity, user):
+        """Mute one or more alarms for a specified timespan.
 
         Parameters
         ----------
         name : `str`
             Regular expression for alarm name(s) to mute.
-        duration : `float`
+        timespan : `float`
             How long to mute the alarm (sec)
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
             Severity to mute; used to set the ``mutedSeverity`` field of
@@ -251,7 +251,7 @@ class Model:
             Name of user; used to set acknowledged_by.
         """
         for rule in self.get_rules(name):
-            rule.alarm.mute(duration=duration, severity=severity, user=user)
+            rule.alarm.mute(timespan=timespan, severity=severity, user=user)
 
     def unmute_alarm(self, name):
         """Unmute one or more alarms.

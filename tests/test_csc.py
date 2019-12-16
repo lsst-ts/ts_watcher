@@ -286,7 +286,7 @@ class CscTestCase(asynctest.TestCase):
         # Mute all alarms for a short time,
         # then wait for them to unmute themselves.
         await self.remote.cmd_mute.set_start(name="Enabled.*",
-                                             duration=0.1,
+                                             timespan=0.1,
                                              severity=AlarmSeverity.SERIOUS,
                                              mutedBy=user1,
                                              timeout=STD_TIMEOUT)
@@ -314,7 +314,7 @@ class CscTestCase(asynctest.TestCase):
         full_name = "Enabled.ScriptQueue:2"
         self.assertIn(full_name, self.csc.model.rules)
         await self.remote.cmd_mute.set_start(name=full_name,
-                                             duration=5,
+                                             timespan=5,
                                              severity=AlarmSeverity.SERIOUS,
                                              mutedBy=user2,
                                              timeout=STD_TIMEOUT)

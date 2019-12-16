@@ -394,24 +394,24 @@ class AlarmTestCase(asynctest.TestCase):
 
     async def test_mute_valid(self):
         user = "otho"
-        duration = 0.05
+        timespan = 0.05
         for severity in AlarmSeverity:
             if severity == AlarmSeverity.NONE:
                 continue  # invalid value
             callback = AsyncCallback()
             for alarm in self.alarm_iter(name=user, callback=callback):
-                alarm.mute(duration=duration, severity=severity, user=user)
+                alarm.mute(timespan=timespan, severity=severity, user=user)
                 curr_tai = salobj.tai_from_utc(time.time())
                 await callback.next(timeout=STD_TIMEOUT)
                 self.assertTrue(alarm.muted)
                 self.assertEqual(alarm.muted_by, user)
                 self.assertEqual(alarm.muted_severity, severity)
                 # Check that timestamp_unmute is close to and no less than
-                # the current time + duration.
-                self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
-                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
+                # the current time + timespan.
+                self.assertGreaterEqual(curr_tai + timespan, alarm.timestamp_unmute)
+                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + timespan, places=2)
                 # Wait for the alrm to unmute itself.
-                await callback.next(timeout=STD_TIMEOUT + duration)
+                await callback.next(timeout=STD_TIMEOUT + timespan)
                 self.assertFalse(alarm.muted)
                 self.assertEqual(alarm.muted_by, "")
                 self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
@@ -420,45 +420,45 @@ class AlarmTestCase(asynctest.TestCase):
     async def test_mute_invalid(self):
         good_user = "otho"
         failed_user = "user associated with invalid mute command"
-        good_duration = 5
+        good_timespan = 5
         good_severity = AlarmSeverity.WARNING
         for alarm in self.alarm_iter(name=good_user, callback=None):
-            for bad_duration, bad_severity in itertools.product((0, -0.01), (AlarmSeverity.NONE, -53)):
+            for bad_timespan, bad_severity in itertools.product((0, -0.01), (AlarmSeverity.NONE, -53)):
                 # check that mute raises ValueError for invalid values
                 # and leaves the alarm state unchanged
                 initial_alarm = copy.copy(alarm)
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_duration, severity=good_severity, user=failed_user)
+                    alarm.mute(timespan=bad_timespan, severity=good_severity, user=failed_user)
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=good_duration, severity=bad_severity, user=failed_user)
+                    alarm.mute(timespan=good_timespan, severity=bad_severity, user=failed_user)
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_duration, severity=bad_severity, user=failed_user)
+                    alarm.mute(timespan=bad_timespan, severity=bad_severity, user=failed_user)
                 self.assertEqual(alarm, initial_alarm)
 
                 # make sure failures also leave muted alarm state unchanged
-                alarm.mute(duration=good_duration, severity=good_severity, user=good_user)
+                alarm.mute(timespan=good_timespan, severity=good_severity, user=good_user)
                 self.assertTrue(alarm.muted)
                 self.assertEqual(alarm.muted_by, good_user)
                 self.assertEqual(alarm.muted_severity, good_severity)
                 muted_alarm = copy.copy(alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_duration, severity=good_severity, user=failed_user)
+                    alarm.mute(timespan=bad_timespan, severity=good_severity, user=failed_user)
                 self.assertEqual(alarm, muted_alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=good_duration, severity=bad_severity, user=failed_user)
+                    alarm.mute(timespan=good_timespan, severity=bad_severity, user=failed_user)
                 self.assertEqual(alarm, muted_alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_duration, severity=bad_severity, user=failed_user)
+                    alarm.mute(timespan=bad_timespan, severity=bad_severity, user=failed_user)
                 self.assertEqual(alarm, muted_alarm)
 
                 alarm.unmute()  # kill unmute timer
 
     async def test_unmute(self):
         user = "otho"
-        duration = 5
+        timespan = 5
         for severity in AlarmSeverity:
             if severity == AlarmSeverity.NONE:
                 continue  # invalid value
@@ -471,14 +471,14 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertEqual(self.ncalls, 1)
 
                 # mute alarm and unmute it again before it unmutes itself
-                alarm.mute(duration=duration, severity=severity, user=user)
+                alarm.mute(timespan=timespan, severity=severity, user=user)
                 curr_tai = salobj.tai_from_utc(time.time())
                 self.assertEqual(self.ncalls, 2)
                 self.assertTrue(alarm.muted)
                 self.assertEqual(alarm.muted_by, user)
                 self.assertEqual(alarm.muted_severity, severity)
-                self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
-                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, places=2)
+                self.assertGreaterEqual(curr_tai + timespan, alarm.timestamp_unmute)
+                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + timespan, places=2)
 
                 alarm.unmute()
                 self.assertEqual(self.ncalls, 3)
