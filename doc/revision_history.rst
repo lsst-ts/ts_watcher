@@ -6,6 +6,17 @@
 Revision History
 ################
 
+v0.5.0
+======
+
+Rename duration to timespan in the mute command.
+
+* ts_salobj 5.2
+* ts_xml 4.6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v0.4.0
 ======
 
