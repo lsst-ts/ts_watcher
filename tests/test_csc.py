@@ -39,7 +39,7 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config
 
 class CscTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.test_utils.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_domain()
         self.csc = None
         self.remote = None
 
@@ -127,7 +127,7 @@ class CscTestCase(asynctest.TestCase):
         for bad_config_name in bad_config_names:
             with self.subTest(bad_config_name=bad_config_name):
                 self.remote.cmd_start.set(settingsToApply=bad_config_name)
-                with salobj.test_utils.assertRaisesAckError():
+                with salobj.assertRaisesAckError():
                     await self.remote.cmd_start.start(timeout=STD_TIMEOUT)
 
     async def test_operation(self):
@@ -334,7 +334,7 @@ class CscTestCase(asynctest.TestCase):
             await self.remote.evt_alarm.next(flush=False, timeout=1)
 
     async def test_run(self):
-        salobj.test_utils.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_domain()
         exe_name = "run_watcher.py"
         exe_path = shutil.which(exe_name)
         if exe_path is None:
