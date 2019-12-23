@@ -77,6 +77,8 @@ class ModelTestCase(asynctest.TestCase):
 
         configs = [dict(name=name_index) for name_index in names]
         watcher_config_dict = dict(disabled_sal_components=[],
+                                   auto_acknowledge_delay=3600,
+                                   auto_unacknowledge_delay=3600,
                                    rules=[dict(classname="Enabled",
                                                configs=configs)])
         watcher_config = types.SimpleNamespace(**watcher_config_dict)

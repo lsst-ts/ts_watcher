@@ -85,6 +85,8 @@ class HeartbeatTestCase(asynctest.TestCase):
 
         watcher_config_dict = yaml.safe_load(f"""
             disabled_sal_components: []
+            auto_acknowledge_delay: 3600
+            auto_unacknowledge_delay: 3600
             rules:
             - classname: Heartbeat
               configs:

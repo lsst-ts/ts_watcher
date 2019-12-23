@@ -1,5 +1,7 @@
 disabled_sal_components:
 - ATCamera
+auto_acknowledge_delay: 1001
+auto_unacknowledge_delay: 1002
 rules:
 - classname: Enabled
   configs:
