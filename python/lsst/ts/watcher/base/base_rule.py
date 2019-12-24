@@ -61,8 +61,8 @@ class BaseRule(abc.ABC):
     def __init__(self, config, name, remote_info_list):
         self.config = config
         self.remote_info_list = remote_info_list
-        # the model will set the alarm callback
-        self.alarm = alarm.Alarm(name=name, callback=None)
+        # The model sets the callback and auto delays
+        self.alarm = alarm.Alarm(name=name)
 
     @classmethod
     @abc.abstractmethod

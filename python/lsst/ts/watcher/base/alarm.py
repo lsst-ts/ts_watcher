@@ -22,7 +22,6 @@
 __all__ = ["Alarm"]
 
 import asyncio
-import time
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
@@ -37,12 +36,14 @@ class Alarm:
         Name of alarm. This must be unique among all alarms
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
-    callback : callable
-        Function or coroutine to call whenever the alarm changes state.
     """
-    def __init__(self, name, callback):
+    def __init__(self, name):
         self.name = name
-        self.callback = callback
+        self.callback = None
+        self.auto_acknowledge_delay = 0
+        self.auto_unacknowledge_delay = 0
+        self.auto_acknowledge_task = salobj.make_done_future()
+        self.auto_unacknowledge_task = salobj.make_done_future()
         self.unmute_task = salobj.make_done_future()
         self.reset()
 
@@ -62,9 +63,39 @@ class Alarm:
         return self.severity == AlarmSeverity.NONE \
             and self.max_severity == AlarmSeverity.NONE
 
+    def configure(self, callback=None, auto_acknowledge_delay=0, auto_unacknowledge_delay=0):
+        """Configure the callback function and auto ack/unack delays.
+
+        Parameters
+        ----------
+        callback : callable (optional)
+            Function or coroutine to call whenever the alarm changes state,
+            or None if no callback wanted.
+            The function receives one argument: this alarm.
+        auto_acknowledge_delay : `float` (optional)
+            Delay (in seconds) before a stale alarm is automatically
+            acknowledged, or 0 for no automatic acknowledgement.
+            A stale alarm is one that has not yet been acknowledged, but its
+            severity has gone to NONE.
+        auto_unacknowledge_delay : `float` (optional)
+            Delay (in seconds) before an acknowledged alarm is automatically
+            unacknowledged, or 0 for no automatic unacknowledgement.
+            Automatic unacknowledgement only occurs if the alarm persists,
+            because an acknowledged alarm is reset if severity goes to NONE.
+        """
+        if auto_acknowledge_delay < 0:
+            raise ValueError(f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0")
+        if auto_unacknowledge_delay < 0:
+            raise ValueError(f"auto_unacknowledge_delay={auto_unacknowledge_delay} must be >= 0")
+        self.callback = callback
+        self.auto_acknowledge_delay = auto_acknowledge_delay
+        self.auto_unacknowledge_delay = auto_unacknowledge_delay
+
     def close(self):
         """Cancel pending tasks.
         """
+        self.cancel_auto_acknowledge()
+        self.cancel_auto_unacknowledge()
         self.unmute_task.cancel()
 
     def acknowledge(self, severity, user):
@@ -96,17 +127,22 @@ class Alarm:
         To avoid the danger of accidentally acknowledging at a higher
         severity than intended, the command must be rejected.
         """
+        self.cancel_auto_acknowledge()
+        self.cancel_auto_unacknowledge()
         if self.nominal or self.acknowledged:
             return False
 
         severity = AlarmSeverity(severity)
         if severity < self.max_severity:
             raise ValueError(f"severity {severity} < max_severity {self.max_severity}")
-        curr_tai = salobj.tai_from_utc(time.time())
+        curr_tai = salobj.current_tai()
         if self.severity == AlarmSeverity.NONE:
             # reset the alarm to nominal
             self.max_severity = AlarmSeverity.NONE
         else:
+            if self.auto_unacknowledge_delay > 0:
+                self.timestamp_auto_unacknowledge = salobj.current_tai() + self.auto_unacknowledge_delay
+                self.auto_unacknowledge_task = asyncio.create_task(self.auto_unacknowledge())
             self.max_severity = severity
         self.acknowledged = True
         self.acknowledged_by = user
@@ -115,6 +151,30 @@ class Alarm:
 
         self._run_callback()
         return True
+
+    async def auto_acknowledge(self):
+        """Wait, then automatically cknowledge the alarm.
+        """
+        await asyncio.sleep(self.auto_acknowledge_delay)
+        self.acknowledge(severity=self.max_severity, user="automatic")
+
+    async def auto_unacknowledge(self):
+        """Wait, then automatically unacknowledge the alarm.
+        """
+        await asyncio.sleep(self.auto_unacknowledge_delay)
+        self.unacknowledge()
+
+    def cancel_auto_acknowledge(self):
+        """Cancel automatic acknowledgement, if pending.
+        """
+        self.timestamp_auto_acknowledge = 0
+        self.auto_acknowledge_task.cancel()
+
+    def cancel_auto_unacknowledge(self):
+        """Cancel automatic unacknowledgement, if pending.
+        """
+        self.timestamp_auto_unacknowledge = 0
+        self.auto_unacknowledge_task.cancel()
 
     def mute(self, duration, severity, user):
         """Mute this alarm for a specified duration and severity.
@@ -148,8 +208,7 @@ class Alarm:
             raise ValueError(f"severity={severity!r} must be > NONE")
         self.muted_by = user
         self.muted_severity = severity
-        curr_tai = salobj.tai_from_utc(time.time())
-        self.timestamp_unmute = curr_tai + duration
+        self.timestamp_unmute = salobj.current_tai() + duration
         self.unmute_task.cancel()
         self.unmute_task = asyncio.create_task(self.unmute_after(duration=duration))
         self._run_callback()
@@ -206,6 +265,9 @@ class Alarm:
         self.timestamp_auto_unacknowledge = 0
         self.timestamp_escalate = 0
 
+        self.cancel_auto_acknowledge()
+        self.cancel_auto_unacknowledge()
+
         self.unmute(run_callback=False)
 
     def set_severity(self, severity, reason):
@@ -227,31 +289,42 @@ class Alarm:
         """
         severity = AlarmSeverity(severity)
         if severity == AlarmSeverity.NONE and self.nominal:
-            # ignore NONE state when alarm is alread nominal
+            # Ignore NONE severity when the alarm is already nominal
+            # (meaning severity and max_severity are both NONE).
             return False
 
-        curr_tai = salobj.tai_from_utc(time.time())
+        curr_tai = salobj.current_tai()
         if self.severity != severity:
             self.timestamp_severity_oldest = curr_tai
             self.severity = severity
         if self.severity != AlarmSeverity.NONE:
             self.reason = reason
         self.timestamp_severity_newest = curr_tai
-        if self.severity == AlarmSeverity.NONE and self.acknowledged:
-            # reset the alarm
-            self.reason = ""
-            self.acknowledged = False
-            self.acknowledged_by = ""
-            self.max_severity = AlarmSeverity.NONE
-            self.timestamp_acknowledged = curr_tai
-            self.timestamp_max_severity = curr_tai
-        elif self.severity > self.max_severity:
+        if self.severity == AlarmSeverity.NONE:
             if self.acknowledged:
+                # Reset the alarm.
+                self.reason = ""
                 self.acknowledged = False
                 self.acknowledged_by = ""
+                self.max_severity = AlarmSeverity.NONE
                 self.timestamp_acknowledged = curr_tai
-            self.max_severity = self.severity
-            self.timestamp_max_severity = curr_tai
+                self.timestamp_max_severity = curr_tai
+                self.cancel_auto_acknowledge()
+                self.cancel_auto_unacknowledge()
+            else:
+                # Stale alarm; start auto-acknowledge task, if not running
+                if self.auto_acknowledge_delay > 0 and self.auto_acknowledge_task.done():
+                    self.timestamp_auto_acknowledge = salobj.current_tai() + self.auto_acknowledge_delay
+                    self.auto_acknowledge_task = asyncio.create_task(self.auto_acknowledge())
+        else:
+            self.cancel_auto_acknowledge()
+            if self.severity > self.max_severity:
+                if self.acknowledged:
+                    self.acknowledged = False
+                    self.acknowledged_by = ""
+                    self.timestamp_acknowledged = curr_tai
+                self.max_severity = self.severity
+                self.timestamp_max_severity = curr_tai
 
         self._run_callback()
         return True
@@ -265,10 +338,12 @@ class Alarm:
             True if the alarm state changed (i.e. if any fields were modified),
             False otherwise.
         """
+        self.cancel_auto_unacknowledge()
+
         if self.nominal or not self.acknowledged:
             return False
 
-        curr_tai = salobj.tai_from_utc(time.time())
+        curr_tai = salobj.current_tai()
         self.acknowledged = False
         self.acknowledged_by = ""
         self.timestamp_acknowledged = curr_tai
@@ -296,8 +371,6 @@ class Alarm:
                       "timestamp_severity_newest",
                       "timestamp_max_severity",
                       "timestamp_acknowledged",
-                      "timestamp_auto_acknowledge",
-                      "timestamp_auto_unacknowledge",
                       "timestamp_escalate",
                       "timestamp_unmute",
                       "callback",

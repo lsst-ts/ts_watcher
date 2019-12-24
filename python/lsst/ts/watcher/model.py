@@ -192,7 +192,9 @@ class Model:
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
-        rule.alarm.callback = self.alarm_callback
+        rule.alarm.configure(callback=self.alarm_callback,
+                             auto_acknowledge_delay=self.config.auto_acknowledge_delay,
+                             auto_unacknowledge_delay=self.config.auto_unacknowledge_delay)
         # Create remotes and add callbacks.
         for remote_info in rule.remote_info_list:
             remote = self.remotes.get(remote_info.key, None)
