@@ -182,6 +182,84 @@ class CscTestCase(asynctest.TestCase):
                                          acknowledged=False,
                                          acknowledgedBy="")
 
+    async def test_auto_acknowledge_unacknowledge(self):
+        user = "chaos"
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
+            state = await self.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
+            self.assertEqual(state.summaryState, salobj.State.STANDBY)
+
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED,
+                                           settingsToApply="enabled_short_auto_delays.yaml")
+
+            # Check the values encoded in the yaml config file.
+            expected_auto_acknowledge_delay = 0.51
+            expected_auto_unacknowledge_delay = 0.52
+            self.assertAlmostEqual(self.csc.model.config.auto_acknowledge_delay,
+                                   expected_auto_acknowledge_delay)
+            self.assertAlmostEqual(self.csc.model.config.auto_unacknowledge_delay,
+                                   expected_auto_unacknowledge_delay)
+
+            atdome_alarm_name = "Enabled.ATDome:0"
+
+            # Make a summary state writer for ATDome
+            atdome_salinfo = salobj.SalInfo(domain=self.csc.domain, name="ATDome", index=0)
+            atdome_state = salobj.topics.ControllerEvent(salinfo=atdome_salinfo, name="summaryState")
+
+            # Make the ATDome alarm stale.
+            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await self.assert_next_alarm(name=atdome_alarm_name,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=False,
+                                         acknowledgedBy="")
+
+            atdome_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await self.assert_next_alarm(name=atdome_alarm_name,
+                                         severity=AlarmSeverity.NONE,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=False,
+                                         acknowledgedBy="")
+
+            # Wait for automatic acknowledgement.
+            t0 = salobj.current_tai()
+            alarm = await self.assert_next_alarm(name=atdome_alarm_name,
+                                                 severity=AlarmSeverity.NONE,
+                                                 maxSeverity=AlarmSeverity.NONE,
+                                                 acknowledged=True,
+                                                 acknowledgedBy="automatic")
+            dt0 = salobj.current_tai() - t0
+            self.assertGreaterEqual(alarm.timestampAcknowledged, t0)
+            self.assertGreaterEqual(dt0, expected_auto_acknowledge_delay)
+
+            # Make the ATDome alarm acknowledged and not stale
+            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await self.assert_next_alarm(name=atdome_alarm_name,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=False,
+                                         acknowledgedBy="")
+
+            await self.remote.cmd_acknowledge.set_start(name=atdome_alarm_name,
+                                                        severity=AlarmSeverity.WARNING,
+                                                        acknowledgedBy=user)
+            await self.assert_next_alarm(name=atdome_alarm_name,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=True,
+                                         acknowledgedBy=user)
+
+            # Wait for automatic unacknowledgement
+            t1 = salobj.current_tai()
+            alarm = await self.assert_next_alarm(name=atdome_alarm_name,
+                                                 severity=AlarmSeverity.WARNING,
+                                                 maxSeverity=AlarmSeverity.WARNING,
+                                                 acknowledged=False,
+                                                 acknowledgedBy="")
+            dt1 = salobj.current_tai() - t1
+            self.assertGreaterEqual(alarm.timestampAcknowledged, t1)
+            self.assertGreaterEqual(dt1, expected_auto_unacknowledge_delay)
+
     async def test_show_alarms(self):
         """Test the showAlarms command."""
         async with self.make_csc(config_dir=TEST_CONFIG_DIR):
