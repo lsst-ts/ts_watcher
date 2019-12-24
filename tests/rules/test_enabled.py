@@ -56,7 +56,7 @@ class EnabledTestCase(asynctest.TestCase):
             self.assertEqual(getattr(config, key), config_dict[key])
         return config
 
-    def test_basics(self):
+    async def test_basics(self):
         schema = watcher.rules.Enabled.get_schema()
         self.assertIsNotNone(schema)
         name = "ScriptQueue"
