@@ -71,23 +71,19 @@ class Model:
         self._enabled = False
         self.enable_task = salobj.make_done_future()
 
-        # dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote
+        # Dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote
         self.remotes = dict()
-        """A dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote.
-        """
 
-        # dict of rule_name: Rule
+        # Dict of rule_name: Rule
         self.rules = dict()
-        """A dict of rule_name: Rule.
-        """
 
-        # convert the name of each disabled sal component from a string
+        # Convert the name of each disabled sal component from a string
         # in the form ``name`` or ``name:index`` to a tuple ``(name, index)``.
         config.disabled_sal_components = [salobj.name_to_name_index(name)
                                           for name in config.disabled_sal_components]
         self.config = config
 
-        # make the rules
+        # Make the rules.
         for ruledata in self.config.rules:
             ruleclassname = ruledata["classname"]
             ruleclass = get_rule_class(ruleclassname)
@@ -107,7 +103,7 @@ class Model:
                 if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
                     self.add_rule(rule)
 
-        # accumulate a list of topics that have callback functions
+        # Accumulate a list of topics that have callback functions.
         self._topics_with_callbacks = list()
         for remote in self.remotes.values():
             for name in dir(remote):
@@ -197,7 +193,7 @@ class Model:
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
         rule.alarm.callback = self.alarm_callback
-        # create remotes and add callbacks
+        # Create remotes and add callbacks.
         for remote_info in rule.remote_info_list:
             remote = self.remotes.get(remote_info.key, None)
             if remote is None:
@@ -216,7 +212,7 @@ class Model:
                     topic.callback = base.TopicCallback(topic=topic, rule=rule, model=self)
                 else:
                     topic.callback.add_rule(rule)
-        # add the rule
+        # Add the rule.
         self.rules[rule.name] = rule
 
     def get_rules(self, name_regex):
