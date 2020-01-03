@@ -434,6 +434,78 @@ class CscTestCase(asynctest.TestCase):
                 process.terminate()
             raise
 
+    async def test_unacknowledge(self):
+        """Test the unacknowledge command."""
+        user = "test_unacknowledge"
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
+            state = await self.remote.evt_summaryState.next(flush=False, timeout=LONG_TIMEOUT)
+            self.assertEqual(state.summaryState, salobj.State.STANDBY)
+
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED,
+                                           settingsToApply="two_scriptqueue_enabled.yaml")
+            alarm_name1 = "Enabled.ScriptQueue:1"
+            alarm_name2 = "Enabled.ScriptQueue:2"
+            self.assertEqual(len(self.csc.model.rules), 2)
+            self.assertEqual(list(self.csc.model.rules), [alarm_name1, alarm_name2])
+
+            # Make a summary state writer for alarm 1.
+            sq1_salinfo = salobj.SalInfo(domain=self.csc.domain, name="ScriptQueue", index=1)
+            sq1_state = salobj.topics.ControllerEvent(salinfo=sq1_salinfo, name="summaryState")
+
+            # Send alarm 1 to severity warning.
+            sq1_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await self.assert_next_alarm(name=alarm_name1,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=False,
+                                         acknowledgedBy="")
+
+            # Unacknowledge both alarms;
+            # this should not trigger an alarm event
+            # because alarm 1 is not acknowledged
+            # and alarm 2 is in nominal state
+            await self.remote.cmd_unacknowledge.set_start(name=".*")
+            with self.assertRaises(asyncio.TimeoutError):
+                await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
+            # Unacknowledge an acknowledged alarm and check the alarm event.
+            await self.remote.cmd_acknowledge.set_start(name=alarm_name1,
+                                                        severity=AlarmSeverity.WARNING,
+                                                        acknowledgedBy=user)
+            await self.assert_next_alarm(name=alarm_name1,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=True,
+                                         acknowledgedBy=user)
+
+            await self.remote.cmd_unacknowledge.set_start(name=alarm_name1)
+            await self.assert_next_alarm(name=alarm_name1,
+                                         severity=AlarmSeverity.WARNING,
+                                         maxSeverity=AlarmSeverity.WARNING,
+                                         acknowledged=False,
+                                         acknowledgedBy="")
+
+            # Unacknowledge a reset alarm;
+            # this should not trigger an alarm event.
+            sq1_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await self.assert_next_alarm(name=alarm_name1,
+                                         severity=AlarmSeverity.NONE,
+                                         maxSeverity=AlarmSeverity.WARNING)
+
+            await self.remote.cmd_acknowledge.set_start(name=alarm_name1,
+                                                        severity=AlarmSeverity.WARNING,
+                                                        acknowledgedBy=user)
+            await self.assert_next_alarm(name=alarm_name1,
+                                         severity=AlarmSeverity.NONE,
+                                         maxSeverity=AlarmSeverity.NONE,
+                                         acknowledged=True,
+                                         acknowledgedBy=user)
+
+            await self.remote.cmd_unacknowledge.set_start(name=alarm_name1)
+            with self.assertRaises(asyncio.TimeoutError):
+                await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
 
 if __name__ == "__main__":
     unittest.main()

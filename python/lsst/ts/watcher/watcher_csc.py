@@ -148,6 +148,12 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.output_alarm(alarm)
             await asyncio.sleep(0.001)
 
+    def do_unacknowledge(self, data):
+        """Unacknowledge one or more alarms.
+        """
+        self.assert_enabled("unacknowledge")
+        self.model.unacknowledge_alarm(name=data.name)
+
     def do_unmute(self, data):
         """Unmute one or more alarms.
         """
