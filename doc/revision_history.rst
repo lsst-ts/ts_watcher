@@ -6,10 +6,26 @@
 Revision History
 ################
 
+v1.0.0
+======
+
+Added the unacknowledge command.
+Added automatic unacknowledgement of active alarms and automatic acknowledgement of stale alarms, after configurable durations.
+
+Requires:
+
+* ts_salobj 5.2
+* ts_xml 4.6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v0.4.0
 ======
 
 Update for ts_salobj 5.2: rename initial_simulation_mode to simulation_mode.
+
+Requires:
 
 * ts_salobj 5.2
 * ts_xml 4.5
