@@ -251,6 +251,17 @@ class Model:
         for rule in self.get_rules(name):
             rule.alarm.mute(duration=duration, severity=severity, user=user)
 
+    def unacknowledge_alarm(self, name):
+        """Unacknowledge one or more alarms.
+
+        Parameters
+        ----------
+        name : `str`
+            Regular expression for alarm name(s) to unacknowledge.
+        """
+        for rule in self.get_rules(name):
+            rule.alarm.unacknowledge()
+
     def unmute_alarm(self, name):
         """Unmute one or more alarms.
 
