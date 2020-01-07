@@ -26,7 +26,7 @@ from lsst.ts import watcher
 
 
 class TestNoConfigTestCase(unittest.TestCase):
-    def test_basics(self):
+    async def test_basics(self):
         self.assertIsNone(watcher.rules.test.NoConfig.get_schema())
 
         desired_rule_name = "test.NoConfig"

@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import contextlib
 import types
 import unittest
 
@@ -54,25 +55,30 @@ class GetRuleClassTestCase(unittest.TestCase):
                 watcher.get_rule_class(bad_name)
 
 
-class EnabledRulesHarness:
-    """Make a Model with one or more Enabled rules.
+class ModelTestCase(asynctest.TestCase):
+    def setUp(self):
+        salobj.set_random_lsst_dds_domain()
 
-    Parameters
-    ----------
-    names : `list` [`str`]
-        Name and index of one or more CSCs.
-        Each entry is of the form "name" or name:index"
-    enable : `bool`
-        Enable the model?
-    """
-    def __init__(self, names, enable):
-        self.enable = enable
+    @contextlib.asynccontextmanager
+    async def make_model(self, names, enable):
+        """Make a Model as self.model, with one or more Enabled rules.
+
+        Parameters
+        ----------
+        names : `list` [`str`]
+            Name and index of one or more CSCs.
+            Each entry is of the form "name" or name:index"
+        enable : `bool`
+            Enable the model?
+        """
         if not names:
             raise ValueError("Must specify one or more CSCs")
         self.name_index_list = [salobj.name_to_name_index(name) for name in names]
 
         configs = [dict(name=name_index) for name_index in names]
         watcher_config_dict = dict(disabled_sal_components=[],
+                                   auto_acknowledge_delay=3600,
+                                   auto_unacknowledge_delay=3600,
                                    rules=[dict(classname="Enabled",
                                                configs=configs)])
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
@@ -92,7 +98,32 @@ class EnabledRulesHarness:
             self.read_severities[name] = []
             self.read_max_severities[name] = []
 
+        controller_start_tasks = [controller.start_task for controller in self.controllers]
+        await asyncio.gather(self.model.start_task, *controller_start_tasks)
+        if enable:
+            self.model.enable()
+            await self.model.enable_task
+
+        for rule in self.model.rules.values():
+            self.assertTrue(rule.alarm.nominal)
+            self.assertFalse(rule.alarm.acknowledged)
+            self.assertFalse(rule.alarm.muted)
+            self.assertNotMuted(rule.alarm)
+
+        try:
+            yield
+        finally:
+            await self.model.close()
+            controller_close_tasks = [asyncio.create_task(controller.close())
+                                      for controller in self.controllers]
+            await asyncio.gather(*controller_close_tasks)
+
     def alarm_callback(self, alarm):
+        """Callback function for each alarm.
+
+        Updates self.read_severities and self.read_max_severities,
+        dicts of alarm_name: list of severity/max_severity.
+        """
         self.read_severities[alarm.name].append(alarm.severity)
         self.read_max_severities[alarm.name].append(alarm.max_severity)
         # Print the state to aid debugging test failures.
@@ -108,25 +139,7 @@ class EnabledRulesHarness:
             # give the remote a chance to read the data
             await asyncio.sleep(0.01)
 
-    async def __aenter__(self):
-        controller_start_tasks = [controller.start_task for controller in self.controllers]
-        await asyncio.gather(self.model.start_task, *controller_start_tasks)
-        if self.enable:
-            self.model.enable()
-            await self.model.enable_task
-        return self
-
-    async def __aexit__(self, *args):
-        await self.model.close()
-        controller_close_tasks = [asyncio.create_task(controller.close()) for controller in self.controllers]
-        await asyncio.gather(*controller_close_tasks)
-
-
-class ModelTestCase(asynctest.TestCase):
-    def setUp(self):
-        salobj.set_random_lsst_dds_domain()
-
-    def assertMuted(self, alarm, muted_severity, muted_by):
+    def assert_muted(self, alarm, muted_severity, muted_by):
         """Assert that the specified alarm is muted.
 
         Parameters
@@ -154,39 +167,29 @@ class ModelTestCase(asynctest.TestCase):
         self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
         self.assertEqual(alarm.muted_by, "")
 
-    def check_initial_conditions(self, harness):
-        """Check that all alarms are in the expected initial state.
-        """
-        for rule in harness.model.rules.values():
-            self.assertTrue(rule.alarm.nominal)
-            self.assertFalse(rule.alarm.acknowledged)
-            self.assertFalse(rule.alarm.muted)
-            self.assertNotMuted(rule.alarm)
-
     async def test_acknowledge_full_name(self):
         user = "test_ack_alarm"
         remote_names = ["ScriptQueue:5", "Test:7"]
         nrules = len(remote_names)
 
-        async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
+        async with self.make_model(names=remote_names, enable=True):
             full_rule_name = f"Enabled.{remote_names[0]}"
-            self.assertIn(full_rule_name, harness.model.rules)
-            self.check_initial_conditions(harness)
+            self.assertIn(full_rule_name, self.model.rules)
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
-                await harness.write_states(index=index, states=[salobj.State.STANDBY])
+                await self.write_states(index=index, states=[salobj.State.STANDBY])
 
-            for name, rule in harness.model.rules.items():
+            for name, rule in self.model.rules.items():
                 self.assertFalse(rule.alarm.nominal)
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
 
             # Acknowledge one rule by full name but not the other.
-            harness.model.acknowledge_alarm(name=full_rule_name,
-                                            severity=AlarmSeverity.WARNING,
-                                            user=user)
-            for name, rule in harness.model.rules.items():
+            self.model.acknowledge_alarm(name=full_rule_name,
+                                         severity=AlarmSeverity.WARNING,
+                                         user=user)
+            for name, rule in self.model.rules.items():
                 if name == full_rule_name:
                     self.assertTrue(rule.alarm.acknowledged)
                     self.assertEqual(rule.alarm.acknowledged_by, user)
@@ -199,24 +202,23 @@ class ModelTestCase(asynctest.TestCase):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:62"]
         nrules = len(remote_names)
 
-        async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            self.assertEqual(len(harness.model.rules), nrules)
-            self.check_initial_conditions(harness)
+        async with self.make_model(names=remote_names, enable=True):
+            self.assertEqual(len(self.model.rules), nrules)
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
-                await harness.write_states(index=index, states=[salobj.State.STANDBY])
+                await self.write_states(index=index, states=[salobj.State.STANDBY])
 
-            for rule in harness.model.rules.values():
+            for rule in self.model.rules.values():
                 self.assertFalse(rule.alarm.nominal)
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
 
             # Acknowledge the ScriptQueue alarms but not Test.
-            harness.model.acknowledge_alarm(name="Enabled.ScriptQueue.*",
-                                            severity=AlarmSeverity.WARNING,
-                                            user=user)
-            for name, rule in harness.model.rules.items():
+            self.model.acknowledge_alarm(name="Enabled.ScriptQueue.*",
+                                         severity=AlarmSeverity.WARNING,
+                                         user=user)
+            for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
                     self.assertTrue(rule.alarm.acknowledged)
                     self.assertEqual(rule.alarm.acknowledged_by, user)
@@ -227,87 +229,87 @@ class ModelTestCase(asynctest.TestCase):
     async def test_enable(self):
         remote_names = ["ScriptQueue:5", "Test:7"]
 
-        async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
+        async with self.make_model(names=remote_names, enable=True):
 
-            self.assertEqual(len(harness.model.rules), 2)
+            self.assertEqual(len(self.model.rules), 2)
 
             # Enable the model and write ENABLED several times.
             # This triggers the rule callback but that does not
             # change the state of the alarm.
-            harness.model.enable()
-            await harness.model.enable_task
+            self.model.enable()
+            await self.model.enable_task
             for index in range(len(remote_names)):
-                await harness.write_states(index=index, states=(salobj.State.ENABLED,
-                                                                salobj.State.ENABLED,
-                                                                salobj.State.ENABLED))
+                await self.write_states(index=index, states=(salobj.State.ENABLED,
+                                                             salobj.State.ENABLED,
+                                                             salobj.State.ENABLED))
 
-            for name, rule in harness.model.rules.items():
+            for name, rule in self.model.rules.items():
                 self.assertTrue(rule.alarm.nominal)
-                self.assertEqual(harness.read_severities[name], [])
-                self.assertEqual(harness.read_max_severities[name], [])
+                self.assertEqual(self.read_severities[name], [])
+                self.assertEqual(self.read_max_severities[name], [])
 
             # Disable the model and issue several events that would
             # trigger an alarm if the model was enabled. Since the
             # model is disabled the alarm does not change states.
-            harness.model.disable()
+            self.model.disable()
             for index in range(len(remote_names)):
-                await harness.write_states(index=index, states=(salobj.State.FAULT,
-                                                                salobj.State.STANDBY))
-            for name, rule in harness.model.rules.items():
+                await self.write_states(index=index, states=(salobj.State.FAULT,
+                                                             salobj.State.STANDBY))
+            for name, rule in self.model.rules.items():
                 self.assertTrue(rule.alarm.nominal)
-                self.assertEqual(harness.read_severities[name], [])
-                self.assertEqual(harness.read_max_severities[name], [])
+                self.assertEqual(self.read_severities[name], [])
+                self.assertEqual(self.read_max_severities[name], [])
 
             # Enable the model. This will trigger a callback with
             # the current state of the event (STANDBY).
             # Note that the earlier FAULT event is is ignored
             # because it arrived while disabled.
-            harness.model.enable()
-            await harness.model.enable_task
-            for name, rule in harness.model.rules.items():
+            self.model.enable()
+            await self.model.enable_task
+            for name, rule in self.model.rules.items():
                 self.assertFalse(rule.alarm.nominal)
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
-                self.assertEqual(harness.read_severities[name], [AlarmSeverity.WARNING])
-                self.assertEqual(harness.read_max_severities[name], [AlarmSeverity.WARNING])
+                self.assertEqual(self.read_severities[name], [AlarmSeverity.WARNING])
+                self.assertEqual(self.read_max_severities[name], [AlarmSeverity.WARNING])
 
             # Issue more events; they should be processed normally.
             for index in range(len(remote_names)):
-                await harness.write_states(index=index, states=(salobj.State.FAULT,
-                                                                salobj.State.STANDBY))
-            for name, rule in harness.model.rules.items():
+                await self.write_states(index=index, states=(salobj.State.FAULT,
+                                                             salobj.State.STANDBY))
+            for name, rule in self.model.rules.items():
                 self.assertFalse(rule.alarm.nominal)
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.SERIOUS)
-                self.assertEqual(harness.read_severities[name], [AlarmSeverity.WARNING,
-                                                                 AlarmSeverity.SERIOUS,
-                                                                 AlarmSeverity.WARNING])
-                self.assertEqual(harness.read_max_severities[name], [AlarmSeverity.WARNING,
-                                                                     AlarmSeverity.SERIOUS,
-                                                                     AlarmSeverity.SERIOUS])
+                self.assertEqual(self.read_severities[name], [AlarmSeverity.WARNING,
+                                                              AlarmSeverity.SERIOUS,
+                                                              AlarmSeverity.WARNING])
+                self.assertEqual(self.read_max_severities[name], [AlarmSeverity.WARNING,
+                                                                  AlarmSeverity.SERIOUS,
+                                                                  AlarmSeverity.SERIOUS])
 
     async def test_get_rules(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
 
-        async with EnabledRulesHarness(names=remote_names, enable=False) as harness:
-            rules = harness.model.get_rules("NoSuchName")
+        async with self.make_model(names=remote_names, enable=False):
+            rules = self.model.get_rules("NoSuchName")
             self.assertEqual(len(list(rules)), 0)
 
             # Search starts at beginning, so Enabled.foo works
             # but foo does not.
-            rules = harness.model.get_rules("ScriptQueue")
+            rules = self.model.get_rules("ScriptQueue")
             self.assertEqual(len(list(rules)), 0)
 
-            rules = harness.model.get_rules(".*")
+            rules = self.model.get_rules(".*")
             self.assertEqual(len(list(rules)), len(remote_names))
 
-            rules = harness.model.get_rules("Enabled")
+            rules = self.model.get_rules("Enabled")
             self.assertEqual(len(list(rules)), len(remote_names))
 
-            rules = harness.model.get_rules("Enabled.ScriptQueue")
+            rules = self.model.get_rules("Enabled.ScriptQueue")
             self.assertEqual(len(list(rules)), 2)
 
-            rules = harness.model.get_rules("Enabled.Test")
+            rules = self.model.get_rules("Enabled.Test")
             self.assertEqual(len(list(rules)), 3)
 
     async def test_mute_full_name(self):
@@ -316,25 +318,24 @@ class ModelTestCase(asynctest.TestCase):
         user = "test_mute_alarm"
         remote_names = ["ScriptQueue:5", "Test:7"]
 
-        async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
+        async with self.make_model(names=remote_names, enable=True):
             full_rule_name = f"Enabled.{remote_names[0]}"
-            self.assertIn(full_rule_name, harness.model.rules)
-            self.check_initial_conditions(harness)
+            self.assertIn(full_rule_name, self.model.rules)
 
             # Mute one rule by full name.
-            harness.model.mute_alarm(name=full_rule_name,
-                                     duration=5,
-                                     severity=AlarmSeverity.WARNING,
-                                     user=user)
-            for name, rule in harness.model.rules.items():
+            self.model.mute_alarm(name=full_rule_name,
+                                  duration=5,
+                                  severity=AlarmSeverity.WARNING,
+                                  user=user)
+            for name, rule in self.model.rules.items():
                 if name == full_rule_name:
-                    self.assertMuted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
+                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
                 else:
                     self.assertNotMuted(rule.alarm)
 
             # Nnmute one rule by full name.
-            harness.model.unmute_alarm(name=full_rule_name)
-            for rule in harness.model.rules.values():
+            self.model.unmute_alarm(name=full_rule_name)
+            for rule in self.model.rules.values():
                 self.assertNotMuted(rule.alarm)
 
     async def test_mute_regex(self):
@@ -344,24 +345,23 @@ class ModelTestCase(asynctest.TestCase):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:62"]
         nrules = len(remote_names)
 
-        async with EnabledRulesHarness(names=remote_names, enable=True) as harness:
-            self.assertEqual(len(harness.model.rules), nrules)
-            self.check_initial_conditions(harness)
+        async with self.make_model(names=remote_names, enable=True):
+            self.assertEqual(len(self.model.rules), nrules)
 
             # Mute the ScriptQueue alarms but not Test.
-            harness.model.mute_alarm(name="Enabled.ScriptQueue.*",
-                                     duration=5,
-                                     severity=AlarmSeverity.WARNING,
-                                     user=user)
-            for name, rule in harness.model.rules.items():
+            self.model.mute_alarm(name="Enabled.ScriptQueue.*",
+                                  duration=5,
+                                  severity=AlarmSeverity.WARNING,
+                                  user=user)
+            for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
-                    self.assertMuted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
+                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
                 else:
                     self.assertNotMuted(rule.alarm)
 
             # Unmute the ScriptQueue alarms but not Test.
-            harness.model.unmute_alarm(name="Enabled.ScriptQueue.*")
-            for rule in harness.model.rules.values():
+            self.model.unmute_alarm(name="Enabled.ScriptQueue.*")
+            for rule in self.model.rules.values():
                 self.assertNotMuted(rule.alarm)
 
 

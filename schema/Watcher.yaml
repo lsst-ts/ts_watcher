@@ -9,11 +9,27 @@ properties:
   disabled_sal_components:
     description: >-
       Names of SAL components that the Watcher will ignored.
-      The format is component_name:index where the colon and index are optional if the index is 0.
+      The format is component_name:index where :index is optional if the index is 0.
     type: array
     default: []
     items:
       type: string
+  auto_acknowledge_delay:
+    description: >-
+      Delay (in seconds) before a stale alarm is automatically acknowledged,
+      or 0 for no automatic acknowledgement.
+      A stale alarm is one that has not yet been acknowledged, but its
+      severity has gone to NONE.
+    type: number
+    default: 3600
+  auto_unacknowledge_delay:
+    description: >-
+      Delay (in seconds) before an acknowledged alarm is automatically
+      unacknowledged, or 0 for no automatic unacknowledgement.
+      Automatic unacknowledgement only occurs if the alarm persists,
+      because an acknowledged alarm is reset if the severity goes to NONE.
+    type: number
+    default: 3600
   rules:
     description: Rules and rule configuration.
     type: array

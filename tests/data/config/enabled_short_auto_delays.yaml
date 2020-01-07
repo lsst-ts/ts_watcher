@@ -1,0 +1,6 @@
+auto_acknowledge_delay: 0.51
+auto_unacknowledge_delay: 0.52
+rules:
+- classname: Enabled
+  configs:
+  - name: ATDome

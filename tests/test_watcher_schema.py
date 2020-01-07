@@ -58,6 +58,8 @@ class WatcherSchemaTestCase(unittest.TestCase):
         validated_dict = self.validator.validate(config_dict)
         config = types.SimpleNamespace(**validated_dict)
         self.assertEqual(config.disabled_sal_components, [])
+        self.assertEqual(config.auto_acknowledge_delay, 3600)
+        self.assertEqual(config.auto_unacknowledge_delay, 3600)
         self.assertEqual(len(config.rules), 2)
         rule0_dict = config.rules[0]
         self.assertEqual(rule0_dict["classname"], "test.ConfiguredSeverities")
@@ -71,6 +73,8 @@ class WatcherSchemaTestCase(unittest.TestCase):
         validated_dict = self.validator.validate(config_dict)
         config = types.SimpleNamespace(**validated_dict)
         self.assertEqual(config.disabled_sal_components, ["ATCamera"])
+        self.assertEqual(config.auto_acknowledge_delay, 1001)
+        self.assertEqual(config.auto_unacknowledge_delay, 1002)
         self.assertEqual(len(config.rules), 1)
         rule0_dict = config.rules[0]
         self.assertEqual(rule0_dict["classname"], "Enabled")
