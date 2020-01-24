@@ -83,7 +83,8 @@ class HeartbeatTestCase(asynctest.TestCase):
         index = 5
         timeout = 0.2
 
-        watcher_config_dict = yaml.safe_load(f"""
+        watcher_config_dict = yaml.safe_load(
+            f"""
             disabled_sal_components: []
             auto_acknowledge_delay: 3600
             auto_unacknowledge_delay: 3600
@@ -92,11 +93,14 @@ class HeartbeatTestCase(asynctest.TestCase):
               configs:
               - name: {name}:{index}
                 timeout: {timeout}
-            """)
+            """
+        )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
+            async with watcher.Model(
+                domain=controller.domain, config=watcher_config
+            ) as model:
                 model.enable()
 
                 self.assertEqual(len(model.rules), 1)
@@ -108,12 +112,12 @@ class HeartbeatTestCase(asynctest.TestCase):
                 await asyncio.sleep(0.001)
                 self.assertTrue(alarm.nominal)
 
-                await asyncio.sleep(timeout/2)
+                await asyncio.sleep(timeout / 2)
                 controller.evt_heartbeat.put()
                 await asyncio.sleep(0.001)
                 self.assertTrue(alarm.nominal)
 
-                await asyncio.sleep(timeout*2)
+                await asyncio.sleep(timeout * 2)
                 self.assertFalse(alarm.nominal)
                 self.assertEqual(alarm.severity, AlarmSeverity.SERIOUS)
                 controller.evt_heartbeat.put()

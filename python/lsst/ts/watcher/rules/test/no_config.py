@@ -46,10 +46,9 @@ class NoConfig(base.BaseRule):
     -----
     The alarm name is "test.NoConfig".
     """
+
     def __init__(self, config):
-        super().__init__(config=config,
-                         name="test.NoConfig",
-                         remote_info_list=[])
+        super().__init__(config=config, name="test.NoConfig", remote_info_list=[])
 
     @classmethod
     def get_schema(cls):

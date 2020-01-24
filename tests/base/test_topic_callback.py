@@ -74,19 +74,27 @@ class TopicCallbackTestCase(asynctest.TestCase):
 
         rule, read_severities = self.make_enabled_rule()
 
-        async with salobj.Controller(name="Test", index=self.index) as controller, \
-                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                              readonly=True, include=["summaryState"]) as remote:
-            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
-                                                   rule=rule,
-                                                   model=model)
+        async with salobj.Controller(
+            name="Test", index=self.index
+        ) as controller, salobj.Remote(
+            domain=controller.domain,
+            name="Test",
+            index=self.index,
+            readonly=True,
+            include=["summaryState"],
+        ) as remote:
+            topic_callback = watcher.TopicCallback(
+                topic=remote.evt_summaryState, rule=rule, model=model
+            )
             self.assertEqual(topic_callback.attr_name, "evt_summaryState")
             self.assertEqual(topic_callback.remote_name, "Test")
             self.assertEqual(topic_callback.remote_index, self.index)
             self.assertEqual(topic_callback.get(), None)
             self.assertEqual(read_severities, [])
 
-            controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            controller.evt_summaryState.set_put(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await asyncio.sleep(0.001)
             self.assertEqual(read_severities, [AlarmSeverity.WARNING])
 
@@ -96,17 +104,25 @@ class TopicCallbackTestCase(asynctest.TestCase):
         rule, read_severities = self.make_enabled_rule()
         rule2, read_severities2 = self.make_enabled_rule()
 
-        async with salobj.Controller(name="Test", index=self.index) as controller, \
-                salobj.Remote(domain=controller.domain, name="Test", index=self.index,
-                              readonly=True, include=["summaryState"]) as remote:
-            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState,
-                                                   rule=rule,
-                                                   model=model)
+        async with salobj.Controller(
+            name="Test", index=self.index
+        ) as controller, salobj.Remote(
+            domain=controller.domain,
+            name="Test",
+            index=self.index,
+            readonly=True,
+            include=["summaryState"],
+        ) as remote:
+            topic_callback = watcher.TopicCallback(
+                topic=remote.evt_summaryState, rule=rule, model=model
+            )
 
             self.assertEqual(read_severities, [])
             self.assertEqual(read_severities2, [])
 
-            controller.evt_summaryState.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            controller.evt_summaryState.set_put(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await asyncio.sleep(0.001)
 
             self.assertEqual(read_severities, [AlarmSeverity.WARNING])
@@ -120,10 +136,13 @@ class TopicCallbackTestCase(asynctest.TestCase):
             # modify the rule and try again
             rule2.alarm.name = rule2.alarm.name + "modified"
             topic_callback.add_rule(rule2)
-            controller.evt_summaryState.set_put(summaryState=salobj.State.FAULT, force_output=True)
+            controller.evt_summaryState.set_put(
+                summaryState=salobj.State.FAULT, force_output=True
+            )
             await asyncio.sleep(0.001)
-            self.assertEqual(read_severities, [AlarmSeverity.WARNING,
-                                               AlarmSeverity.SERIOUS])
+            self.assertEqual(
+                read_severities, [AlarmSeverity.WARNING, AlarmSeverity.SERIOUS]
+            )
             self.assertEqual(read_severities2, [AlarmSeverity.SERIOUS])
 
 

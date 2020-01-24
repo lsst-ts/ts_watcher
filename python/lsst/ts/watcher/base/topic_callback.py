@@ -37,6 +37,7 @@ class TopicCallback:
         Watcher model. Used by `__call__`
         to check if the model is enabled.
     """
+
     def __init__(self, topic, rule, model):
         self._topic = topic
         self.rules = {rule.name: rule}
@@ -89,5 +90,7 @@ class TopicCallback:
                 severity, reason = rule(self)
                 rule.alarm.set_severity(severity=severity, reason=reason)
             except Exception:
-                self._topic.log.exception(f"Error calling rule {rule.name} with value {value!s}")
+                self._topic.log.exception(
+                    f"Error calling rule {rule.name} with value {value!s}"
+                )
                 pass

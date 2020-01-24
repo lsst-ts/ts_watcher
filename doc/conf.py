@@ -8,6 +8,8 @@ import lsst.ts.watcher
 
 
 _g = globals()
-_g.update(build_package_configs(
-    project_name='ts_watcher',
-    version=lsst.ts.watcher.version.__version__))
+_g.update(
+    build_package_configs(
+        project_name="ts_watcher", version=lsst.ts.watcher.version.__version__
+    )
+)

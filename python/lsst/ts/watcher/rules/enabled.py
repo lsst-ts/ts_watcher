@@ -47,13 +47,17 @@ class Enabled(base.BaseRule):
 
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(name=remote_name,
-                                      index=remote_index,
-                                      callback_names=["evt_summaryState"],
-                                      poll_names=[])
-        super().__init__(config=config,
-                         name=f"Enabled.{remote_info.name}:{remote_info.index}",
-                         remote_info_list=[remote_info])
+        remote_info = base.RemoteInfo(
+            name=remote_name,
+            index=remote_index,
+            callback_names=["evt_summaryState"],
+            poll_names=[],
+        )
+        super().__init__(
+            config=config,
+            name=f"Enabled.{remote_info.name}:{remote_info.index}",
+            remote_info_list=[remote_info],
+        )
 
     @classmethod
     def get_schema(cls):

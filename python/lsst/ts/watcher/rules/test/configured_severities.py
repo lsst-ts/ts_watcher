@@ -49,10 +49,13 @@ class ConfiguredSeverities(base.BaseRule):
     -----
     The alarm name is ``f"test.ConfiguredSeverities.{config.name}"``
     """
+
     def __init__(self, config):
-        super().__init__(config=config,
-                         name=f"test.ConfiguredSeverities.{config.name}",
-                         remote_info_list=[])
+        super().__init__(
+            config=config,
+            name=f"test.ConfiguredSeverities.{config.name}",
+            remote_info_list=[],
+        )
         self.run_timer = salobj.make_done_future()
 
     @classmethod

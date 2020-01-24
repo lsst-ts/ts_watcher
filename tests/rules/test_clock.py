@@ -36,6 +36,7 @@ LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 class HeartbeatWriter(salobj.topics.ControllerEvent):
     """A heartbeat event writer with incorrect private_sndStamp.
     """
+
     def __init__(self, salinfo):
         super().__init__(salinfo=salinfo, name="heartbeat")
 
@@ -108,7 +109,8 @@ class ClockTestCase(asynctest.TestCase):
         index = 5
         threshold = 0.5
 
-        watcher_config_dict = yaml.safe_load(f"""
+        watcher_config_dict = yaml.safe_load(
+            f"""
             disabled_sal_components: []
             auto_acknowledge_delay: 3600
             auto_unacknowledge_delay: 3600
@@ -117,7 +119,8 @@ class ClockTestCase(asynctest.TestCase):
               configs:
               - name: {name}:{index}
                 threshold: {threshold}
-            """)
+            """
+        )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Domain() as domain:
@@ -137,7 +140,7 @@ class ClockTestCase(asynctest.TestCase):
                 # ``min_errors`` sequential time errors for an alarm.
                 bad_dt = threshold + 0.1
                 good_dt = threshold * 0.9
-                for i in range(rule.min_errors-1):
+                for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
                     self.assertTrue(alarm.nominal)
 
@@ -156,7 +159,7 @@ class ClockTestCase(asynctest.TestCase):
                 # Sending fewer than Clock.min_errors heartbeat events
                 # with excessive error should leave the alarm severity
                 # at NONE
-                for i in range(rule.min_errors-1):
+                for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
                     self.assertEqual(alarm.severity, AlarmSeverity.NONE)
 

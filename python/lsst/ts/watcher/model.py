@@ -64,6 +64,7 @@ class Model:
         It receives one argument: the alarm.
         If None then no callback occurs.
     """
+
     def __init__(self, domain, config, alarm_callback=None):
         self.domain = domain
         self.alarm_callback = alarm_callback
@@ -79,8 +80,9 @@ class Model:
 
         # Convert the name of each disabled sal component from a string
         # in the form ``name`` or ``name:index`` to a tuple ``(name, index)``.
-        config.disabled_sal_components = [salobj.name_to_name_index(name)
-                                          for name in config.disabled_sal_components]
+        config.disabled_sal_components = [
+            salobj.name_to_name_index(name) for name in config.disabled_sal_components
+        ]
         self.config = config
 
         # Make the rules.
@@ -91,16 +93,22 @@ class Model:
                 ruleschema = ruleclass.get_schema()
                 validator = salobj.DefaultingValidator(ruleschema)
             except Exception as e:
-                raise ValueError(f"Schema for rule class {ruleclassname} not valid") from e
+                raise ValueError(
+                    f"Schema for rule class {ruleclassname} not valid"
+                ) from e
             for i, ruleconfig_dict in enumerate(ruledata["configs"]):
                 try:
                     full_ruleconfig_dict = validator.validate(ruleconfig_dict)
                     ruleconfig = types.SimpleNamespace(**full_ruleconfig_dict)
                 except Exception as e:
-                    raise ValueError(f"Config {i+1} for rule class {ruleclassname} not valid: "
-                                     f"config={ruleconfig_dict}") from e
+                    raise ValueError(
+                        f"Config {i+1} for rule class {ruleclassname} not valid: "
+                        f"config={ruleconfig_dict}"
+                    ) from e
                 rule = ruleclass(config=ruleconfig)
-                if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
+                if rule.is_usable(
+                    disabled_sal_components=config.disabled_sal_components
+                ):
                     self.add_rule(rule)
 
         # Accumulate a list of topics that have callback functions.
@@ -192,26 +200,39 @@ class Model:
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
-        rule.alarm.configure(callback=self.alarm_callback,
-                             auto_acknowledge_delay=self.config.auto_acknowledge_delay,
-                             auto_unacknowledge_delay=self.config.auto_unacknowledge_delay)
+        rule.alarm.configure(
+            callback=self.alarm_callback,
+            auto_acknowledge_delay=self.config.auto_acknowledge_delay,
+            auto_unacknowledge_delay=self.config.auto_unacknowledge_delay,
+        )
         # Create remotes and add callbacks.
         for remote_info in rule.remote_info_list:
             remote = self.remotes.get(remote_info.key, None)
             if remote is None:
-                remote = salobj.Remote(domain=self.domain,
-                                       name=remote_info.name, index=remote_info.index,
-                                       readonly=True, include=[], start=False)
+                remote = salobj.Remote(
+                    domain=self.domain,
+                    name=remote_info.name,
+                    index=remote_info.index,
+                    readonly=True,
+                    include=[],
+                    start=False,
+                )
                 self.remotes[remote_info.key] = remote
-            wrapper = base.RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
+            wrapper = base.RemoteWrapper(
+                remote=remote, topic_names=remote_info.topic_names
+            )
             setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
                 topic = getattr(remote, topic_name, None)
                 if topic is None:
-                    raise RuntimeError(f"Bug: could not get topic {topic_name} from remote "
-                                       "after constructing the remote wrapper")
+                    raise RuntimeError(
+                        f"Bug: could not get topic {topic_name} from remote "
+                        "after constructing the remote wrapper"
+                    )
                 if topic.callback is None:
-                    topic.callback = base.TopicCallback(topic=topic, rule=rule, model=self)
+                    topic.callback = base.TopicCallback(
+                        topic=topic, rule=rule, model=self
+                    )
                 else:
                     topic.callback.add_rule(rule)
         # Add the rule.
@@ -231,7 +252,11 @@ class Model:
             An iterator over rules.
         """
         compiled_re = re.compile(name_regex)
-        return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
+        return (
+            rule
+            for name, rule in self.rules.items()
+            if compiled_re.match(name) is not None
+        )
 
     def mute_alarm(self, name, duration, severity, user):
         """Mute one or more alarms for a specified duration.

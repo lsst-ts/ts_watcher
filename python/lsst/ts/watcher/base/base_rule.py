@@ -29,6 +29,7 @@ from . import alarm
 
 class RuleDisabled(Exception):
     """Raised by BaseRule's constructor if the rule is disabled."""
+
     pass
 
 
@@ -58,6 +59,7 @@ class BaseRule(abc.ABC):
     ``lowerremotename`` is the name of the remote converted to lowercase
     and the index is the integer index of the remote, e.g. "atptg_0".
     """
+
     def __init__(self, config, name, remote_info_list):
         self.config = config
         self.remote_info_list = remote_info_list

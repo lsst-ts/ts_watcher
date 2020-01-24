@@ -34,6 +34,7 @@ from lsst.ts import watcher
 class GetRuleClassTestCase(unittest.TestCase):
     """Test `lsst.ts.watcher.get_rule_class`.
     """
+
     def test_good_names(self):
         for classname, desired_class in (
             ("Enabled", watcher.rules.Enabled),
@@ -76,11 +77,12 @@ class ModelTestCase(asynctest.TestCase):
         self.name_index_list = [salobj.name_to_name_index(name) for name in names]
 
         configs = [dict(name=name_index) for name_index in names]
-        watcher_config_dict = dict(disabled_sal_components=[],
-                                   auto_acknowledge_delay=3600,
-                                   auto_unacknowledge_delay=3600,
-                                   rules=[dict(classname="Enabled",
-                                               configs=configs)])
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="Enabled", configs=configs)],
+        )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         self.read_severities = dict()
@@ -90,15 +92,19 @@ class ModelTestCase(asynctest.TestCase):
         for name_index in names:
             name, index = salobj.name_to_name_index(name_index)
             self.controllers.append(salobj.Controller(name=name, index=index))
-        self.model = watcher.Model(domain=self.controllers[0].domain,
-                                   config=watcher_config,
-                                   alarm_callback=self.alarm_callback)
+        self.model = watcher.Model(
+            domain=self.controllers[0].domain,
+            config=watcher_config,
+            alarm_callback=self.alarm_callback,
+        )
 
         for name in self.model.rules:
             self.read_severities[name] = []
             self.read_max_severities[name] = []
 
-        controller_start_tasks = [controller.start_task for controller in self.controllers]
+        controller_start_tasks = [
+            controller.start_task for controller in self.controllers
+        ]
         await asyncio.gather(self.model.start_task, *controller_start_tasks)
         if enable:
             self.model.enable()
@@ -114,8 +120,10 @@ class ModelTestCase(asynctest.TestCase):
             yield
         finally:
             await self.model.close()
-            controller_close_tasks = [asyncio.create_task(controller.close())
-                                      for controller in self.controllers]
+            controller_close_tasks = [
+                asyncio.create_task(controller.close())
+                for controller in self.controllers
+            ]
             await asyncio.gather(*controller_close_tasks)
 
     def alarm_callback(self, alarm):
@@ -127,8 +135,10 @@ class ModelTestCase(asynctest.TestCase):
         self.read_severities[alarm.name].append(alarm.severity)
         self.read_max_severities[alarm.name].append(alarm.max_severity)
         # Print the state to aid debugging test failures.
-        print(f"alarm_callback({alarm.name}, severity={alarm.severity!r}): "
-              f"read_severities={self.read_severities[alarm.name]}")
+        print(
+            f"alarm_callback({alarm.name}, severity={alarm.severity!r}): "
+            f"read_severities={self.read_severities[alarm.name]}"
+        )
 
     async def write_states(self, index, states):
         """Write a sequence of summary states to a specified controller.
@@ -186,9 +196,9 @@ class ModelTestCase(asynctest.TestCase):
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
 
             # Acknowledge one rule by full name but not the other.
-            self.model.acknowledge_alarm(name=full_rule_name,
-                                         severity=AlarmSeverity.WARNING,
-                                         user=user)
+            self.model.acknowledge_alarm(
+                name=full_rule_name, severity=AlarmSeverity.WARNING, user=user
+            )
             for name, rule in self.model.rules.items():
                 if name == full_rule_name:
                     self.assertTrue(rule.alarm.acknowledged)
@@ -215,9 +225,9 @@ class ModelTestCase(asynctest.TestCase):
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
 
             # Acknowledge the ScriptQueue alarms but not Test.
-            self.model.acknowledge_alarm(name="Enabled.ScriptQueue.*",
-                                         severity=AlarmSeverity.WARNING,
-                                         user=user)
+            self.model.acknowledge_alarm(
+                name="Enabled.ScriptQueue.*", severity=AlarmSeverity.WARNING, user=user
+            )
             for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
                     self.assertTrue(rule.alarm.acknowledged)
@@ -239,9 +249,14 @@ class ModelTestCase(asynctest.TestCase):
             self.model.enable()
             await self.model.enable_task
             for index in range(len(remote_names)):
-                await self.write_states(index=index, states=(salobj.State.ENABLED,
-                                                             salobj.State.ENABLED,
-                                                             salobj.State.ENABLED))
+                await self.write_states(
+                    index=index,
+                    states=(
+                        salobj.State.ENABLED,
+                        salobj.State.ENABLED,
+                        salobj.State.ENABLED,
+                    ),
+                )
 
             for name, rule in self.model.rules.items():
                 self.assertTrue(rule.alarm.nominal)
@@ -253,8 +268,9 @@ class ModelTestCase(asynctest.TestCase):
             # model is disabled the alarm does not change states.
             self.model.disable()
             for index in range(len(remote_names)):
-                await self.write_states(index=index, states=(salobj.State.FAULT,
-                                                             salobj.State.STANDBY))
+                await self.write_states(
+                    index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
+                )
             for name, rule in self.model.rules.items():
                 self.assertTrue(rule.alarm.nominal)
                 self.assertEqual(self.read_severities[name], [])
@@ -271,22 +287,35 @@ class ModelTestCase(asynctest.TestCase):
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
                 self.assertEqual(self.read_severities[name], [AlarmSeverity.WARNING])
-                self.assertEqual(self.read_max_severities[name], [AlarmSeverity.WARNING])
+                self.assertEqual(
+                    self.read_max_severities[name], [AlarmSeverity.WARNING]
+                )
 
             # Issue more events; they should be processed normally.
             for index in range(len(remote_names)):
-                await self.write_states(index=index, states=(salobj.State.FAULT,
-                                                             salobj.State.STANDBY))
+                await self.write_states(
+                    index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
+                )
             for name, rule in self.model.rules.items():
                 self.assertFalse(rule.alarm.nominal)
                 self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
                 self.assertEqual(rule.alarm.max_severity, AlarmSeverity.SERIOUS)
-                self.assertEqual(self.read_severities[name], [AlarmSeverity.WARNING,
-                                                              AlarmSeverity.SERIOUS,
-                                                              AlarmSeverity.WARNING])
-                self.assertEqual(self.read_max_severities[name], [AlarmSeverity.WARNING,
-                                                                  AlarmSeverity.SERIOUS,
-                                                                  AlarmSeverity.SERIOUS])
+                self.assertEqual(
+                    self.read_severities[name],
+                    [
+                        AlarmSeverity.WARNING,
+                        AlarmSeverity.SERIOUS,
+                        AlarmSeverity.WARNING,
+                    ],
+                )
+                self.assertEqual(
+                    self.read_max_severities[name],
+                    [
+                        AlarmSeverity.WARNING,
+                        AlarmSeverity.SERIOUS,
+                        AlarmSeverity.SERIOUS,
+                    ],
+                )
 
     async def test_get_rules(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
@@ -323,13 +352,17 @@ class ModelTestCase(asynctest.TestCase):
             self.assertIn(full_rule_name, self.model.rules)
 
             # Mute one rule by full name.
-            self.model.mute_alarm(name=full_rule_name,
-                                  duration=5,
-                                  severity=AlarmSeverity.WARNING,
-                                  user=user)
+            self.model.mute_alarm(
+                name=full_rule_name,
+                duration=5,
+                severity=AlarmSeverity.WARNING,
+                user=user,
+            )
             for name, rule in self.model.rules.items():
                 if name == full_rule_name:
-                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
+                    self.assert_muted(
+                        rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
+                    )
                 else:
                     self.assertNotMuted(rule.alarm)
 
@@ -349,13 +382,17 @@ class ModelTestCase(asynctest.TestCase):
             self.assertEqual(len(self.model.rules), nrules)
 
             # Mute the ScriptQueue alarms but not Test.
-            self.model.mute_alarm(name="Enabled.ScriptQueue.*",
-                                  duration=5,
-                                  severity=AlarmSeverity.WARNING,
-                                  user=user)
+            self.model.mute_alarm(
+                name="Enabled.ScriptQueue.*",
+                duration=5,
+                severity=AlarmSeverity.WARNING,
+                user=user,
+            )
             for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
-                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
+                    self.assert_muted(
+                        rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
+                    )
                 else:
                     self.assertNotMuted(rule.alarm)
 

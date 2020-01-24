@@ -37,6 +37,7 @@ class Alarm:
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
     """
+
     def __init__(self, name):
         self.name = name
         self.callback = None
@@ -60,10 +61,14 @@ class Alarm:
         When the alarm is in nominal state it should not be displayed
         in the Watcher GUI.
         """
-        return self.severity == AlarmSeverity.NONE \
+        return (
+            self.severity == AlarmSeverity.NONE
             and self.max_severity == AlarmSeverity.NONE
+        )
 
-    def configure(self, callback=None, auto_acknowledge_delay=0, auto_unacknowledge_delay=0):
+    def configure(
+        self, callback=None, auto_acknowledge_delay=0, auto_unacknowledge_delay=0
+    ):
         """Configure the callback function and auto ack/unack delays.
 
         Parameters
@@ -84,9 +89,13 @@ class Alarm:
             because an acknowledged alarm is reset if severity goes to NONE.
         """
         if auto_acknowledge_delay < 0:
-            raise ValueError(f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0")
+            raise ValueError(
+                f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0"
+            )
         if auto_unacknowledge_delay < 0:
-            raise ValueError(f"auto_unacknowledge_delay={auto_unacknowledge_delay} must be >= 0")
+            raise ValueError(
+                f"auto_unacknowledge_delay={auto_unacknowledge_delay} must be >= 0"
+            )
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
@@ -141,8 +150,12 @@ class Alarm:
             self.max_severity = AlarmSeverity.NONE
         else:
             if self.auto_unacknowledge_delay > 0:
-                self.timestamp_auto_unacknowledge = salobj.current_tai() + self.auto_unacknowledge_delay
-                self.auto_unacknowledge_task = asyncio.create_task(self.auto_unacknowledge())
+                self.timestamp_auto_unacknowledge = (
+                    salobj.current_tai() + self.auto_unacknowledge_delay
+                )
+                self.auto_unacknowledge_task = asyncio.create_task(
+                    self.auto_unacknowledge()
+                )
             self.max_severity = severity
         self.acknowledged = True
         self.acknowledged_by = user
@@ -313,9 +326,16 @@ class Alarm:
                 self.cancel_auto_unacknowledge()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
-                if self.auto_acknowledge_delay > 0 and self.auto_acknowledge_task.done():
-                    self.timestamp_auto_acknowledge = salobj.current_tai() + self.auto_acknowledge_delay
-                    self.auto_acknowledge_task = asyncio.create_task(self.auto_acknowledge())
+                if (
+                    self.auto_acknowledge_delay > 0
+                    and self.auto_acknowledge_task.done()
+                ):
+                    self.timestamp_auto_acknowledge = (
+                        salobj.current_tai() + self.auto_acknowledge_delay
+                    )
+                    self.auto_acknowledge_task = asyncio.create_task(
+                        self.auto_acknowledge()
+                    )
         else:
             self.cancel_auto_acknowledge()
             if self.severity > self.max_severity:
@@ -356,25 +376,26 @@ class Alarm:
 
         Primarily intended for unit testing.
         """
-        for field in ("name",
-                      "severity",
-                      "reason",
-                      "max_severity",
-                      "acknowledged",
-                      "acknowledged_by",
-                      "escalated",
-                      "escalate_to",
-                      "muted",
-                      "muted_severity",
-                      "muted_by",
-                      "timestamp_severity_oldest",
-                      "timestamp_severity_newest",
-                      "timestamp_max_severity",
-                      "timestamp_acknowledged",
-                      "timestamp_escalate",
-                      "timestamp_unmute",
-                      "callback",
-                      ):
+        for field in (
+            "name",
+            "severity",
+            "reason",
+            "max_severity",
+            "acknowledged",
+            "acknowledged_by",
+            "escalated",
+            "escalate_to",
+            "muted",
+            "muted_severity",
+            "muted_by",
+            "timestamp_severity_oldest",
+            "timestamp_severity_newest",
+            "timestamp_max_severity",
+            "timestamp_acknowledged",
+            "timestamp_escalate",
+            "timestamp_unmute",
+            "callback",
+        ):
             if getattr(self, field) != getattr(other, field):
                 return False
         return True

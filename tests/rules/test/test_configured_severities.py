@@ -45,9 +45,7 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         """
         schema = watcher.rules.test.ConfiguredSeverities.get_schema()
         validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name,
-                           interval=interval,
-                           severities=severities)
+        config_dict = dict(name=name, interval=interval, severities=severities)
 
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
@@ -60,9 +58,7 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         self.assertIsNotNone(schema)
         name = "arulename"
         interval = 1.23
-        severities = [AlarmSeverity.WARNING,
-                      AlarmSeverity.CRITICAL,
-                      AlarmSeverity.NONE]
+        severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
         config = self.make_config(name=name, interval=interval, severities=severities)
         desired_rule_name = f"test.ConfiguredSeverities.{name}"
 
@@ -79,12 +75,16 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
 
     async def test_run(self):
         interval = 0.01
-        severities = [AlarmSeverity.WARNING,
-                      AlarmSeverity.CRITICAL,
-                      AlarmSeverity.WARNING,
-                      AlarmSeverity.SERIOUS,
-                      AlarmSeverity.NONE]
-        config = self.make_config(name="arbitrary", interval=interval, severities=severities)
+        severities = [
+            AlarmSeverity.WARNING,
+            AlarmSeverity.CRITICAL,
+            AlarmSeverity.WARNING,
+            AlarmSeverity.SERIOUS,
+            AlarmSeverity.NONE,
+        ]
+        config = self.make_config(
+            name="arbitrary", interval=interval, severities=severities
+        )
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
         read_severities = []
@@ -104,7 +104,7 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         rule.start()
         await asyncio.wait_for(done_future, timeout=2)
         rule.stop()
-        expected_severities = severities*num_cycles_to_read
+        expected_severities = severities * num_cycles_to_read
         self.assertEqual(read_severities, expected_severities)
 
 
