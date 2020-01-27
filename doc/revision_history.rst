@@ -6,6 +6,13 @@
 Revision History
 ################
 
+v1.0.1
+======
+
+Major changes:
+
+* Code formatted by ``black``, with a pre-commit hook to enforce this. See the README file for configuration instructions.
+
 v1.0.0
 ======
 
