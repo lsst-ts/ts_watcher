@@ -49,18 +49,23 @@ class Clock(base.BaseRule):
     The alarm name is f"Clock.{name}:{index}",
     where name and index are derived from ``config.name``.
     """
+
     min_errors = 3
     """Number of sequential errors required for a failure"""
 
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(name=remote_name,
-                                      index=remote_index,
-                                      callback_names=["evt_heartbeat"],
-                                      poll_names=[])
-        super().__init__(config=config,
-                         name=f"Clock.{remote_info.name}:{remote_info.index}",
-                         remote_info_list=[remote_info])
+        remote_info = base.RemoteInfo(
+            name=remote_name,
+            index=remote_index,
+            callback_names=["evt_heartbeat"],
+            poll_names=[],
+        )
+        super().__init__(
+            config=config,
+            name=f"Clock.{remote_info.name}:{remote_info.index}",
+            remote_info_list=[remote_info],
+        )
         self.threshold = config.threshold
         # An array of up to `min_errors` recent measurements of clock error
         # (seconds), oldest first.
@@ -103,11 +108,13 @@ class Clock(base.BaseRule):
             self.n_clock_errors += 1
         else:
             # Shift clock_errors left one place and append the new value.
-            self.clock_errors[0:self.min_errors-1] = self.clock_errors[1:]
+            self.clock_errors[0 : self.min_errors - 1] = self.clock_errors[1:]
             self.clock_errors[-1] = clock_error
         min_abs_error = np.min(np.abs(self.clock_errors))
         if min_abs_error > self.threshold:
             mean_error = np.mean(self.clock_errors)
-            return (AlarmSeverity.WARNING,
-                    f"Mininum |error|={min_abs_error:0.2f}; mean error={mean_error:0.2f} sec")
+            return (
+                AlarmSeverity.WARNING,
+                f"Mininum |error|={min_abs_error:0.2f}; mean error={mean_error:0.2f} sec",
+            )
         return base.NoneNoReason

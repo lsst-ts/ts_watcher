@@ -33,8 +33,11 @@ from lsst.ts import salobj
 class WatcherSchemaTestCase(unittest.TestCase):
     """Test the Watcher schema.
     """
+
     def setUp(self):
-        schemapath = pathlib.Path(__file__).resolve().parents[1] / "schema" / "Watcher.yaml"
+        schemapath = (
+            pathlib.Path(__file__).resolve().parents[1] / "schema" / "Watcher.yaml"
+        )
         with open(schemapath, "r") as f:
             rawschema = f.read()
         self.schema = yaml.safe_load(rawschema)
@@ -63,7 +66,10 @@ class WatcherSchemaTestCase(unittest.TestCase):
         self.assertEqual(len(config.rules), 2)
         rule0_dict = config.rules[0]
         self.assertEqual(rule0_dict["classname"], "test.ConfiguredSeverities")
-        self.assertEqual(rule0_dict["configs"], [dict(severities=[2, 3, 1], interval=1, name="aname")])
+        self.assertEqual(
+            rule0_dict["configs"],
+            [dict(severities=[2, 3, 1], interval=1, name="aname")],
+        )
         rule1_dict = config.rules[1]
         self.assertEqual(rule1_dict["classname"], "test.NoConfig")
         self.assertEqual(rule1_dict["configs"], [{}])
@@ -78,8 +84,10 @@ class WatcherSchemaTestCase(unittest.TestCase):
         self.assertEqual(len(config.rules), 1)
         rule0_dict = config.rules[0]
         self.assertEqual(rule0_dict["classname"], "Enabled")
-        self.assertEqual(rule0_dict["configs"],
-                         [dict(name="ATDome"), dict(name="ATCamera"), dict(name="ScriptQueue:2")])
+        self.assertEqual(
+            rule0_dict["configs"],
+            [dict(name="ATDome"), dict(name="ATCamera"), dict(name="ScriptQueue:2")],
+        )
 
 
 if __name__ == "__main__":

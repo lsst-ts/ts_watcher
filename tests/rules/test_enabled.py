@@ -79,7 +79,8 @@ class EnabledTestCase(asynctest.TestCase):
         name = "ScriptQueue"
         index = 5
 
-        watcher_config_dict = yaml.safe_load(f"""
+        watcher_config_dict = yaml.safe_load(
+            f"""
             disabled_sal_components: []
             auto_acknowledge_delay: 3600
             auto_unacknowledge_delay: 3600
@@ -87,11 +88,14 @@ class EnabledTestCase(asynctest.TestCase):
             - classname: Enabled
               configs:
               - name: {name}:{index}
-            """)
+            """
+        )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
+            async with watcher.Model(
+                domain=controller.domain, config=watcher_config
+            ) as model:
                 model.enable()
 
                 self.assertEqual(len(model.rules), 1)
@@ -107,16 +111,18 @@ class EnabledTestCase(asynctest.TestCase):
                 rule.alarm.callback = alarm_callback
 
                 expected_severities = []
-                for state in (salobj.State.STANDBY,
-                              salobj.State.DISABLED,
-                              salobj.State.ENABLED,
-                              salobj.State.FAULT,
-                              salobj.State.STANDBY,
-                              salobj.State.DISABLED,
-                              salobj.State.FAULT,
-                              salobj.State.STANDBY,
-                              salobj.State.DISABLED,
-                              salobj.State.ENABLED):
+                for state in (
+                    salobj.State.STANDBY,
+                    salobj.State.DISABLED,
+                    salobj.State.ENABLED,
+                    salobj.State.FAULT,
+                    salobj.State.STANDBY,
+                    salobj.State.DISABLED,
+                    salobj.State.FAULT,
+                    salobj.State.STANDBY,
+                    salobj.State.DISABLED,
+                    salobj.State.ENABLED,
+                ):
                     if state == salobj.State.ENABLED:
                         expected_severities.append(AlarmSeverity.NONE)
                     elif state == salobj.State.FAULT:
@@ -124,7 +130,9 @@ class EnabledTestCase(asynctest.TestCase):
                     else:
                         expected_severities.append(AlarmSeverity.WARNING)
 
-                    controller.evt_summaryState.set_put(summaryState=state, force_output=True)
+                    controller.evt_summaryState.set_put(
+                        summaryState=state, force_output=True
+                    )
                     # give the remote a chance to read the data
                     await asyncio.sleep(0.001)
 

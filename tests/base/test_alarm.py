@@ -36,6 +36,7 @@ STD_TIMEOUT = 2  # seconds
 
 class AsyncCallback:
     """Callback functor with a future that is set done when called."""
+
     def __init__(self):
         self._future = asyncio.Future()
 
@@ -78,6 +79,7 @@ class AlarmTestCase(asynctest.TestCase):
         -----
         Does not affect self.ncalls.
         """
+
         def _alarm_iter_impl():
             # Generate alarms without a callback, then set the callback
             # at the very end, after setting the severity.
@@ -91,7 +93,7 @@ class AlarmTestCase(asynctest.TestCase):
                 yield alarm
 
             for i, max_severity in enumerate(severities[1:]):
-                for severity in severities[0:i+1]:
+                for severity in severities[0 : i + 1]:
                     alarm = self.make_alarm(name=name)
                     updated = alarm.set_severity(severity=max_severity, reason=reason)
                     self.assertTrue(updated)
@@ -104,9 +106,9 @@ class AlarmTestCase(asynctest.TestCase):
             alarm.configure(callback=callback)
             yield alarm
 
-    def make_alarm(self, name, callback=None,
-                   auto_acknowledge_delay=0,
-                   auto_unacknowledge_delay=0):
+    def make_alarm(
+        self, name, callback=None, auto_acknowledge_delay=0, auto_unacknowledge_delay=0
+    ):
         """Make an alarm and keep a reference so tearDown can close it.
 
         Parameters
@@ -124,17 +126,22 @@ class AlarmTestCase(asynctest.TestCase):
             unacknowledged, or 0 for no automatic unacknowledgement.
         """
         alarm = watcher.base.Alarm(name=name)
-        alarm.configure(callback=callback,
-                        auto_acknowledge_delay=auto_acknowledge_delay,
-                        auto_unacknowledge_delay=auto_unacknowledge_delay)
+        alarm.configure(
+            callback=callback,
+            auto_acknowledge_delay=auto_acknowledge_delay,
+            auto_unacknowledge_delay=auto_unacknowledge_delay,
+        )
         self._alarms.append(alarm)
         return alarm
 
     async def test_auto_acknowledge(self):
         auto_acknowledge_delay = 0.5
         # The timer should not start until the alarm is stale.
-        alarm = self.make_alarm(name="test", callback=self.callback,
-                                auto_acknowledge_delay=auto_acknowledge_delay)
+        alarm = self.make_alarm(
+            name="test",
+            callback=self.callback,
+            auto_acknowledge_delay=auto_acknowledge_delay,
+        )
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.auto_acknowledge_delay, auto_acknowledge_delay)
         self.assertEqual(alarm.timestamp_auto_acknowledge, 0)
@@ -158,13 +165,15 @@ class AlarmTestCase(asynctest.TestCase):
         dt = curr_tai - t0
         predicted_auto_ack_tai = curr_tai + auto_acknowledge_delay
         self.assertFalse(alarm.nominal)
-        self.assertAlmostEqual(alarm.timestamp_auto_acknowledge, predicted_auto_ack_tai, delta=dt)
+        self.assertAlmostEqual(
+            alarm.timestamp_auto_acknowledge, predicted_auto_ack_tai, delta=dt
+        )
         await asyncio.sleep(0)
         self.assertFalse(alarm.auto_acknowledge_task.done())
 
         # Wait less than auto_acknowledge_delay and check that
         # the alarm has not yet been automatically acknowledged
-        await asyncio.sleep(auto_acknowledge_delay/2)
+        await asyncio.sleep(auto_acknowledge_delay / 2)
         self.assertEqual(alarm.max_severity, AlarmSeverity.WARNING)
         self.assertFalse(alarm.acknowledged)
         self.assertFalse(alarm.nominal)
@@ -193,8 +202,11 @@ class AlarmTestCase(asynctest.TestCase):
         user = "chaos"
         auto_unacknowledge_delay = 0.5
         # The timer should not start until the alarm is stale.
-        alarm = self.make_alarm(name="test", callback=self.callback,
-                                auto_unacknowledge_delay=auto_unacknowledge_delay)
+        alarm = self.make_alarm(
+            name="test",
+            callback=self.callback,
+            auto_unacknowledge_delay=auto_unacknowledge_delay,
+        )
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.auto_unacknowledge_delay, auto_unacknowledge_delay)
         self.assertEqual(alarm.timestamp_auto_unacknowledge, 0)
@@ -214,14 +226,16 @@ class AlarmTestCase(asynctest.TestCase):
         curr_tai = salobj.current_tai()
         dt = curr_tai - t0
         predicted_auto_unack_tai = curr_tai + auto_unacknowledge_delay
-        self.assertAlmostEqual(alarm.timestamp_auto_unacknowledge, predicted_auto_unack_tai, delta=dt)
+        self.assertAlmostEqual(
+            alarm.timestamp_auto_unacknowledge, predicted_auto_unack_tai, delta=dt
+        )
         self.assertTrue(alarm.acknowledged)
         await asyncio.sleep(0)
         self.assertFalse(alarm.auto_unacknowledge_task.done())
 
         # Wait less time than auto unack and manually unack the alarm;
         # this should cancel the auto unack task.
-        await asyncio.sleep(auto_unacknowledge_delay/2)
+        await asyncio.sleep(auto_unacknowledge_delay / 2)
         self.assertTrue(alarm.acknowledged)
         alarm.unacknowledge()
         self.assertFalse(alarm.acknowledged)
@@ -238,7 +252,7 @@ class AlarmTestCase(asynctest.TestCase):
 
         # Wait less time than auto unack and set severity NONE;
         # this should make the alarm nominal and cancel the auto unack
-        await asyncio.sleep(auto_unacknowledge_delay/2)
+        await asyncio.sleep(auto_unacknowledge_delay / 2)
         alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.timestamp_auto_unacknowledge, 0)
@@ -260,8 +274,9 @@ class AlarmTestCase(asynctest.TestCase):
 
     async def test_noauto_acknowledge(self):
         # Set auto_acknowledge_delay = 0 to prevent automatic acknowledgement
-        alarm = self.make_alarm(name="test", callback=self.callback,
-                                auto_acknowledge_delay=0)
+        alarm = self.make_alarm(
+            name="test", callback=self.callback, auto_acknowledge_delay=0
+        )
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.auto_acknowledge_delay, 0)
         self.assertEqual(alarm.timestamp_auto_acknowledge, 0)
@@ -279,8 +294,9 @@ class AlarmTestCase(asynctest.TestCase):
 
     async def test_noauto_unacknowledge(self):
         # Set auto_unacknowledge_delay = 0 to prevent automatic unack
-        alarm = self.make_alarm(name="test", callback=self.callback,
-                                auto_unacknowledge_delay=0)
+        alarm = self.make_alarm(
+            name="test", callback=self.callback, auto_unacknowledge_delay=0
+        )
         self.assertTrue(alarm.nominal)
         self.assertEqual(alarm.auto_unacknowledge_delay, 0)
         self.assertEqual(alarm.timestamp_auto_unacknowledge, 0)
@@ -325,7 +341,9 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertGreater(alarm.timestamp_severity_newest, 0)
                 self.assertGreater(alarm.timestamp_max_severity, 0)
             self.assertEqual(alarm.timestamp_auto_acknowledge, 0)
-            self.assertGreaterEqual(alarm.timestamp_severity_newest, alarm.timestamp_severity_oldest)
+            self.assertGreaterEqual(
+                alarm.timestamp_severity_newest, alarm.timestamp_severity_oldest
+            )
             self.assertEqual(alarm.timestamp_acknowledged, 0)
             self.assertEqual(alarm.timestamp_auto_unacknowledge, 0)
             self.assertEqual(alarm.timestamp_escalate, 0)
@@ -350,13 +368,17 @@ class AlarmTestCase(asynctest.TestCase):
         # All properties are ignored when testing equality
         properties = set(["muted", "nominal"])
         # These fields are ignored when tesing equality
-        fields_to_ignore = set(["auto_acknowledge_delay",
-                                "auto_unacknowledge_delay",
-                                "auto_acknowledge_task",
-                                "auto_unacknowledge_task",
-                                "timestamp_auto_acknowledge",
-                                "timestamp_auto_unacknowledge",
-                                "unmute_task"])
+        fields_to_ignore = set(
+            [
+                "auto_acknowledge_delay",
+                "auto_unacknowledge_delay",
+                "auto_acknowledge_task",
+                "auto_unacknowledge_task",
+                "timestamp_auto_acknowledge",
+                "timestamp_auto_unacknowledge",
+                "unmute_task",
+            ]
+        )
 
         for fieldname in dir(alarm):
             with self.subTest(fieldname=fieldname):
@@ -415,8 +437,12 @@ class AlarmTestCase(asynctest.TestCase):
         self.assertEqual(alarm.acknowledged_by, "")
         self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
         self.assertTrue(alarm.nominal)
-        self.assertEqual(alarm.timestamp_severity_oldest, prev_timestamp_severity_oldest)
-        self.assertEqual(alarm.timestamp_severity_newest, prev_timestamp_severity_newest)
+        self.assertEqual(
+            alarm.timestamp_severity_oldest, prev_timestamp_severity_oldest
+        )
+        self.assertEqual(
+            alarm.timestamp_severity_newest, prev_timestamp_severity_newest
+        )
         self.assertEqual(alarm.timestamp_max_severity, prev_timestamp_max_severity)
         self.assertEqual(alarm.timestamp_acknowledged, prev_timestamp_acknowledged)
         self.assertEqual(self.ncalls, 0)
@@ -440,8 +466,12 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertEqual(alarm.acknowledged_by, "")
                 self.assertGreaterEqual(alarm.timestamp_severity_oldest, curr_tai)
                 self.assertGreaterEqual(alarm.timestamp_severity_newest, curr_tai)
-                self.assertEqual(alarm.timestamp_max_severity, alarm0.timestamp_max_severity)
-                self.assertEqual(alarm.timestamp_acknowledged, alarm0.timestamp_acknowledged)
+                self.assertEqual(
+                    alarm.timestamp_max_severity, alarm0.timestamp_max_severity
+                )
+                self.assertEqual(
+                    alarm.timestamp_acknowledged, alarm0.timestamp_acknowledged
+                )
                 self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
                 self.assertFalse(alarm.nominal)
 
@@ -497,10 +527,16 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertFalse(alarm.acknowledged)
                 self.assertEqual(alarm.acknowledged_by, "")
                 self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
-                self.assertEqual(alarm.timestamp_severity_oldest, alarm0.timestamp_severity_oldest)
+                self.assertEqual(
+                    alarm.timestamp_severity_oldest, alarm0.timestamp_severity_oldest
+                )
                 self.assertGreaterEqual(alarm.timestamp_severity_newest, curr_tai)
-                self.assertEqual(alarm.timestamp_max_severity, alarm0.timestamp_max_severity)
-                self.assertEqual(alarm.timestamp_acknowledged, alarm0.timestamp_acknowledged)
+                self.assertEqual(
+                    alarm.timestamp_max_severity, alarm0.timestamp_max_severity
+                )
+                self.assertEqual(
+                    alarm.timestamp_acknowledged, alarm0.timestamp_acknowledged
+                )
 
         self.assertEqual(self.ncalls, desired_ncalls)
 
@@ -538,8 +574,14 @@ class AlarmTestCase(asynctest.TestCase):
                         # alarm is still active
                         self.assertEqual(alarm.max_severity, ack_severity)
                         self.assertFalse(alarm.nominal)
-                    self.assertEqual(alarm.timestamp_severity_oldest, alarm0.timestamp_severity_oldest)
-                    self.assertEqual(alarm.timestamp_severity_newest, alarm0.timestamp_severity_newest)
+                    self.assertEqual(
+                        alarm.timestamp_severity_oldest,
+                        alarm0.timestamp_severity_oldest,
+                    )
+                    self.assertEqual(
+                        alarm.timestamp_severity_newest,
+                        alarm0.timestamp_severity_newest,
+                    )
                     self.assertGreaterEqual(alarm.timestamp_max_severity, tai1)
                     self.assertGreaterEqual(alarm.timestamp_acknowledged, tai1)
 
@@ -594,9 +636,17 @@ class AlarmTestCase(asynctest.TestCase):
                     self.assertFalse(alarm.nominal)
                     self.assertFalse(alarm.acknowledged)
                     self.assertGreaterEqual(alarm.timestamp_acknowledged, tai0)
-                    self.assertEqual(alarm.timestamp_severity_oldest, acked_alarm.timestamp_severity_oldest)
-                    self.assertEqual(alarm.timestamp_severity_newest, acked_alarm.timestamp_severity_newest)
-                    self.assertEqual(alarm.timestamp_max_severity, acked_alarm.timestamp_max_severity)
+                    self.assertEqual(
+                        alarm.timestamp_severity_oldest,
+                        acked_alarm.timestamp_severity_oldest,
+                    )
+                    self.assertEqual(
+                        alarm.timestamp_severity_newest,
+                        acked_alarm.timestamp_severity_newest,
+                    )
+                    self.assertEqual(
+                        alarm.timestamp_max_severity, acked_alarm.timestamp_max_severity
+                    )
 
         self.assertEqual(self.ncalls, desired_ncalls)
 
@@ -629,7 +679,9 @@ class AlarmTestCase(asynctest.TestCase):
                 # Check that timestamp_unmute is close to and no less than
                 # the current time + duration.
                 self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
-                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, delta=dt)
+                self.assertAlmostEqual(
+                    alarm.timestamp_unmute, curr_tai + duration, delta=dt
+                )
                 # Wait for the alrm to unmute itself.
                 await callback.next(timeout=STD_TIMEOUT + duration)
                 self.assertFalse(alarm.muted)
@@ -643,16 +695,24 @@ class AlarmTestCase(asynctest.TestCase):
         good_delay = 5
         good_severity = AlarmSeverity.WARNING
         for alarm in self.alarm_iter(name=good_user, callback=None):
-            for bad_delay, bad_severity in itertools.product((0, -0.01), (AlarmSeverity.NONE, -53)):
+            for bad_delay, bad_severity in itertools.product(
+                (0, -0.01), (AlarmSeverity.NONE, -53)
+            ):
                 # check that mute raises ValueError for invalid values
                 # and leaves the alarm state unchanged
                 initial_alarm = copy.copy(alarm)
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_delay, severity=good_severity, user=failed_user)
+                    alarm.mute(
+                        duration=bad_delay, severity=good_severity, user=failed_user
+                    )
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=good_delay, severity=bad_severity, user=failed_user)
+                    alarm.mute(
+                        duration=good_delay, severity=bad_severity, user=failed_user
+                    )
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_delay, severity=bad_severity, user=failed_user)
+                    alarm.mute(
+                        duration=bad_delay, severity=bad_severity, user=failed_user
+                    )
                 self.assertEqual(alarm, initial_alarm)
 
                 # make sure failures also leave muted alarm state unchanged
@@ -663,15 +723,21 @@ class AlarmTestCase(asynctest.TestCase):
                 muted_alarm = copy.copy(alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_delay, severity=good_severity, user=failed_user)
+                    alarm.mute(
+                        duration=bad_delay, severity=good_severity, user=failed_user
+                    )
                 self.assertEqual(alarm, muted_alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=good_delay, severity=bad_severity, user=failed_user)
+                    alarm.mute(
+                        duration=good_delay, severity=bad_severity, user=failed_user
+                    )
                 self.assertEqual(alarm, muted_alarm)
 
                 with self.assertRaises(ValueError):
-                    alarm.mute(duration=bad_delay, severity=bad_severity, user=failed_user)
+                    alarm.mute(
+                        duration=bad_delay, severity=bad_severity, user=failed_user
+                    )
                 self.assertEqual(alarm, muted_alarm)
 
                 alarm.unmute()  # kill unmute timer
@@ -700,7 +766,9 @@ class AlarmTestCase(asynctest.TestCase):
                 self.assertEqual(alarm.muted_by, user)
                 self.assertEqual(alarm.muted_severity, severity)
                 self.assertGreaterEqual(curr_tai + duration, alarm.timestamp_unmute)
-                self.assertAlmostEqual(alarm.timestamp_unmute, curr_tai + duration, delta=dt)
+                self.assertAlmostEqual(
+                    alarm.timestamp_unmute, curr_tai + duration, delta=dt
+                )
 
                 alarm.unmute()
                 self.assertEqual(self.ncalls, 3)
@@ -748,10 +816,14 @@ class AlarmTestCase(asynctest.TestCase):
                         desired_ncalls += 1
                         self.assertEqual(alarm.severity, severity)
                         if severity == acked_alarm.severity:
-                            self.assertEqual(alarm.timestamp_severity_oldest,
-                                             acked_alarm.timestamp_severity_oldest)
+                            self.assertEqual(
+                                alarm.timestamp_severity_oldest,
+                                acked_alarm.timestamp_severity_oldest,
+                            )
                         else:
-                            self.assertGreaterEqual(alarm.timestamp_severity_oldest, tai0)
+                            self.assertGreaterEqual(
+                                alarm.timestamp_severity_oldest, tai0
+                            )
                         self.assertGreaterEqual(alarm.timestamp_severity_newest, tai0)
                     if severity == AlarmSeverity.NONE:
                         if acked_alarm.nominal:
@@ -776,12 +848,18 @@ class AlarmTestCase(asynctest.TestCase):
                             self.assertGreaterEqual(alarm.timestamp_acknowledged, tai0)
                         else:
                             # alarm should remain acknowledged
-                            self.assertEqual(alarm.max_severity, acked_alarm.max_severity)
+                            self.assertEqual(
+                                alarm.max_severity, acked_alarm.max_severity
+                            )
                             self.assertTrue(alarm.acknowledged)
-                            self.assertEqual(alarm.timestamp_max_severity,
-                                             acked_alarm.timestamp_max_severity)
-                            self.assertEqual(alarm.timestamp_acknowledged,
-                                             acked_alarm.timestamp_acknowledged)
+                            self.assertEqual(
+                                alarm.timestamp_max_severity,
+                                acked_alarm.timestamp_max_severity,
+                            )
+                            self.assertEqual(
+                                alarm.timestamp_acknowledged,
+                                acked_alarm.timestamp_acknowledged,
+                            )
 
         self.assertEqual(self.ncalls, desired_ncalls)
 

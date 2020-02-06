@@ -40,8 +40,14 @@ class RemoteWrapperTestCase(asynctest.TestCase):
 
     async def test_all_names(self):
         async with salobj.Domain() as domain:
-            remote = salobj.Remote(domain=domain, name="Test", index=self.index,
-                                   readonly=True, include=(), start=False)
+            remote = salobj.Remote(
+                domain=domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=(),
+                start=False,
+            )
             topic_names = [f"evt_{name}" for name in remote.salinfo.event_names]
             topic_names += [f"tel_{name}" for name in remote.salinfo.telemetry_names]
 
@@ -50,7 +56,9 @@ class RemoteWrapperTestCase(asynctest.TestCase):
                 self.assertFalse(hasattr(remote, name))
 
             wrapper = watcher.base.RemoteWrapper(remote=remote, topic_names=topic_names)
-            desired_attr_name = remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
+            desired_attr_name = (
+                remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
+            )
             self.assertEqual(wrapper.attr_name, desired_attr_name)
 
             # Check that all topics have been added
@@ -65,8 +73,12 @@ class RemoteWrapperTestCase(asynctest.TestCase):
             await asyncio.wait_for(remote.start(), timeout=LONG_TIMEOUT)
 
             # write one event and one telemetry topic
-            evt_scalars_writer = salobj.topics.ControllerEvent(salinfo=remote.salinfo, name="scalars")
-            tel_scalars_writer = salobj.topics.ControllerTelemetry(salinfo=remote.salinfo, name="scalars")
+            evt_scalars_writer = salobj.topics.ControllerEvent(
+                salinfo=remote.salinfo, name="scalars"
+            )
+            tel_scalars_writer = salobj.topics.ControllerTelemetry(
+                salinfo=remote.salinfo, name="scalars"
+            )
             evtint = -3
             telint = 47
             evt_scalars_writer.set_put(int0=evtint)
@@ -83,8 +95,14 @@ class RemoteWrapperTestCase(asynctest.TestCase):
     async def test_some_names(self):
         """Test wrappers that wrap a subset of names."""
         async with salobj.Domain() as domain:
-            remote = salobj.Remote(domain=domain, name="Test", index=self.index,
-                                   readonly=True, include=(), start=False)
+            remote = salobj.Remote(
+                domain=domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=(),
+                start=False,
+            )
             event_names = [f"evt_{name}" for name in remote.salinfo.event_names]
             telemetry_names = [f"tel_{name}" for name in remote.salinfo.telemetry_names]
 
@@ -92,8 +110,12 @@ class RemoteWrapperTestCase(asynctest.TestCase):
             for name in event_names + telemetry_names:
                 self.assertFalse(hasattr(remote, name))
 
-            evt_wrapper = watcher.base.RemoteWrapper(remote=remote, topic_names=event_names)
-            tel_wrapper = watcher.base.RemoteWrapper(remote=remote, topic_names=telemetry_names)
+            evt_wrapper = watcher.base.RemoteWrapper(
+                remote=remote, topic_names=event_names
+            )
+            tel_wrapper = watcher.base.RemoteWrapper(
+                remote=remote, topic_names=telemetry_names
+            )
 
             # Check that all topics have been added to the remote
             for name in event_names + telemetry_names:
@@ -110,8 +132,9 @@ class RemoteWrapperTestCase(asynctest.TestCase):
 
     async def test_constructor_error(self):
         async with salobj.Domain() as domain:
-            remote = salobj.Remote(domain=domain, name="Test", index=self.index,
-                                   readonly=True, start=False)
+            remote = salobj.Remote(
+                domain=domain, name="Test", index=self.index, readonly=True, start=False
+            )
 
             for bad_topic_names in (
                 ["noprefix"],
@@ -123,7 +146,9 @@ class RemoteWrapperTestCase(asynctest.TestCase):
             ):
                 with self.subTest(bad_topic_names=bad_topic_names):
                     with self.assertRaises(ValueError):
-                        watcher.base.RemoteWrapper(remote=remote, topic_names=bad_topic_names)
+                        watcher.base.RemoteWrapper(
+                            remote=remote, topic_names=bad_topic_names
+                        )
 
 
 if __name__ == "__main__":

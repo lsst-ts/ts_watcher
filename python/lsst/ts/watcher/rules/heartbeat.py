@@ -45,15 +45,20 @@ class Heartbeat(base.BaseRule):
     The alarm name is f"Heartbeat.{name}:{index}",
     where name and index are derived from ``config.name``.
     """
+
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(name=remote_name,
-                                      index=remote_index,
-                                      callback_names=["evt_heartbeat"],
-                                      poll_names=[])
-        super().__init__(config=config,
-                         name=f"Heartbeat.{remote_info.name}:{remote_info.index}",
-                         remote_info_list=[remote_info])
+        remote_info = base.RemoteInfo(
+            name=remote_name,
+            index=remote_index,
+            callback_names=["evt_heartbeat"],
+            poll_names=[],
+        )
+        super().__init__(
+            config=config,
+            name=f"Heartbeat.{remote_info.name}:{remote_info.index}",
+            remote_info_list=[remote_info],
+        )
         self.heartbeat_timer_task = salobj.make_done_future()
 
     @classmethod
@@ -90,8 +95,10 @@ class Heartbeat(base.BaseRule):
     async def heartbeat_timer(self):
         """Heartbeat timer."""
         await asyncio.sleep(self.config.timeout)
-        self.alarm.set_severity(severity=AlarmSeverity.SERIOUS,
-                                reason=f"Heartbeat event not seen in {self.config.timeout} seconds")
+        self.alarm.set_severity(
+            severity=AlarmSeverity.SERIOUS,
+            reason=f"Heartbeat event not seen in {self.config.timeout} seconds",
+        )
 
     def restart_timer(self):
         """Start or restart the heartbeat timer."""

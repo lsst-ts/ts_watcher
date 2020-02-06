@@ -25,6 +25,7 @@ import asyncio
 import pathlib
 
 from lsst.ts import salobj
+
 # from . import base
 from .model import Model
 
@@ -48,13 +49,24 @@ class WatcherCsc(salobj.ConfigurableCsc):
     salobj.ExpectedError
         If initial_state is invalid.
     """
+
     def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY):
-        schema_path = pathlib.Path(__file__).resolve().parents[4].joinpath("schema", "Watcher.yaml")
+        schema_path = (
+            pathlib.Path(__file__)
+            .resolve()
+            .parents[4]
+            .joinpath("schema", "Watcher.yaml")
+        )
 
         # the Watcher model is created when the CSC is configured
         self.model = None
-        super().__init__("Watcher", index=0, schema_path=schema_path, config_dir=config_dir,
-                         initial_state=initial_state)
+        super().__init__(
+            "Watcher",
+            index=0,
+            schema_path=schema_path,
+            config_dir=config_dir,
+            initial_state=initial_state,
+        )
 
     @staticmethod
     def get_config_pkg():
@@ -74,7 +86,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.model.disable()
             asyncio.ensure_future(self.model.close())
 
-        self.model = Model(domain=self.domain, config=config, alarm_callback=self.output_alarm)
+        self.model = Model(
+            domain=self.domain, config=config, alarm_callback=self.output_alarm
+        )
         await self.model.start_task
         self._enable_or_disable_model()
 
@@ -118,14 +132,20 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     def do_acknowledge(self, data):
         self.assert_enabled("acknowledge")
-        self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
+        self.model.acknowledge_alarm(
+            name=data.name, severity=data.severity, user=data.acknowledgedBy
+        )
 
     def do_mute(self, data):
         """Mute one or more alarms.
         """
         self.assert_enabled("mute")
-        self.model.mute_alarm(name=data.name, duration=data.duration,
-                              severity=data.severity, user=data.mutedBy)
+        self.model.mute_alarm(
+            name=data.name,
+            duration=data.duration,
+            severity=data.severity,
+            user=data.mutedBy,
+        )
 
     async def do_showAlarms(self, data):
         """Show all alarms.
@@ -140,7 +160,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # * An alarm becomes active: the alarm is not in our list,
         #   but the state change triggers an alarm event,
         #   (though not from this command) so the user sees it.
-        active_alarms = [rule.alarm for rule in self.model.rules.values() if not rule.alarm.nominal]
+        active_alarms = [
+            rule.alarm for rule in self.model.rules.values() if not rule.alarm.nominal
+        ]
         for alarm in active_alarms:
             if alarm.nominal:
                 # The alarm became inactive while this command was running.

@@ -81,6 +81,7 @@ class RemoteInfo:
     ValueError
         If ``index`` cannot be cast to an `int`.
     """
+
     def __init__(self, name, index, callback_names=None, poll_names=None):
         self.name = name
         self.index = int(index)
@@ -88,15 +89,23 @@ class RemoteInfo:
         self.poll_names = as_tuple(poll_names)
         if not self.callback_names and not self.poll_names:
             raise ValueError("Must specify at least one callback or poll name")
-        if len(set(self.callback_names) | set(self.poll_names)) \
-                < len(self.callback_names) + len(self.poll_names):
-            raise ValueError(f"There are duplicates in callback_names={callback_names} "
-                             f"and poll_names={poll_names}")
-        invalid_names = [name for name in self.callback_names + self.poll_names
-                         if not (name.startswith("evt_") or name.startswith("tel_"))]
+        if len(set(self.callback_names) | set(self.poll_names)) < len(
+            self.callback_names
+        ) + len(self.poll_names):
+            raise ValueError(
+                f"There are duplicates in callback_names={callback_names} "
+                f"and poll_names={poll_names}"
+            )
+        invalid_names = [
+            name
+            for name in self.callback_names + self.poll_names
+            if not (name.startswith("evt_") or name.startswith("tel_"))
+        ]
         if invalid_names:
-            raise ValueError("All callback and poll names must beging with 'evt_' or 'tel_': "
-                             f"invalid names={invalid_names}")
+            raise ValueError(
+                "All callback and poll names must beging with 'evt_' or 'tel_': "
+                f"invalid names={invalid_names}"
+            )
 
     @property
     def key(self):
