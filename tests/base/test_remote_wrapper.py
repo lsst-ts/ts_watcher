@@ -67,12 +67,14 @@ class RemoteWrapperTestCase(asynctest.TestCase):
 
             wrapper_dir = set(dir(wrapper))
             self.assertTrue(set(topic_names).issubset(wrapper_dir))
-            for name in topic_names:
-                self.assertIsNone(getattr(wrapper, name))
 
             await asyncio.wait_for(remote.start(), timeout=LONG_TIMEOUT)
 
-            # write one event and one telemetry topic
+            # Check that the initial value for each topic is None.
+            for name in topic_names:
+                self.assertIsNone(getattr(wrapper, name))
+
+            # Write one event and one telemetry topic
             evt_scalars_writer = salobj.topics.ControllerEvent(
                 salinfo=remote.salinfo, name="scalars"
             )
@@ -84,11 +86,11 @@ class RemoteWrapperTestCase(asynctest.TestCase):
             evt_scalars_writer.set_put(int0=evtint)
             tel_scalars_writer.set_put(int0=telint)
 
-            # wait for the read topics to read the data
+            # Wait for the read topics to read the data.
             await remote.evt_scalars.next(flush=False, timeout=STD_TIMEOUT)
             await remote.tel_scalars.next(flush=False, timeout=STD_TIMEOUT)
 
-            # verify that the wrapper produces the expected values
+            # Verify that the wrapper produces the expected values.
             self.assertEqual(wrapper.evt_scalars.int0, evtint)
             self.assertEqual(wrapper.tel_scalars.int0, telint)
 
@@ -106,7 +108,7 @@ class RemoteWrapperTestCase(asynctest.TestCase):
             event_names = [f"evt_{name}" for name in remote.salinfo.event_names]
             telemetry_names = [f"tel_{name}" for name in remote.salinfo.telemetry_names]
 
-            # Check that no topics have been added yet
+            # Check that no topics have been added yet.
             for name in event_names + telemetry_names:
                 self.assertFalse(hasattr(remote, name))
 
@@ -117,12 +119,12 @@ class RemoteWrapperTestCase(asynctest.TestCase):
                 remote=remote, topic_names=telemetry_names
             )
 
-            # Check that all topics have been added to the remote
+            # Check that all topics have been added to the remote.
             for name in event_names + telemetry_names:
                 self.assertTrue(hasattr(remote, name))
 
             # Check that the event wrapper has all the event names
-            # and none of the telemetry names, and vice-versa
+            # and none of the telemetry names, and vice-versa.
             evt_wrapper_dir = set(dir(evt_wrapper))
             tel_wrapper_dir = set(dir(tel_wrapper))
             self.assertTrue(set(event_names).issubset(evt_wrapper_dir))
