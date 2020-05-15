@@ -1,10 +1,10 @@
 .. py:currentmodule:: lsst.ts.watcher
 
-.. _lsst.ts.watcher.revision_history:
+.. _lsst.ts.watcher.version_history:
 
-################
-Revision History
-################
+###############
+Version History
+###############
 
 v1.0.2
 ======

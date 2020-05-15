@@ -78,9 +78,9 @@ Python API reference
     :no-main-docstr:
     :no-inheritance-diagram:
 
-Revision History
-================
+Version History
+===============
 
 .. toctree::
-    revision_history
+    version_history
     :maxdepth: 1
