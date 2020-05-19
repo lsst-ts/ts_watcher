@@ -38,7 +38,7 @@ NoneNoReason = (AlarmSeverity.NONE, "")
 
 
 class BaseRule(abc.ABC):
-    """A Watcher rule.
+    """Base class for watcher rules.
 
     Parameters
     ----------

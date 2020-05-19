@@ -19,11 +19,9 @@
 # You should have received a copy of the GNU General Public License
 
 import asyncio
-import contextlib
 import glob
 import os
 import pathlib
-import shutil
 import unittest
 
 import asynctest
@@ -38,22 +36,14 @@ LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
 
-class CscTestCase(asynctest.TestCase):
+class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_domain()
 
-    @contextlib.asynccontextmanager
-    async def make_csc(self, config_dir):
-        """Make a Watcher CSC and remote and wait for them to start.
-        """
-        self.csc = watcher.WatcherCsc(config_dir=config_dir)
-        self.remote = salobj.Remote(domain=self.csc.domain, name="Watcher", index=0)
-        await asyncio.gather(self.csc.start_task, self.remote.start_task)
-        try:
-            yield
-        finally:
-            await self.remote.close()
-            await self.csc.close()
+    def basic_make_csc(self, initial_state, config_dir, simulation_mode):
+        self.assertEqual(initial_state, salobj.State.STANDBY)
+        self.assertEqual(simulation_mode, 0)
+        return watcher.WatcherCsc(config_dir=config_dir)
 
     async def assert_next_alarm(
         self,
@@ -91,8 +81,15 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(data.mutedBy, mutedBy)
         return data
 
+    async def test_bin_script(self):
+        await self.check_bin_script(
+            name="Watcher", index=None, exe_name="run_watcher.py",
+        )
+
     async def test_initial_info(self):
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT
             )
@@ -121,7 +118,7 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(rule_names, expected_rule_names)
 
     async def test_default_config_dir(self):
-        async with self.make_csc(config_dir=None):
+        async with self.make_csc(config_dir=None, initial_state=salobj.State.STANDBY):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
 
             desired_config_pkg_name = "ts_config_ocs"
@@ -132,7 +129,9 @@ class CscTestCase(asynctest.TestCase):
             self.assertEqual(self.csc.config_dir, desired_config_dir)
 
     async def test_configuration_invalid(self):
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT
@@ -149,7 +148,9 @@ class CscTestCase(asynctest.TestCase):
 
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT
@@ -220,7 +221,9 @@ class CscTestCase(asynctest.TestCase):
 
     async def test_auto_acknowledge_unacknowledge(self):
         user = "chaos"
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT
@@ -325,7 +328,9 @@ class CscTestCase(asynctest.TestCase):
 
     async def test_show_alarms(self):
         """Test the showAlarms command."""
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT
@@ -444,7 +449,9 @@ class CscTestCase(asynctest.TestCase):
 
     async def test_mute(self):
         """Test the mute and unmute command."""
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, settingsToApply="enabled.yaml"
             )
@@ -509,41 +516,12 @@ class CscTestCase(asynctest.TestCase):
             with self.assertRaises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=1)
 
-    async def test_run(self):
-        salobj.set_random_lsst_dds_domain()
-        exe_name = "run_watcher.py"
-        exe_path = shutil.which(exe_name)
-        if exe_path is None:
-            self.fail(
-                f"Could not find bin script {exe_name}; did you setup and scons this package?"
-            )
-
-        process = await asyncio.create_subprocess_exec(exe_name)
-        try:
-            async with salobj.Domain() as domain:
-                remote = salobj.Remote(domain=domain, name="Watcher", index=0)
-                summaryState_data = await remote.evt_summaryState.next(
-                    flush=False, timeout=LONG_TIMEOUT
-                )
-                self.assertEqual(summaryState_data.summaryState, salobj.State.STANDBY)
-
-                ack = await remote.cmd_exitControl.start(timeout=STD_TIMEOUT)
-                self.assertEqual(ack.ack, salobj.SalRetCode.CMD_COMPLETE)
-                summaryState_data = await remote.evt_summaryState.next(
-                    flush=False, timeout=LONG_TIMEOUT
-                )
-                self.assertEqual(summaryState_data.summaryState, salobj.State.OFFLINE)
-
-                await asyncio.wait_for(process.wait(), 5)
-        except Exception:
-            if process.returncode is None:
-                process.terminate()
-            raise
-
     async def test_unacknowledge(self):
         """Test the unacknowledge command."""
         user = "test_unacknowledge"
-        async with self.make_csc(config_dir=TEST_CONFIG_DIR):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
             self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
             state = await self.remote.evt_summaryState.next(
                 flush=False, timeout=LONG_TIMEOUT

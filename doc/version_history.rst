@@ -1,10 +1,29 @@
 .. py:currentmodule:: lsst.ts.watcher
 
-.. _lsst.ts.watcher.revision_history:
+.. _lsst.ts.watcher.version_history:
 
-################
-Revision History
-################
+###############
+Version History
+###############
+
+v1.0.2
+======
+
+Changes:
+
+* Add ``tests/test_black.py`` to verify that files are formatted with black.
+  This requires ts_salobj 5.11 or later.
+* Update test_csc.py to use ``lsst.ts.salobj.BaseCscTestCase``, which also makes it compatible with salobj 5.12.
+* Update test_remote_wrapper.py to make it compatible with salobj 5.12.
+* Update ``.travis.yml`` to remove ``sudo: false`` to github travis checks pass once again.
+
+Requires:
+
+* ts_salobj 5.11
+* ts_xml 4.6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
 
 v1.0.1
 ======

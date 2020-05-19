@@ -94,6 +94,19 @@ class RemoteWrapper:
         return f"{self.name.lower()}_{self.index}"
 
     def __getattr__(self, name):
+        """Get the current value for the specified topic.
+
+        Parameters
+        ----------
+        name : `str`
+            Topic name, with the appropriate "evt_" or "tel_" prefix.
+            Example: "evt_logLevel".
+
+        Raises
+        ------
+        RuntimeError
+            If the Remote has not started.
+        """
         return self._topics[name].get(flush=False)
 
     def __dir__(self):

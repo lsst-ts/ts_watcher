@@ -71,10 +71,6 @@ Python API reference
 
 .. automodapi:: lsst.ts.watcher
     :no-main-docstr:
-    :no-inheritance-diagram:
-.. automodapi:: lsst.ts.watcher.base
-    :no-main-docstr:
-    :no-inheritance-diagram:
 .. automodapi:: lsst.ts.watcher.rules
     :no-main-docstr:
     :no-inheritance-diagram:
@@ -82,9 +78,9 @@ Python API reference
     :no-main-docstr:
     :no-inheritance-diagram:
 
-Revision History
-================
+Version History
+===============
 
 .. toctree::
-    revision_history
+    version_history
     :maxdepth: 1
