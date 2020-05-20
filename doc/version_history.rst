@@ -6,6 +6,13 @@
 Version History
 ###############
 
+v1.0.3
+======
+
+Changes:
+
+* Add conda package configuration file and Jenkinsfile script to manage build process.
+
 v1.0.2
 ======
 
