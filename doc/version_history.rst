@@ -6,12 +6,35 @@
 Version History
 ###############
 
+v1.1.0
+======
+
+Changes:
+
+* Update for compatibility with ts_salobj 6.
+
+Requires:
+
+* ts_salobj 5.11 - 6
+* ts_xml 4.6 - 6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.0.3
 ======
 
 Changes:
 
 * Add conda package configuration file and Jenkinsfile script to manage build process.
+
+Requires:
+
+* ts_salobj 5.11
+* ts_xml 4.6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
 
 v1.0.2
 ======

@@ -17,6 +17,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
+import asyncio
+
 from lsst.ts import watcher
 
-watcher.WatcherCsc.main(index=0)
+asyncio.run(watcher.WatcherCsc.amain(index=None))
