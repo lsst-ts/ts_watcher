@@ -45,7 +45,6 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         """
         self.data.private_sndStamp = salobj.current_tai() + dt
         self.data.private_revCode = self.rev_code
-        self.data.private_host = self.salinfo.domain.host
         self.data.private_origin = self.salinfo.domain.origin
         setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)
         self._writer.write(self.data)
