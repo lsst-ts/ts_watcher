@@ -49,6 +49,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     salobj.ExpectedError
         If initial_state is invalid.
     """
+
     valid_simulation_modes = [0]
 
     def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY):

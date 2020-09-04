@@ -6,6 +6,24 @@
 Version History
 ###############
 
+v1.2.0
+======
+
+Changes:
+
+* Add `bin/command_watcher.py`: a Watcher commander.
+* Stop publishing ``alarm.timestampSeverityNewest``; it was causing too many unnecessary alarm messages.
+* Make the ``showAlarms`` command only work if the CSC is enabled.
+  It would fail in interesting ways if the CSC was not enabled.
+
+Requires:
+
+* ts_salobj 5.11 - 6
+* ts_xml 4.6 - 6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.1.0
 ======
 
