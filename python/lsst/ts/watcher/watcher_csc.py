@@ -106,6 +106,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         """
         if self.summary_state != salobj.State.ENABLED:
             return
+        # Do not set timestampSeverityNewest because it causes
+        # too many unwanted messages. In the long run remove
+        # that field from ts_xml.
         self.evt_alarm.set_put(
             name=alarm.name,
             severity=alarm.severity,
@@ -118,7 +121,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             mutedSeverity=alarm.muted_severity,
             mutedBy=alarm.muted_by,
             timestampSeverityOldest=alarm.timestamp_severity_oldest,
-            timestampSeverityNewest=alarm.timestamp_severity_newest,
             timestampMaxSeverity=alarm.timestamp_max_severity,
             timestampAcknowledged=alarm.timestamp_acknowledged,
             timestampAutoAcknowledge=alarm.timestamp_auto_acknowledge,
