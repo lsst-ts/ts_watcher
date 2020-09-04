@@ -134,7 +134,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self._enable_or_disable_model()
 
     def do_acknowledge(self, data):
-        self.assert_enabled("acknowledge")
+        self.assert_enabled()
         self.model.acknowledge_alarm(
             name=data.name, severity=data.severity, user=data.acknowledgedBy
         )
@@ -142,7 +142,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def do_mute(self, data):
         """Mute one or more alarms.
         """
-        self.assert_enabled("mute")
+        self.assert_enabled()
         self.model.mute_alarm(
             name=data.name,
             duration=data.duration,
@@ -153,6 +153,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def do_showAlarms(self, data):
         """Show all alarms.
         """
+        self.assert_enabled()
         # Make a list of active (not nominal) alarms and iterate over it,
         # reporting alarm events and yielding the event loop.
         # Using our own list assures that what we are iterating over
@@ -176,11 +177,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def do_unacknowledge(self, data):
         """Unacknowledge one or more alarms.
         """
-        self.assert_enabled("unacknowledge")
+        self.assert_enabled()
         self.model.unacknowledge_alarm(name=data.name)
 
     def do_unmute(self, data):
         """Unmute one or more alarms.
         """
-        self.assert_enabled("unmute")
+        self.assert_enabled()
         self.model.unmute_alarm(name=data.name)
