@@ -90,11 +90,7 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
+            await self.assert_next_summary_state(salobj.State.STANDBY)
             self.assertIsNone(self.csc.model)
 
             await salobj.set_summary_state(
@@ -102,16 +98,8 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
                 salobj.State.ENABLED,
                 settingsToApply="two_scriptqueue_enabled.yaml",
             )
-
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=STD_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.DISABLED)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=STD_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.ENABLED)
-
+            await self.assert_next_summary_state(salobj.State.DISABLED)
+            await self.assert_next_summary_state(salobj.State.ENABLED)
             self.assertIsInstance(self.csc.model, watcher.Model)
             rule_names = list(self.csc.model.rules)
             expected_rule_names = [f"Enabled.ScriptQueue:{index}" for index in (1, 2)]
@@ -119,8 +107,6 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
 
     async def test_default_config_dir(self):
         async with self.make_csc(config_dir=None, initial_state=salobj.State.STANDBY):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-
             desired_config_pkg_name = "ts_config_ocs"
             desired_config_env_name = desired_config_pkg_name.upper() + "_DIR"
             desird_config_pkg_dir = os.environ[desired_config_env_name]
@@ -132,12 +118,6 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
             invalid_files = glob.glob(str(TEST_CONFIG_DIR / "invalid_*.yaml"))
             bad_config_names = [os.path.basename(name) for name in invalid_files]
             for bad_config_name in bad_config_names:
@@ -151,12 +131,6 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, settingsToApply="enabled.yaml"
             )
@@ -224,12 +198,6 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -331,12 +299,6 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, settingsToApply="enabled.yaml"
             )
@@ -522,17 +484,12 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
-            self.assertEqual(self.csc.summary_state, salobj.State.STANDBY)
-            state = await self.remote.evt_summaryState.next(
-                flush=False, timeout=LONG_TIMEOUT
-            )
-            self.assertEqual(state.summaryState, salobj.State.STANDBY)
-
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
                 settingsToApply="two_scriptqueue_enabled.yaml",
             )
+
             alarm_name1 = "Enabled.ScriptQueue:1"
             alarm_name2 = "Enabled.ScriptQueue:2"
             self.assertEqual(len(self.csc.model.rules), 2)
