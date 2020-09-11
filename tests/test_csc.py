@@ -126,6 +126,21 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
                     with salobj.assertRaisesAckError():
                         await self.remote.cmd_start.start(timeout=STD_TIMEOUT)
 
+    async def test_standard_state_transitions(self):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
+            await self.check_standard_state_transitions(
+                enabled_commands=(
+                    "acknowledge",
+                    "mute",
+                    "showAlarms",
+                    "unacknowledge",
+                    "unmute",
+                ),
+                settingsToApply="two_scriptqueue_enabled.yaml",
+            )
+
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
         async with self.make_csc(
