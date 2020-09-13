@@ -8,3 +8,15 @@ rules:
   - name: ATDome
   - name: ATCamera
   - name: ScriptQueue:2
+escalation:
+- alarms: [Enabled.AT*]
+  to: stella
+  delay: 0.11
+  # This should be ignored because the previous rule handles it
+- alarms: [Enabled.ATCamera]
+  to: otho
+  delay: 0.12
+  # This should result in no escalation
+- alarms: [Enabled.ScriptQueue:*]
+  to: ""
+  delay: 0

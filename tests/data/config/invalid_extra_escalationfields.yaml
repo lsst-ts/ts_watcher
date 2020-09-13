@@ -1,0 +1,13 @@
+disabled_sal_components:
+- ATCamera
+auto_acknowledge_delay: 1001
+auto_unacknowledge_delay: 1002
+rules:
+- classname: Enabled
+  configs:
+  - name: ATDome
+- escalation:
+  - alarms: [Enabled.AT*]
+  - to: stella
+  - delay: 1
+  - extra_escalation_field: arbitrary_data
