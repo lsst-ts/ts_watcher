@@ -38,13 +38,26 @@ class Alarm:
         so that groups of related alarms can be acknowledged.
     """
 
+    # Field to ignore when testing for equality.
+    _eq_ignore_fields = set(
+        (
+            "auto_acknowledge_task",
+            "auto_unacknowledge_task",
+            "escalate_task",
+            "unmute_task",
+        )
+    )
+
     def __init__(self, name):
         self.name = name
         self.callback = None
         self.auto_acknowledge_delay = 0
         self.auto_unacknowledge_delay = 0
+        self.escalate_to = ""
+        self.escalate_delay = 0
         self.auto_acknowledge_task = salobj.make_done_future()
         self.auto_unacknowledge_task = salobj.make_done_future()
+        self.escalate_task = salobj.make_done_future()
         self.unmute_task = salobj.make_done_future()
         self.reset()
 
@@ -67,26 +80,37 @@ class Alarm:
         )
 
     def configure(
-        self, callback=None, auto_acknowledge_delay=0, auto_unacknowledge_delay=0
+        self,
+        callback=None,
+        auto_acknowledge_delay=0,
+        auto_unacknowledge_delay=0,
+        escalate_to="",
+        escalate_delay=0,
     ):
         """Configure the callback function and auto ack/unack delays.
 
         Parameters
         ----------
-        callback : callable (optional)
+        callback : callable, optional
             Function or coroutine to call whenever the alarm changes state,
             or None if no callback wanted.
             The function receives one argument: this alarm.
-        auto_acknowledge_delay : `float` (optional)
+        auto_acknowledge_delay : `float`, optional
             Delay (in seconds) before a stale alarm is automatically
             acknowledged, or 0 for no automatic acknowledgement.
             A stale alarm is one that has not yet been acknowledged, but its
             severity has gone to NONE.
-        auto_unacknowledge_delay : `float` (optional)
+        auto_unacknowledge_delay : `float`, optional
             Delay (in seconds) before an acknowledged alarm is automatically
             unacknowledged, or 0 for no automatic unacknowledgement.
             Automatic unacknowledgement only occurs if the alarm persists,
             because an acknowledged alarm is reset if severity goes to NONE.
+        escalate_to : `str`, optional
+            Who or what to escalate the alarm to.
+            If "" (the default) the alarm is not escalated.
+        escalate_delay : `float`, optional
+            Delay before escalating a critical unacknowledged alarm (sec).
+            If 0 (the default) the alarm is not escalated.
         """
         if auto_acknowledge_delay < 0:
             raise ValueError(
@@ -99,35 +123,44 @@ class Alarm:
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
+        self.escalate_to = escalate_to
+        self.escalate_delay = escalate_delay
 
     def close(self):
         """Cancel pending tasks.
         """
-        self.cancel_auto_acknowledge()
-        self.cancel_auto_unacknowledge()
-        self.unmute_task.cancel()
+        self._cancel_auto_acknowledge()
+        self._cancel_auto_unacknowledge()
+        self._cancel_escalate()
+        self._cancel_unmute()
 
     def acknowledge(self, severity, user):
-        """Acknowledge the alarm. A no-op if nominal or acknowledged.
+        """Acknowledge the alarm.
+
+        Almost a no-op if nominal or acknowledged.
+        If acknowledged restart the auto-unack timer, if wanted.
 
         Parameters
         ----------
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
-            Severity to acknowledge. If the severity goes above
-            this level the alarm will unacknowledge itself.
+            Severity to acknowledge. Must be >= self.max_severity.
+            If the severity goes above this level the alarm will
+            unacknowledge itself.
         user : `str`
             Name of user; used to set acknowledged_by.
 
         Returns
         -------
         updated : `bool`
-            True if the alarm state changed (i.e. if any fields were modified),
+            True if the alarm state changed (any fields were modified
+            other than tasks being cancelled),
             False otherwise.
 
         Raises
         ------
         ValueError
-            If ``severity < self.max_severity``.
+            If ``severity < self.max_severity``
+            and the alarm was not already acknowledged.
 
         Notes
         -----
@@ -136,26 +169,31 @@ class Alarm:
         To avoid the danger of accidentally acknowledging at a higher
         severity than intended, the command must be rejected.
         """
-        self.cancel_auto_acknowledge()
-        self.cancel_auto_unacknowledge()
-        if self.nominal or self.acknowledged:
+        self._cancel_auto_acknowledge()
+        self._cancel_auto_unacknowledge()
+        self._cancel_escalate()
+        if self.nominal:
             return False
+
+        if self.acknowledged:
+            # Restart the auto-unack timer, if relevant.
+            if self.severity > AlarmSeverity.NONE and self.auto_unacknowledge_delay > 0:
+                self._start_auto_acknowledge_timer()
+                return True
+            else:
+                return False
+
+        curr_tai = salobj.current_tai()
 
         severity = AlarmSeverity(severity)
         if severity < self.max_severity:
             raise ValueError(f"severity {severity} < max_severity {self.max_severity}")
-        curr_tai = salobj.current_tai()
         if self.severity == AlarmSeverity.NONE:
             # reset the alarm to nominal
             self.max_severity = AlarmSeverity.NONE
         else:
             if self.auto_unacknowledge_delay > 0:
-                self.timestamp_auto_unacknowledge = (
-                    salobj.current_tai() + self.auto_unacknowledge_delay
-                )
-                self.auto_unacknowledge_task = asyncio.create_task(
-                    self.auto_unacknowledge()
-                )
+                self._start_auto_acknowledge_timer()
             self.max_severity = severity
         self.acknowledged = True
         self.acknowledged_by = user
@@ -164,30 +202,6 @@ class Alarm:
 
         self._run_callback()
         return True
-
-    async def auto_acknowledge(self):
-        """Wait, then automatically cknowledge the alarm.
-        """
-        await asyncio.sleep(self.auto_acknowledge_delay)
-        self.acknowledge(severity=self.max_severity, user="automatic")
-
-    async def auto_unacknowledge(self):
-        """Wait, then automatically unacknowledge the alarm.
-        """
-        await asyncio.sleep(self.auto_unacknowledge_delay)
-        self.unacknowledge()
-
-    def cancel_auto_acknowledge(self):
-        """Cancel automatic acknowledgement, if pending.
-        """
-        self.timestamp_auto_acknowledge = 0
-        self.auto_acknowledge_task.cancel()
-
-    def cancel_auto_unacknowledge(self):
-        """Cancel automatic unacknowledgement, if pending.
-        """
-        self.timestamp_auto_unacknowledge = 0
-        self.auto_unacknowledge_task.cancel()
 
     def mute(self, duration, severity, user):
         """Mute this alarm for a specified duration and severity.
@@ -219,40 +233,18 @@ class Alarm:
         severity = AlarmSeverity(severity)
         if severity == AlarmSeverity.NONE:
             raise ValueError(f"severity={severity!r} must be > NONE")
+        self._cancel_unmute()
         self.muted_by = user
         self.muted_severity = severity
         self.timestamp_unmute = salobj.current_tai() + duration
-        self.unmute_task.cancel()
-        self.unmute_task = asyncio.create_task(self.unmute_after(duration=duration))
+        self.unmute_task = asyncio.create_task(self._unmute_timer(duration=duration))
         self._run_callback()
 
-    def unmute(self, run_callback=True):
+    def unmute(self):
         """Unmute this alarm.
-
-        Parameters
-        ----------
-        run_callback : `bool` (optional)
-            Run the callback function?
         """
-        self.muted_by = ""
-        self.muted_severity = AlarmSeverity.NONE
-        self.timestamp_unmute = 0
-        self.unmute_task.cancel()
-        if run_callback:
-            self._run_callback()
-
-    async def unmute_after(self, duration):
-        """Unmute this alarm after a specified duration.
-
-        Parameters
-        ----------
-        duration : `float`
-            How long to mute the alarm (sec).
-        """
-        if duration <= 0:
-            raise ValueError(f"duration={duration} must be positive")
-        await asyncio.sleep(duration)
-        self.unmute()
+        self._cancel_unmute()
+        self._run_callback()
 
     def reset(self):
         """Reset the alarm to nominal state.
@@ -268,20 +260,17 @@ class Alarm:
         self.acknowledged = False
         self.acknowledged_by = ""
         self.escalated = False
-        self.escalate_to = ""
 
         self.timestamp_severity_oldest = 0
         self.timestamp_severity_newest = 0
         self.timestamp_max_severity = 0
         self.timestamp_acknowledged = 0
-        self.timestamp_auto_acknowledge = 0
-        self.timestamp_auto_unacknowledge = 0
-        self.timestamp_escalate = 0
 
-        self.cancel_auto_acknowledge()
-        self.cancel_auto_unacknowledge()
-
-        self.unmute(run_callback=False)
+        # These cancel methods reset all associated attributes.
+        self._cancel_auto_acknowledge()
+        self._cancel_auto_unacknowledge()
+        self._cancel_escalate()
+        self._cancel_unmute()
 
     def set_severity(self, severity, reason):
         """Set the severity.
@@ -322,22 +311,25 @@ class Alarm:
                 self.max_severity = AlarmSeverity.NONE
                 self.timestamp_acknowledged = curr_tai
                 self.timestamp_max_severity = curr_tai
-                self.cancel_auto_acknowledge()
-                self.cancel_auto_unacknowledge()
+                self._cancel_auto_acknowledge()
+                self._cancel_auto_unacknowledge()
+                self._cancel_escalate()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
                 if (
                     self.auto_acknowledge_delay > 0
                     and self.auto_acknowledge_task.done()
                 ):
+                    # Set the timestamp here, rather than the timer method,
+                    # so it is set before the callback runs.
                     self.timestamp_auto_acknowledge = (
                         salobj.current_tai() + self.auto_acknowledge_delay
                     )
                     self.auto_acknowledge_task = asyncio.create_task(
-                        self.auto_acknowledge()
+                        self._auto_acknowledge_timer()
                     )
         else:
-            self.cancel_auto_acknowledge()
+            self._cancel_auto_acknowledge()
             if self.severity > self.max_severity:
                 if self.acknowledged:
                     self.acknowledged = False
@@ -346,19 +338,36 @@ class Alarm:
                 self.max_severity = self.severity
                 self.timestamp_max_severity = curr_tai
 
+                # If alarm is newly critical and escalation wanted,
+                # start the escalation timer.
+                if (
+                    self.severity == AlarmSeverity.CRITICAL
+                    and self.escalate_delay > 0
+                    and self.escalate_to != ""
+                ):
+                    self._cancel_escalate()
+                    # Set the timestamp here, rather than the timer method,
+                    # so it is set before the callback runs.
+                    self.timestamp_escalate = salobj.current_tai() + self.escalate_delay
+                    self.escalate_task = asyncio.create_task(self._escalate_timer())
+
         self._run_callback()
         return True
 
-    def unacknowledge(self):
-        """Unacknowledge the alarm. A no-op if nominal or not acknowledged.
+    def unacknowledge(self, escalate=True):
+        """Unacknowledge the alarm. Basically a no-op if nominal
+        or not acknowledged.
 
         Returns
         -------
         updated : `bool`
             True if the alarm state changed (i.e. if any fields were modified),
             False otherwise.
+        escalate : `bool`, optional
+            Restart the escalation timer?
+            Only relevant if max_severity is CRITICAL.
         """
-        self.cancel_auto_unacknowledge()
+        self._cancel_auto_unacknowledge()
 
         if self.nominal or not self.acknowledged:
             return False
@@ -367,38 +376,53 @@ class Alarm:
         self.acknowledged = False
         self.acknowledged_by = ""
         self.timestamp_acknowledged = curr_tai
+        if escalate and self.max_severity == AlarmSeverity.CRITICAL:
+            self.escalate_task = asyncio.create_task(self._escalate_timer())
 
         self._run_callback()
         return True
 
+    def assert_equal(self, other, ignore_attrs=()):
+        """Assert that this alarm equals another alarm.
+
+        Compares all attributes except tasks and those specified
+        in ignore_attrs.
+
+        Parameters
+        ----------
+        other : `Alarm`
+            Alarm to compare.
+        ignore_attrs : `list` [`str`], optional
+            Sequence of attribute names to ignore (in addition to task
+            attributes, which are always ignored.)
+        """
+        self_vars = vars(self)
+        other_vars = vars(other)
+        all_ignore_fields = set(ignore_attrs) | self._eq_ignore_fields
+        diffs = [
+            f"self.{name}={self_vars[name]} != other.{name}={other_vars[name]}"
+            for name in self_vars
+            if name not in all_ignore_fields and self_vars[name] != other_vars[name]
+        ]
+        if diffs:
+            error_str = ", ".join(diffs)
+            raise AssertionError(error_str)
+
     def __eq__(self, other):
         """Return True if two alarms are the same, including state.
 
-        Primarily intended for unit testing.
+        All fields are compared except task fields.
+
+        Primarily intended for unit testing, though `assert_equal`
+        gives more useful output.
         """
-        for field in (
-            "name",
-            "severity",
-            "reason",
-            "max_severity",
-            "acknowledged",
-            "acknowledged_by",
-            "escalated",
-            "escalate_to",
-            "muted",
-            "muted_severity",
-            "muted_by",
-            "timestamp_severity_oldest",
-            "timestamp_severity_newest",
-            "timestamp_max_severity",
-            "timestamp_acknowledged",
-            "timestamp_escalate",
-            "timestamp_unmute",
-            "callback",
-        ):
-            if getattr(self, field) != getattr(other, field):
-                return False
-        return True
+        self_vars = vars(self)
+        other_vars = vars(other)
+        return all(
+            self_vars[name] == other_vars[name]
+            for name in self_vars
+            if name not in self._eq_ignore_fields
+        )
 
     def __ne__(self, other):
         """Return True if two alarms differ, including state.
@@ -410,6 +434,82 @@ class Alarm:
     def __repr__(self):
         return f"Alarm(name={self.name})"
 
+    async def _auto_acknowledge_timer(self):
+        """Wait, then automatically acknowledge the alarm.
+        """
+        await asyncio.sleep(self.auto_acknowledge_delay)
+        self.acknowledge(severity=self.max_severity, user="automatic")
+
+    async def _auto_unacknowledge_timer(self):
+        """Wait, then automatically unacknowledge the alarm.
+
+        Does not restart the escalation timer
+        (unlike manual unacknowledgement).
+        """
+        await asyncio.sleep(self.auto_unacknowledge_delay)
+        self.unacknowledge(escalate=False)
+
+    async def _escalate_timer(self):
+        """Wait, then escalate this alarm.
+        """
+        await asyncio.sleep(self.escalate_delay)
+        self.escalated = True
+        self._run_callback()
+
+    async def _unmute_timer(self, duration):
+        """Unmute this alarm after a specified duration.
+
+        Parameters
+        ----------
+        duration : `float`
+            How long to mute the alarm (sec).
+        """
+        if duration <= 0:
+            raise ValueError(f"duration={duration} must be positive")
+        await asyncio.sleep(duration)
+        self.unmute()
+
+    def _cancel_auto_acknowledge(self):
+        """Cancel the auto acknowledge timer, if pending.
+        """
+        self.timestamp_auto_acknowledge = 0
+        self.auto_acknowledge_task.cancel()
+
+    def _cancel_auto_unacknowledge(self):
+        """Cancel the auto unacknowledge timer, if pending.
+        """
+        self.timestamp_auto_unacknowledge = 0
+        self.auto_unacknowledge_task.cancel()
+
+    def _cancel_escalate(self):
+        """Cancel the escalate timer, if pending.
+        """
+        self.timestamp_escalate = 0
+        self.escalate_task.cancel()
+
+    def _cancel_unmute(self):
+        """Cancel the unmute timer, if running.
+        """
+        self.muted_by = ""
+        self.muted_severity = AlarmSeverity.NONE
+        self.timestamp_unmute = 0
+        self.unmute_task.cancel()
+
     def _run_callback(self):
+        """Run the callback function, if present.
+        """
         if self.callback:
             self.callback(self)
+
+    def _start_auto_acknowledge_timer(self):
+        """Start the auto_acknowledge timer.
+        """
+        self.auto_unacknowledge_task.cancel()
+        # Set the timestamp here, rather than the timer method,
+        # so it is set before the background task starts.
+        self.timestamp_auto_unacknowledge = (
+            salobj.current_tai() + self.auto_unacknowledge_delay
+        )
+        self.auto_unacknowledge_task = asyncio.create_task(
+            self._auto_unacknowledge_timer()
+        )

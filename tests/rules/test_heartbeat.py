@@ -93,6 +93,7 @@ class HeartbeatTestCase(asynctest.TestCase):
               configs:
               - name: {name}:{index}
                 timeout: {timeout}
+            escalation: []
             """
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)

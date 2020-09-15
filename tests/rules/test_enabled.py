@@ -88,6 +88,7 @@ class EnabledTestCase(asynctest.TestCase):
             - classname: Enabled
               configs:
               - name: {name}:{index}
+            escalation: []
             """
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)

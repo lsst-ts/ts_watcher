@@ -61,7 +61,7 @@ class ModelTestCase(asynctest.TestCase):
         salobj.set_random_lsst_dds_domain()
 
     @contextlib.asynccontextmanager
-    async def make_model(self, names, enable):
+    async def make_model(self, names, enable, escalation=()):
         """Make a Model as self.model, with one or more Enabled rules.
 
         Parameters
@@ -71,6 +71,9 @@ class ModelTestCase(asynctest.TestCase):
             Each entry is of the form "name" or name:index"
         enable : `bool`
             Enable the model?
+        escalation : `list` of `dict`
+            Escalation information.
+            See schema/Watcher.yaml for the format of entries.
         """
         if not names:
             raise ValueError("Must specify one or more CSCs")
@@ -82,6 +85,7 @@ class ModelTestCase(asynctest.TestCase):
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
             rules=[dict(classname="Enabled", configs=configs)],
+            escalation=escalation,
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
