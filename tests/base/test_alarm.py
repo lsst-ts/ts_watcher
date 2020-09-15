@@ -72,7 +72,7 @@ class AlarmTestCase(asynctest.TestCase):
         callback : callable or `None`
             Callback function; must take one argument: an alarm.
             None for no callback function.
-        name : `str` (optional)
+        name : `str`, optional
             Name of alarm.
 
         Notes
@@ -115,13 +115,13 @@ class AlarmTestCase(asynctest.TestCase):
         ----------
         name : `str`
             Name of alarm.
-        callback : callable or `None` (optional)
+        callback : callable or `None`, optional
             Callback function; must take one argument: an alarm.
             None for no callback function.
-        auto_acknowledge_delay : `float` (optional)
+        auto_acknowledge_delay : `float`, optional
             Delay (in seconds) before a stale alarm is automatically
             acknowledged, or 0 for no automatic acknowledgement.
-        auto_unacknowledge_delay : `float` (optional)
+        auto_unacknowledge_delay : `float`, optional
             Delay (in seconds) before an acknowledged alarm is automatically
             unacknowledged, or 0 for no automatic unacknowledgement.
         """

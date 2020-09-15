@@ -29,7 +29,7 @@ def as_tuple(seq):
 
     Parameters
     ----------
-    seq : `list` of [``any``] (optional)
+    seq : `list` of [``any``], optional
         Sequence to convert.
 
     Raises
@@ -55,13 +55,13 @@ class RemoteInfo:
         Name of SAL component.
     index : `int`
         SAL component index; use 0 if the component is not indexed.
-    callback_names : `list` [`str`] (optional)
+    callback_names : `list` [`str`], optional
         Names of telemetry or topic names for which the rule is called
         when a sample is read. If None then no such topics.
         Each name must include prefix ``evt_`` or ``tel_``
         for event or telemetry.
         For example ["evt_FilterChangeInPosition", "evt_TrackingTarget"]
-    poll_names : `list` [`str`] (optional)
+    poll_names : `list` [`str`], optional
         Names of telemetry or topic names for which are available to the rule,
         but do not trigger a callback. If None then no such topics.
         Each name must include prefix ``evt_`` or ``tel_``

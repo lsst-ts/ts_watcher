@@ -35,11 +35,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     Parameters
     ----------
-    config_dir : `str` (optional)
+    config_dir : `str`, optional
         Directory of configuration files, or None for the standard
         configuration directory (obtained from `get_default_config_dir`).
         This is provided for unit testing.
-    initial_state : `salobj.State` or `int` (optional)
+    initial_state : `salobj.State` or `int`, optional
         The initial state of the CSC. This is provided for unit testing,
         as real CSCs should start up in `lsst.ts.salobj.StateSTANDBY`,
         the default.
