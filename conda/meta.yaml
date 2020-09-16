@@ -24,7 +24,7 @@ test:
     - pytest-flake8
     - pytest-cov
     - asynctest
-    - black
+    - black == 19.10b0
     - numpy
     - astropy
     - jsonschema
