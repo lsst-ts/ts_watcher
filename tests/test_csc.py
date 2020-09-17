@@ -37,9 +37,6 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config
 
 
 class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
-    def setUp(self):
-        salobj.set_random_lsst_dds_domain()
-
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
         self.assertEqual(initial_state, salobj.State.STANDBY)
         self.assertEqual(simulation_mode, 0)
