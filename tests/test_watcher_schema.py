@@ -73,6 +73,7 @@ class WatcherSchemaTestCase(unittest.TestCase):
         rule1_dict = config.rules[1]
         self.assertEqual(rule1_dict["classname"], "test.NoConfig")
         self.assertEqual(rule1_dict["configs"], [{}])
+        self.assertEqual(config.escalation, [])
 
     def test_enabled_file(self):
         config_dict = self.read_dict(self.configpath / "enabled.yaml")
@@ -87,6 +88,18 @@ class WatcherSchemaTestCase(unittest.TestCase):
         self.assertEqual(
             rule0_dict["configs"],
             [dict(name="ATDome"), dict(name="ATCamera"), dict(name="ScriptQueue:2")],
+        )
+        self.assertEqual(len(config.escalation), 3)
+        self.assertEqual(
+            config.escalation[0], dict(alarms=["Enabled.AT*"], to="stella", delay=0.11),
+        )
+        self.assertEqual(
+            config.escalation[1],
+            dict(alarms=["Enabled.ATCamera"], to="otho", delay=0.12),
+        )
+        self.assertEqual(
+            config.escalation[2],
+            dict(alarms=["Enabled.ScriptQueue:*"], to="", delay=0),
         )
 
 

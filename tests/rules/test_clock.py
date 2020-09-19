@@ -118,6 +118,7 @@ class ClockTestCase(asynctest.TestCase):
               configs:
               - name: {name}:{index}
                 threshold: {threshold}
+            escalation: []
             """
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)

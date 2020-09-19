@@ -6,6 +6,26 @@
 Version History
 ###############
 
+v1.3.0
+======
+
+Changes:
+
+* Add configuration for escalation.
+* Set the escalated fields of Alarm events.
+* Add optional ``delay`` and ``repeats`` configuration fields to `rules.test.ConfiguredSeverities`.
+* Improve the git pre-commit hook.
+* Update the docs to link ts_sal and ts_xml.
+* Add ``valid_simulation_modes`` class variable to `WatcherCsc`.
+
+Requires:
+
+* ts_salobj 5.11 - 6
+* ts_xml 4.6 - 6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.2.0
 ======
 
@@ -111,7 +131,7 @@ v0.3.0
 ======
 
 Add the ``showAlarms`` command.
-Make the ``test.ConfiguredSeverities`` rule cycle forever.
+Make the ``rules.test.ConfiguredSeverities`` rule cycle forever.
 
 Requires:
 

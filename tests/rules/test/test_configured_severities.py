@@ -31,7 +31,7 @@ from lsst.ts import watcher
 
 
 class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
-    def make_config(self, name, interval, severities):
+    def make_config(self, name, interval, severities, **kwargs):
         """Make a config for the TestConfiguredSeverities rule.
 
         Parameters
@@ -42,10 +42,13 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
             Interval between severities (seconds).
         severities : `list` [`lsst.ts.idl.enums.Watcher.AlarmSeverity`]
             A list of severities.
+        **kwargs : `dict`
+            Optional config parameters.
         """
         schema = watcher.rules.test.ConfiguredSeverities.get_schema()
         validator = salobj.DefaultingValidator(schema)
         config_dict = dict(name=name, interval=interval, severities=severities)
+        config_dict.update(kwargs)
 
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
@@ -60,8 +63,11 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         interval = 1.23
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
         config = self.make_config(name=name, interval=interval, severities=severities)
-        desired_rule_name = f"test.ConfiguredSeverities.{name}"
+        # Check default config parameters
+        self.assertEqual(config.delay, 0)
+        self.assertEqual(config.repeats, 0)
 
+        desired_rule_name = f"test.ConfiguredSeverities.{name}"
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
         self.assertEqual(rule.remote_info_list, [])
         self.assertEqual(rule.name, desired_rule_name)
@@ -75,6 +81,7 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
 
     async def test_run(self):
         interval = 0.01
+        repeats = 2
         severities = [
             AlarmSeverity.WARNING,
             AlarmSeverity.CRITICAL,
@@ -83,15 +90,18 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
             AlarmSeverity.NONE,
         ]
         config = self.make_config(
-            name="arbitrary", interval=interval, severities=severities
+            name="arbitrary",
+            interval=interval,
+            severities=severities,
+            delay=0.1,
+            repeats=repeats,
         )
+        self.assertEqual(config.delay, 0.1)
+        self.assertEqual(config.repeats, 2)
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
         read_severities = []
-        # Number of cycles of these severities to read; arbitrary
-        # but should be > 1 to check that the severities repeat.
-        num_cycles_to_read = 3
-        num_events_to_read = num_cycles_to_read * len(severities)
+        num_events_to_read = repeats * len(severities)
         done_future = asyncio.Future()
 
         def alarm_callback(alarm):
@@ -104,7 +114,7 @@ class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
         rule.start()
         await asyncio.wait_for(done_future, timeout=2)
         rule.stop()
-        expected_severities = severities * num_cycles_to_read
+        expected_severities = severities * repeats
         self.assertEqual(read_severities, expected_severities)
 
 

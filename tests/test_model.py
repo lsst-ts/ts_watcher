@@ -61,16 +61,20 @@ class ModelTestCase(asynctest.TestCase):
         salobj.set_random_lsst_dds_domain()
 
     @contextlib.asynccontextmanager
-    async def make_model(self, names, enable):
+    async def make_model(self, names, enable, escalation=()):
         """Make a Model as self.model, with one or more Enabled rules.
 
         Parameters
         ----------
         names : `list` [`str`]
             Name and index of one or more CSCs.
-            Each entry is of the form "name" or name:index"
+            Each entry is of the form "name" or name:index".
+            The associated alarm names have a prefix of "Enabled.".
         enable : `bool`
             Enable the model?
+        escalation : `list` of `dict`, optional
+            Escalation information.
+            See schema/Watcher.yaml for the format of entries.
         """
         if not names:
             raise ValueError("Must specify one or more CSCs")
@@ -82,6 +86,7 @@ class ModelTestCase(asynctest.TestCase):
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
             rules=[dict(classname="Enabled", configs=configs)],
+            escalation=escalation,
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
@@ -226,7 +231,7 @@ class ModelTestCase(asynctest.TestCase):
 
             # Acknowledge the ScriptQueue alarms but not Test.
             self.model.acknowledge_alarm(
-                name="Enabled.ScriptQueue.*", severity=AlarmSeverity.WARNING, user=user
+                name="Enabled.ScriptQueue:*", severity=AlarmSeverity.WARNING, user=user
             )
             for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
@@ -316,6 +321,35 @@ class ModelTestCase(asynctest.TestCase):
                         AlarmSeverity.SERIOUS,
                     ],
                 )
+
+    async def test_escalation(self):
+        remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
+        # Escalation info for the first two rules;
+        # check that case does not have to match.
+        esc_info12 = dict(alarms=["enabled.scriptqueue:*"], to="chaos", delay=0.11)
+        # Escalation info for the next two rules
+        esc_info34 = dict(alarms=["Enabled.Test:?"], to="stella", delay=0.12)
+        # Escalation info that does not match any alarm names
+        esc_notused = dict(alarms=["Enabled.NoMatch"], to="otho", delay=0.13)
+
+        async with self.make_model(
+            names=remote_names,
+            enable=False,
+            escalation=[esc_info12, esc_info34, esc_notused],
+        ):
+            alarms = [rule.alarm for rule in self.model.rules.values()]
+            self.assertEqual(len(alarms), len(remote_names))
+            for alarm in alarms[0:2]:
+                self.assertEqual(alarm.escalate_to, esc_info12["to"])
+                self.assertEqual(alarm.escalate_delay, esc_info12["delay"])
+            for alarm in alarms[2:4]:
+                self.assertEqual(alarm.escalate_to, esc_info34["to"])
+                self.assertEqual(alarm.escalate_delay, esc_info34["delay"])
+            for alarm in alarms[4:]:
+                self.assertEqual(alarm.escalate_to, "")
+                self.assertEqual(alarm.escalate_delay, 0)
+            for alarm in alarms:
+                self.assertEqual(alarm.timestamp_escalate, 0)
 
     async def test_get_rules(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]

@@ -22,6 +22,7 @@
 __all__ = ["get_rule_class", "Model"]
 
 import asyncio
+import fnmatch
 import re
 import types
 
@@ -59,7 +60,7 @@ class Model:
         DDS Domain.
     config : `types.SimpleNamespace`
         Watcher configuration validated against the Watcher schema.
-    alarm_callback : callable (optional)
+    alarm_callback : callable, optional
         Function to call when an alarm changes state.
         It receives one argument: the alarm.
         If None then no callback occurs.
@@ -119,6 +120,21 @@ class Model:
                     topic = getattr(remote, name)
                     if topic.callback is not None:
                         self._topics_with_callbacks.append(topic)
+
+        # Set escalation information in the alarms.
+        remaining_names = set(self.rules)
+        for escalation_item in config.escalation:
+            for name_glob in escalation_item["alarms"]:
+                name_regex = fnmatch.translate(name_glob)
+                compiled_name_regex = re.compile(name_regex, re.IGNORECASE)
+                matched_names = [
+                    name for name in remaining_names if compiled_name_regex.match(name)
+                ]
+                remaining_names = remaining_names.difference(matched_names)
+                for name in matched_names:
+                    alarm = self.rules[name].alarm
+                    alarm.escalate_to = escalation_item["to"]
+                    alarm.escalate_delay = escalation_item["delay"]
 
         self.start_task = asyncio.ensure_future(self.start())
 

@@ -13,3 +13,6 @@ _g.update(
         project_name="ts_watcher", version=lsst.ts.watcher.version.__version__
     )
 )
+
+intersphinx_mapping["ts_xml"] = ("https://ts-xml.lsst.io", None)  # noqa
+intersphinx_mapping["ts_salobj"] = ("https://ts-salobj.lsst.io", None)  # noqa

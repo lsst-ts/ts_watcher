@@ -80,7 +80,7 @@ class TopicCallback:
         This is provided so that code in `Rule.__call__` can easily get
         the current value of the topic that triggered the call.
         """
-        return self._topic.get()
+        return self._topic.get(flush=False)
 
     def __call__(self, value):
         if not self.model.enabled:

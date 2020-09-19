@@ -3,7 +3,7 @@ $id: https://github.com/lsst-ts/ts_watcher/Watcher.yaml
 title: Watcher v1
 description: Configuration for the Watcher
 type: object
-required: [rules]
+required: [rules]  # Omit disabled_sal_components and other properties with defaults (to avoid failed validation).
 additionalProperties: false
 properties:
   disabled_sal_components:
@@ -52,3 +52,43 @@ properties:
           minItems: 1
           items:
             type: object
+  escalation:
+    description: >-
+      Alarm escalation configuration. Alarms are escalated if their max severity is critical
+      and they have not been acknowledged within a specified period.
+      Note that they are escalated even if they are stale.
+      Each alarm matches at most one entry in this list: the first match is used.
+    type: array
+    default: []
+    items:
+      type: object
+      required: [alarms, to, delay]
+      additionalProperties: false
+      minItems: 0
+      properties:
+        alarms:
+          description: >-
+            Alarms to which this escalation configuration applies,
+            specified as a list of case-blind glob expressions.
+            Each expression must match the full alarm name in order for
+            the escalation configuration to apply to that alarm.
+          type: array
+          minItems: 1
+          items:
+            type: string
+        to:
+          description: >-
+            User or channel to which to escalate these alarms.
+            Set empty to prevent this alarm from being escalated
+            (as if the alarm did not appear in the escalation section).
+          type: string
+        delay:
+          description: >-
+            Delay before escalating these alarms (seconds).
+            A value of 0 disables escalation (as does an empty string for `to`).
+            The alarm will be escalated `delay` seconds after the alarm severity
+            first goes to CRITICAL, unless the alarm is acknowledged first.
+            Warning: stale alarms–those for which the severity has gone back to None–
+            will not reliably be escalated if `delay` is longer than `auto_acknowledge_delay`,
+            because the alarm may be automatically acknowledged before it is escalated.
+          type: number

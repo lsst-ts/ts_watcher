@@ -22,7 +22,6 @@
 __all__ = ["ConfiguredSeverities"]
 
 import asyncio
-import itertools
 import yaml
 
 from lsst.ts import salobj
@@ -72,11 +71,19 @@ class ConfiguredSeverities(base.BaseRule):
                 interval:
                     description: Interval between severities (seconds).
                     type: number
+                delay:
+                    description: Additional delay before the first severity (seconds).
+                    type: number
+                    default: 0
                 severities:
                     description: A list of severities as lsst.ts.idl.enums.Watcher.AlarmSeverity constants.
                     type: array
                     items:
                         type: integer
+                repeats:
+                    description: How many times to repeat the pattern? 0 = forever.
+                    type: integer
+                    default: 0
             required: [name, interval, severities]
             additionalProperties: false
         """
@@ -94,9 +101,15 @@ class ConfiguredSeverities(base.BaseRule):
 
     async def run(self):
         """Run through the configured severities, repeatedly, forever."""
-        for severity in itertools.cycle(self.config.severities):
-            await asyncio.sleep(self.config.interval)
-            self.alarm.set_severity(severity=severity, reason="Commanded severity")
+        await asyncio.sleep(self.config.delay)
+        repeat = 0
+        while True:
+            for severity in self.config.severities:
+                await asyncio.sleep(self.config.interval)
+                self.alarm.set_severity(severity=severity, reason="Commanded severity")
+            repeat += 1
+            if self.config.repeats > 0 and repeat >= self.config.repeats:
+                break
 
     def __call__(self, topic_callback):
         raise RuntimeError("This should never be called")

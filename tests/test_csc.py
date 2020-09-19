@@ -37,48 +37,34 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config
 
 
 class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
-    def setUp(self):
-        salobj.set_random_lsst_dds_domain()
-
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
         self.assertEqual(initial_state, salobj.State.STANDBY)
         self.assertEqual(simulation_mode, 0)
         return watcher.WatcherCsc(config_dir=config_dir)
 
     async def assert_next_alarm(
-        self,
-        name=None,
-        severity=None,
-        maxSeverity=None,
-        acknowledged=None,
-        acknowledgedBy=None,
-        mutedSeverity=None,
-        mutedBy=None,
-        timeout=STD_TIMEOUT,
+        self, timeout=STD_TIMEOUT, **kwargs,
     ):
         """Wait for the next alarm event and check its fields.
 
         Return the alarm data, in case you want to do anything else with it
         (such as access its name).
+
+        Parameters
+        ----------
+        **kwargs : `dict`
+            A dict of data field name: expected value
+        timeout : `float`, optional
+            Time limit (sec).
+
+        Returns
+        -------
+        data : Alarm data
+            The read message.
         """
         data = await self.remote.evt_alarm.next(flush=False, timeout=timeout)
-        if name is not None:
-            self.assertEqual(data.name, name)
-        if severity is not None:
-            self.assertEqual(data.severity, severity)
-        if maxSeverity is not None:
-            self.assertEqual(data.maxSeverity, maxSeverity)
-        if acknowledged is not None:
-            if acknowledged:
-                self.assertTrue(data.acknowledged)
-            else:
-                self.assertFalse(data.acknowledged)
-        if acknowledgedBy is not None:
-            self.assertEqual(data.acknowledgedBy, acknowledgedBy)
-        if mutedSeverity is not None:
-            self.assertEqual(data.mutedSeverity, mutedSeverity)
-        if mutedBy is not None:
-            self.assertEqual(data.mutedBy, mutedBy)
+        for name, value in kwargs.items():
+            self.assertEqual(getattr(data, name), value, msg=name)
         return data
 
     async def test_bin_script(self):
@@ -104,6 +90,19 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
             rule_names = list(self.csc.model.rules)
             expected_rule_names = [f"Enabled.ScriptQueue:{index}" for index in (1, 2)]
             self.assertEqual(rule_names, expected_rule_names)
+
+            # Check that escalation info is not set for the first rule
+            # and is set for the second rule.
+            alarm1 = self.csc.model.rules[expected_rule_names[0]].alarm
+            alarm2 = self.csc.model.rules[expected_rule_names[1]].alarm
+            self.assertEqual(alarm1.escalate_to, "")
+            self.assertEqual(alarm1.escalate_delay, 0)
+            self.assertEqual(alarm1.timestamp_escalate, 0)
+            self.assertFalse(alarm1.escalated)
+            self.assertEqual(alarm2.escalate_to, "stella")
+            self.assertEqual(alarm2.escalate_delay, 0.11)
+            self.assertEqual(alarm2.timestamp_escalate, 0)
+            self.assertFalse(alarm2.escalated)
 
     async def test_default_config_dir(self):
         async with self.make_csc(config_dir=None, initial_state=salobj.State.STANDBY):
@@ -141,6 +140,77 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
                 settingsToApply="two_scriptqueue_enabled.yaml",
             )
 
+    async def test_escalation(self):
+        """Run the watcher with a ConfiguredSeverity rule and make sure
+        the escalation fields look correct in the Alarm event.
+        """
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ):
+            await salobj.set_summary_state(
+                self.remote, state=salobj.State.ENABLED, settingsToApply="critical.yaml"
+            )
+            alarm_name1 = "test.ConfiguredSeverities.ATDome"
+            alarm_name2 = "test.ConfiguredSeverities.ATCamera"
+            await self.assert_next_alarm(
+                name=alarm_name1,
+                severity=AlarmSeverity.WARNING,
+                maxSeverity=AlarmSeverity.WARNING,
+                escalated=False,
+                escalateTo="stella",
+                timestampEscalate=0,
+            )
+            await self.assert_next_alarm(
+                name=alarm_name2,
+                severity=AlarmSeverity.SERIOUS,
+                maxSeverity=AlarmSeverity.SERIOUS,
+                escalated=False,
+                escalateTo="",
+                timestampEscalate=0,
+            )
+            data = await self.assert_next_alarm(
+                name=alarm_name1,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                escalated=False,
+                escalateTo="stella",
+            )
+            self.assertGreater(data.timestampEscalate, 0)
+            timestamp_escalate = data.timestampEscalate
+            # The next event indicates that the alarm has been escalated.
+            await self.assert_next_alarm(
+                name=alarm_name1,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                escalated=True,
+                escalateTo="stella",
+                timestampEscalate=timestamp_escalate,
+            )
+            await self.assert_next_alarm(
+                name=alarm_name2,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                escalated=False,
+                escalateTo="",
+                timestampEscalate=0,
+            )
+            await self.assert_next_alarm(
+                name=alarm_name1,
+                severity=AlarmSeverity.NONE,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                escalated=True,
+                escalateTo="stella",
+                timestampEscalate=timestamp_escalate,
+            )
+            await self.assert_next_alarm(
+                name=alarm_name2,
+                severity=AlarmSeverity.WARNING,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                escalated=False,
+                escalateTo="",
+                timestampEscalate=0,
+            )
+
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
         async with self.make_csc(
@@ -149,6 +219,7 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, settingsToApply="enabled.yaml"
             )
+
             atdome_alarm_name = "Enabled.ATDome:0"
             scriptqueue_alarm_name = "Enabled.ScriptQueue:2"
 
