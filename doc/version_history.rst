@@ -6,6 +6,21 @@
 Version History
 ###############
 
+v1.3.1
+======
+
+Changes:
+
+* Add the ``kapacitor`` directory to save Kapacitor alert scripts.
+
+Requires:
+
+* ts_salobj 5.11 - 6
+* ts_xml 4.6 - 6
+* ts_idl 1
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.3.0
 ======
 
