@@ -6,12 +6,37 @@
 Version History
 ###############
 
+v1.3.3
+======
+
+Changes:
+
+* Bug fix: Model mis-handled rules with no configuration.
+* Improved a unit test to catch ts_salobj bug `DM-27380 <https://jira.lsstcorp.org/browse/DM-27380>`_.
+
+Requires:
+
+* ts_salobj 6
+* ts_xml 4.6 - 6
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
+
 v1.3.2
 ======
 
 Changes:
 
 * Fix the requirements for 1.3.0 and 1.3.1 in the version history.
+
+Requires:
+
+* ts_salobj 6
+* ts_xml 4.6 - 6
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
 
 v1.3.1
 ======
