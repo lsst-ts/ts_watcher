@@ -92,14 +92,22 @@ class Model:
             ruleclass = get_rule_class(ruleclassname)
             try:
                 ruleschema = ruleclass.get_schema()
-                validator = salobj.DefaultingValidator(ruleschema)
+                if ruleschema is None:
+                    validator = None
+                else:
+                    validator = salobj.DefaultingValidator(ruleschema)
             except Exception as e:
                 raise ValueError(
                     f"Schema for rule class {ruleclassname} not valid"
                 ) from e
             for i, ruleconfig_dict in enumerate(ruledata["configs"]):
                 try:
-                    full_ruleconfig_dict = validator.validate(ruleconfig_dict)
+                    if validator is None:
+                        if ruleconfig_dict:
+                            raise ValueError("Rule config dict must be empty")
+                        full_ruleconfig_dict = dict()
+                    else:
+                        full_ruleconfig_dict = validator.validate(ruleconfig_dict)
                     ruleconfig = types.SimpleNamespace(**full_ruleconfig_dict)
                 except Exception as e:
                     raise ValueError(
