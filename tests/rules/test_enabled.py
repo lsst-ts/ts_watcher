@@ -35,7 +35,7 @@ LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 class EnabledTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_partition_prefix()
 
     def make_config(self, name):
         """Make a config for the Enabled rule.

@@ -35,7 +35,7 @@ index_gen = salobj.index_generator()
 
 class RemoteWrapperTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
 
     async def test_all_names(self):

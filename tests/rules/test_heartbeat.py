@@ -35,7 +35,7 @@ LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 class HeartbeatTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_partition_prefix()
 
     def make_config(self, name, timeout):
         """Make a config for the Heartbeat rule.

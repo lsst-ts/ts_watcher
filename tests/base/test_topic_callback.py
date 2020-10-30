@@ -42,7 +42,7 @@ class MockModel:
 
 class TopicCallbackTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
 
     def make_enabled_rule(self):

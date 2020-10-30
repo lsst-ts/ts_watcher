@@ -58,7 +58,7 @@ class GetRuleClassTestCase(unittest.TestCase):
 
 class ModelTestCase(asynctest.TestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_domain()
+        salobj.set_random_lsst_dds_partition_prefix()
 
     @contextlib.asynccontextmanager
     async def make_model(self, names, enable, escalation=()):
