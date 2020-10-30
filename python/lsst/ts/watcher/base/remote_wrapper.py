@@ -30,7 +30,7 @@ class RemoteWrapper:
     The wrapper uses the same attribute names as `lsst.ts.salobj.Remote`,
     but the wrapper's attributes return the current value of the topic.
     For example `remote_wrapper.evt_summaryState` returns
-    `remote.evt_summaryState.get(flush=False)`.
+    `remote.evt_summaryState.get()`.
 
     Parameters
     ----------
@@ -107,7 +107,7 @@ class RemoteWrapper:
         RuntimeError
             If the Remote has not started.
         """
-        return self._topics[name].get(flush=False)
+        return self._topics[name].get()
 
     def __dir__(self):
         return dir(RemoteWrapper) + list(self._topics.keys())

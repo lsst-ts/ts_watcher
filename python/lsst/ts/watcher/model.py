@@ -163,7 +163,7 @@ class Model:
             rule.alarm.reset()
             rule.start()
         for topic in self._topics_with_callbacks:
-            data = topic.get(flush=False)
+            data = topic.get()
             if data is not None:
                 callback_coros.append(topic._run_callback(data))
         self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
