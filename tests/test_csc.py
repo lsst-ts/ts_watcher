@@ -118,12 +118,21 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
             invalid_files = glob.glob(str(TEST_CONFIG_DIR / "invalid_*.yaml"))
-            bad_config_names = [os.path.basename(name) for name in invalid_files]
+            # Test the invalid files and a blank settingsToApply
+            # (since the schema doesn't have a usable default).
+            bad_config_names = [os.path.basename(name) for name in invalid_files] + [""]
             for bad_config_name in bad_config_names:
                 with self.subTest(bad_config_name=bad_config_name):
-                    self.remote.cmd_start.set(settingsToApply=bad_config_name)
-                    with salobj.assertRaisesAckError():
-                        await self.remote.cmd_start.start(timeout=STD_TIMEOUT)
+                    with salobj.assertRaisesAckError(ack=salobj.SalRetCode.CMD_FAILED):
+                        await self.remote.cmd_start.set_start(
+                            settingsToApply=bad_config_name, timeout=STD_TIMEOUT
+                        )
+
+            # Check that the CSC can still be configured.
+            # This also exercises specifying a rule with no configuration.
+            await self.remote.cmd_start.set_start(
+                settingsToApply="basic.yaml", timeout=STD_TIMEOUT
+            )
 
     async def test_standard_state_transitions(self):
         async with self.make_csc(
