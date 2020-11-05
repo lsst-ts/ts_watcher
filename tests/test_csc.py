@@ -22,6 +22,7 @@ import asyncio
 import glob
 import os
 import pathlib
+import sys
 import unittest
 
 import asynctest
@@ -572,6 +573,19 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
             # There should be the only alarm event from the unmute command.
             with self.assertRaises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=1)
+
+    async def test_settings_required(self):
+        """Test that the command line parser requires --settings
+        if --state is enabled or disabled.
+        """
+        original_argv = sys.argv[:]
+        try:
+            for state_name in ("disabled", "enabled"):
+                sys.argv = [original_argv[0], "run_watcher.py", "--state", state_name]
+                with self.assertRaises(SystemExit):
+                    await watcher.WatcherCsc.make_from_cmd_line(index=None)
+        finally:
+            sys.argv = original_argv
 
     async def test_unacknowledge(self):
         """Test the unacknowledge command."""

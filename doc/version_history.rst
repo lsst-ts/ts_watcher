@@ -6,6 +6,24 @@
 Version History
 ###############
 
+v1.4.0
+======
+
+Changes:
+
+* Update for ts_salobj 6.1, which is required.
+* Add `WatcherCsc` constructor argument ``settings_to_apply`` and set class variable ``require_settings = True``.
+* Fix deprecation warnings about calling get(flush=False) on read topics.
+* Remove obsolete .travis.yml file.
+
+Requires:
+
+* ts_salobj 6.1
+* ts_xml 4.6 - 6
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.3.3
 ======
 
@@ -21,7 +39,6 @@ Requires:
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
   These may be generated using ``make_idl_files.py``
-
 
 v1.3.2
 ======
