@@ -15,6 +15,7 @@ Changes:
 * Add `WatcherCsc` constructor argument ``settings_to_apply`` and set class variable ``require_settings = True``.
 * Fix deprecation warnings about calling get(flush=False) on read topics.
 * Remove obsolete .travis.yml file.
+* Update to use ``pre-commit`` to maintain ``flake8`` and ``black`` compliance.
 
 Requires:
 
