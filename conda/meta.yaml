@@ -8,15 +8,6 @@ source:
 
 build:
   script: python -m pip install --no-deps --ignore-installed .
-  script_env:
-    - PATH
-    - PYTHONPATH
-    - LD_LIBRARY_PATH
-    - OSPL_HOME
-    - PYTHON_BUILD_VERSION
-    - PYTHON_BUILD_LOCATION
-    - TS_CONFIG_ATTCS_DIR
-    - LSST_DDS_DOMAIN
 
 test:
   requires:
@@ -30,7 +21,7 @@ test:
     - schema
     - setup.cfg
   commands:
-    - py.test
+    - pytest
 
 requirements:
   host:
@@ -43,5 +34,5 @@ requirements:
     - python
     - setuptools
     - setuptools_scm
-    - ts_idl
+    - ts-idl
     - ts-salobj

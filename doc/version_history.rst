@@ -6,6 +6,22 @@
 Version History
 ###############
 
+v1.4.1
+======
+
+Changes:
+
+* Fix ts-idl package name run dependency in conda recipe.
+* Minor updates to conda recipe.
+
+Requires:
+
+* ts_salobj 6.1
+* ts_xml 4.6 - 6
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.4.0
 ======
 
