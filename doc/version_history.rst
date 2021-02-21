@@ -6,6 +6,23 @@
 Version History
 ###############
 
+v1.4.3
+======
+
+Changes:
+
+* `WatcherCsc`: set ``version`` class variable.
+  Test that this sets the cscVersion field of the softwareVersions event.
+* Modernize doc/conf.py for documenteer 0.6.
+
+Requires:
+
+* ts_salobj 6.1
+* ts_xml 4.6 - 6
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.4.2
 ======
 
