@@ -80,6 +80,12 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
             await self.assert_next_summary_state(salobj.State.STANDBY)
             self.assertIsNone(self.csc.model)
 
+            await self.assert_next_sample(
+                topic=self.remote.evt_softwareVersions,
+                cscVersion=watcher.__version__,
+                subsystemVersions="",
+            )
+
             await salobj.set_summary_state(
                 self.remote,
                 salobj.State.ENABLED,

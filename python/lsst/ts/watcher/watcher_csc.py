@@ -26,7 +26,7 @@ import pathlib
 
 from lsst.ts import salobj
 
-# from . import base
+from . import __version__
 from .model import Model
 
 
@@ -57,6 +57,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     valid_simulation_modes = [0]
     enable_cmdline_state = True
     require_settings = True
+    version = __version__
 
     def __init__(
         self, config_dir=None, initial_state=salobj.State.STANDBY, settings_to_apply=""
