@@ -24,6 +24,7 @@ try:
 except ImportError:
     pass
 
+from .config_schema import *
 from .base import *
 from .rules import *
 from .model import *

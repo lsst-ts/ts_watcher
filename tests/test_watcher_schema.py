@@ -28,6 +28,7 @@ import yaml
 import jsonschema
 
 from lsst.ts import salobj
+from lsst.ts import watcher
 
 
 class WatcherSchemaTestCase(unittest.TestCase):
@@ -35,12 +36,7 @@ class WatcherSchemaTestCase(unittest.TestCase):
     """
 
     def setUp(self):
-        schemapath = (
-            pathlib.Path(__file__).resolve().parents[1] / "schema" / "Watcher.yaml"
-        )
-        with open(schemapath, "r") as f:
-            rawschema = f.read()
-        self.schema = yaml.safe_load(rawschema)
+        self.schema = watcher.CONFIG_SCHEMA
         self.validator = salobj.DefaultingValidator(schema=self.schema)
         self.configpath = pathlib.Path(__file__).resolve().parent / "data" / "config"
 

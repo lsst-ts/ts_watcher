@@ -74,7 +74,7 @@ class ModelTestCase(asynctest.TestCase):
             Enable the model?
         escalation : `list` of `dict`, optional
             Escalation information.
-            See schema/Watcher.yaml for the format of entries.
+            See `CONFIG_SCHEMA` for the format of entries.
         """
         if not names:
             raise ValueError("Must specify one or more CSCs")
