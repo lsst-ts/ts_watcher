@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for the LSST Data Management System.
+# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -22,11 +22,11 @@
 __all__ = ["WatcherCsc"]
 
 import asyncio
-import pathlib
 
 from lsst.ts import salobj
 
 from . import __version__
+from .config_schema import CONFIG_SCHEMA
 from .model import Model
 
 
@@ -62,19 +62,12 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def __init__(
         self, config_dir=None, initial_state=salobj.State.STANDBY, settings_to_apply=""
     ):
-        schema_path = (
-            pathlib.Path(__file__)
-            .resolve()
-            .parents[4]
-            .joinpath("schema", "Watcher.yaml")
-        )
-
         # the Watcher model is created when the CSC is configured
         self.model = None
         super().__init__(
             "Watcher",
             index=0,
-            schema_path=schema_path,
+            config_schema=CONFIG_SCHEMA,
             config_dir=config_dir,
             initial_state=initial_state,
             settings_to_apply=settings_to_apply,

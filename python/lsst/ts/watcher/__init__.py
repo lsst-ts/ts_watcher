@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for the LSST Data Management System.
+# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -24,6 +24,7 @@ try:
 except ImportError:
     pass
 
+from .config_schema import *
 from .base import *
 from .rules import *
 from .model import *

@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for the LSST Data Management System.
+# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -74,7 +74,7 @@ class ModelTestCase(asynctest.TestCase):
             Enable the model?
         escalation : `list` of `dict`, optional
             Escalation information.
-            See schema/Watcher.yaml for the format of entries.
+            See `CONFIG_SCHEMA` for the format of entries.
         """
         if not names:
             raise ValueError("Must specify one or more CSCs")
