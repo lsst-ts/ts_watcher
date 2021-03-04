@@ -22,7 +22,7 @@
 try:
     from .version import *
 except ImportError:
-    pass
+    __version__ = "?"
 
 from .config_schema import *
 from .base import *
