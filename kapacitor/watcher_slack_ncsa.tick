@@ -17,7 +17,7 @@ var groupBy = []
 
 var whereFilter = lambda: TRUE
 
-var name = 'Watcher Severity Alarm'
+var name = 'Watcher to Slack'
 
 var idVar = name + '-{{.Group}}'
 

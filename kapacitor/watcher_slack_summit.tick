@@ -1,0 +1,81 @@
+// Monitor the Watcher `alarm` event.
+// Send a message on the specified Slack channel if the `severity` goes to SERIOUS or CRITICAL
+// and another when the severity drops below that level again.
+
+// Specify the Slack channel.
+// Modify this value for each site (e.g. summit, NCSA teststand, etc.).
+// Create the Slack channel before using this alert script.
+var slack_channel = '#summit-watcher'
+
+var db = 'efd'
+
+var rp = 'autogen'
+
+var measurement = 'lsst.sal.Watcher.logevent_alarm'
+
+var groupBy = []
+
+var whereFilter = lambda: TRUE
+
+var name = 'Watcher to Slack'
+
+var idVar = name + '-{{.Group}}'
+
+var message = '{{.Time}} {{ index .Fields "name_value" }} alarm; severity = {{ index .Fields "severity_value" }}; maxSeverity = {{ index .Fields "maxSeverity_value" }}; reason = {{ index .Fields "reason_value" }}'
+
+var idTag = 'alertID'
+
+var levelTag = 'level'
+
+var messageField = 'message'
+
+var durationField = 'duration'
+
+var outputDB = 'chronograf'
+
+var outputRP = 'autogen'
+
+var outputMeasurement = 'alerts'
+
+var triggerType = 'threshold'
+
+var crit = 3
+
+var data = stream
+    |from()
+        .database(db)
+        .retentionPolicy(rp)
+        .measurement(measurement)
+        .groupBy(groupBy)
+        .where(whereFilter)
+    |eval(lambda: "severity", lambda: "maxSeverity", lambda: "name", lambda: "reason")
+        .as('severity_value', 'maxSeverity_value', 'name_value', 'reason_value')
+
+var trigger = data
+    |alert()
+        .crit(lambda: "severity_value" >= crit)
+        .message(message)
+        .id(idVar)
+        .idTag(idTag)
+        .levelTag(levelTag)
+        .messageField(messageField)
+        .durationField(durationField)
+        .stateChangesOnly()
+        .slack()
+        .channel(slack_channel)
+
+trigger
+    |eval(lambda: float("severity_value"))
+        .as('severity_value')
+        .keep()
+    |influxDBOut()
+        .create()
+        .database(outputDB)
+        .retentionPolicy(outputRP)
+        .measurement(outputMeasurement)
+        .tag('alertName', name)
+        .tag('triggerType', triggerType)
+
+trigger
+    |httpOut('output')
+
