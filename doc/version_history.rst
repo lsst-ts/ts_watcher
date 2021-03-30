@@ -6,6 +6,22 @@
 Version History
 ###############
 
+v1.5.3
+======
+
+Changes:
+
+* Use `unittest.IsolatedAsyncioTestCase` instead of the abandoned asynctest package.
+* Format the code with black 20.8b1.
+
+Requires:
+
+* ts_salobj 6.3
+* ts_xml 7
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.5.2
 ======
 
