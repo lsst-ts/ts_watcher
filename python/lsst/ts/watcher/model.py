@@ -148,13 +148,11 @@ class Model:
 
     @property
     def enabled(self):
-        """Get or set the enabled state of the Watcher model.
-        """
+        """Get or set the enabled state of the Watcher model."""
         return self._enabled
 
     def enable(self):
-        """Enable the model. A no-op if already enabled.
-        """
+        """Enable the model. A no-op if already enabled."""
         if self._enabled:
             return
         self._enabled = True
@@ -169,8 +167,7 @@ class Model:
         self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
 
     def disable(self):
-        """Disable the model. A no-op if already disabled.
-        """
+        """Disable the model. A no-op if already disabled."""
         if not self._enabled:
             return
         self._enabled = False
@@ -181,8 +178,7 @@ class Model:
         await asyncio.gather(*[remote.start() for remote in self.remotes.values()])
 
     async def close(self):
-        """Stop rules and close remotes.
-        """
+        """Stop rules and close remotes."""
         for rule in self.rules.values():
             rule.alarm.close()
         self.disable()

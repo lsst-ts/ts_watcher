@@ -23,14 +23,12 @@ import asyncio
 import types
 import unittest
 
-import asynctest
-
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
 
-class TestConfiguredSeveritiesTestCase(asynctest.TestCase):
+class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
     def make_config(self, name, interval, severities, **kwargs):
         """Make a config for the TestConfiguredSeverities rule.
 

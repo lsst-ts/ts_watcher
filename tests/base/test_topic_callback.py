@@ -23,8 +23,6 @@ import asyncio
 import types
 import unittest
 
-import asynctest
-
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
@@ -40,7 +38,7 @@ class MockModel:
         self.enabled = enabled
 
 
-class TopicCallbackTestCase(asynctest.TestCase):
+class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)

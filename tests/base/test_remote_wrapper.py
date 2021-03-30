@@ -22,8 +22,6 @@
 import asyncio
 import unittest
 
-import asynctest
-
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -33,7 +31,7 @@ LONG_TIMEOUT = 60  # Max Remote startup time (seconds)
 index_gen = salobj.index_generator()
 
 
-class RemoteWrapperTestCase(asynctest.TestCase):
+class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)

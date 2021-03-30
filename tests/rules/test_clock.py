@@ -23,7 +23,6 @@ import asyncio
 import types
 import unittest
 
-import asynctest
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -34,15 +33,13 @@ LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 
 class HeartbeatWriter(salobj.topics.ControllerEvent):
-    """A heartbeat event writer with incorrect private_sndStamp.
-    """
+    """A heartbeat event writer with incorrect private_sndStamp."""
 
     def __init__(self, salinfo):
         super().__init__(salinfo=salinfo, name="heartbeat")
 
     async def aput(self, dt):
-        """Write a sample with ``private_sndStamp = current time + dt``.
-        """
+        """Write a sample with ``private_sndStamp = current time + dt``."""
         self.data.private_sndStamp = salobj.current_tai() + dt
         self.data.private_revCode = self.rev_code
         self.data.private_origin = self.salinfo.domain.origin
@@ -57,7 +54,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         raise NotImplementedError()
 
 
-class ClockTestCase(asynctest.TestCase):
+class ClockTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 

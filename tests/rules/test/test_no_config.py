@@ -22,12 +22,10 @@
 import types
 import unittest
 
-import asynctest
-
 from lsst.ts import watcher
 
 
-class TestNoConfigTestCase(asynctest.TestCase):
+class TestNoConfigTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_basics(self):
         self.assertIsNone(watcher.rules.test.NoConfig.get_schema())
 

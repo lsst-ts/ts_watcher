@@ -25,8 +25,6 @@ import pathlib
 import sys
 import unittest
 
-import asynctest
-
 from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -37,14 +35,16 @@ LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
 
-class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
+class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
         self.assertEqual(initial_state, salobj.State.STANDBY)
         self.assertEqual(simulation_mode, 0)
         return watcher.WatcherCsc(config_dir=config_dir)
 
     async def assert_next_alarm(
-        self, timeout=STD_TIMEOUT, **kwargs,
+        self,
+        timeout=STD_TIMEOUT,
+        **kwargs,
     ):
         """Wait for the next alarm event and check its fields.
 
@@ -70,7 +70,9 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
 
     async def test_bin_script(self):
         await self.check_bin_script(
-            name="Watcher", index=None, exe_name="run_watcher.py",
+            name="Watcher",
+            index=None,
+            exe_name="run_watcher.py",
         )
 
     async def test_initial_info(self):

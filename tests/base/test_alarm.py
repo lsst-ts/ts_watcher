@@ -24,8 +24,6 @@ import copy
 import itertools
 import unittest
 
-import asynctest
-
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
@@ -34,7 +32,7 @@ from lsst.ts import watcher
 STD_TIMEOUT = 2  # seconds
 
 
-class AlarmTestCase(asynctest.TestCase):
+class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     # NOTE: almost all test methods must be async, even with no visible
     # async code, so that Alarm has an event loop.
     def setUp(self):

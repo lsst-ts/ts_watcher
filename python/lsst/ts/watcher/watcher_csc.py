@@ -98,16 +98,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self._enable_or_disable_model()
 
     def _enable_or_disable_model(self):
-        """Enable or disable the model based on the summary state.
-        """
+        """Enable or disable the model based on the summary state."""
         if self.summary_state == salobj.State.ENABLED:
             self.model.enable()
         elif self.model is not None:
             self.model.disable()
 
     def output_alarm(self, alarm):
-        """Output the alarm event for one alarm.
-        """
+        """Output the alarm event for one alarm."""
         if self.summary_state != salobj.State.ENABLED:
             return
         # Do not set timestampSeverityNewest because it causes
@@ -144,8 +142,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
 
     def do_mute(self, data):
-        """Mute one or more alarms.
-        """
+        """Mute one or more alarms."""
         self.assert_enabled()
         self.model.mute_alarm(
             name=data.name,
@@ -155,8 +152,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
 
     async def do_showAlarms(self, data):
-        """Show all alarms.
-        """
+        """Show all alarms."""
         self.assert_enabled()
         # Make a list of active (not nominal) alarms and iterate over it,
         # reporting alarm events and yielding the event loop.
@@ -179,13 +175,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
             await asyncio.sleep(0.001)
 
     def do_unacknowledge(self, data):
-        """Unacknowledge one or more alarms.
-        """
+        """Unacknowledge one or more alarms."""
         self.assert_enabled()
         self.model.unacknowledge_alarm(name=data.name)
 
     def do_unmute(self, data):
-        """Unmute one or more alarms.
-        """
+        """Unmute one or more alarms."""
         self.assert_enabled()
         self.model.unmute_alarm(name=data.name)
