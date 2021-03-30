@@ -23,7 +23,6 @@ import asyncio
 import types
 import unittest
 
-import asynctest
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -55,7 +54,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         raise NotImplementedError()
 
 
-class ClockTestCase(asynctest.TestCase):
+class ClockTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 

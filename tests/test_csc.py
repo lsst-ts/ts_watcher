@@ -25,8 +25,6 @@ import pathlib
 import sys
 import unittest
 
-import asynctest
-
 from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -37,7 +35,7 @@ LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
 
-class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
+class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
         self.assertEqual(initial_state, salobj.State.STANDBY)
         self.assertEqual(simulation_mode, 0)
