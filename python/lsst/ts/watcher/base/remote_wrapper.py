@@ -89,8 +89,7 @@ class RemoteWrapper:
 
     @property
     def attr_name(self):
-        """Get the rule attribute name for this remote wrapper.
-        """
+        """Get the rule attribute name for this remote wrapper."""
         return f"{self.name.lower()}_{self.index}"
 
     def __getattr__(self, name):

@@ -32,8 +32,7 @@ from lsst.ts import watcher
 
 
 class WatcherSchemaTestCase(unittest.TestCase):
-    """Test the Watcher schema.
-    """
+    """Test the Watcher schema."""
 
     def setUp(self):
         self.schema = watcher.CONFIG_SCHEMA
@@ -87,7 +86,8 @@ class WatcherSchemaTestCase(unittest.TestCase):
         )
         self.assertEqual(len(config.escalation), 3)
         self.assertEqual(
-            config.escalation[0], dict(alarms=["Enabled.AT*"], to="stella", delay=0.11),
+            config.escalation[0],
+            dict(alarms=["Enabled.AT*"], to="stella", delay=0.11),
         )
         self.assertEqual(
             config.escalation[1],

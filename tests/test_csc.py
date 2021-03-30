@@ -44,7 +44,9 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
         return watcher.WatcherCsc(config_dir=config_dir)
 
     async def assert_next_alarm(
-        self, timeout=STD_TIMEOUT, **kwargs,
+        self,
+        timeout=STD_TIMEOUT,
+        **kwargs,
     ):
         """Wait for the next alarm event and check its fields.
 
@@ -70,7 +72,9 @@ class CscTestCase(salobj.BaseCscTestCase, asynctest.TestCase):
 
     async def test_bin_script(self):
         await self.check_bin_script(
-            name="Watcher", index=None, exe_name="run_watcher.py",
+            name="Watcher",
+            index=None,
+            exe_name="run_watcher.py",
         )
 
     async def test_initial_info(self):

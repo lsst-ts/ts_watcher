@@ -32,8 +32,7 @@ from lsst.ts import watcher
 
 
 class GetRuleClassTestCase(unittest.TestCase):
-    """Test `lsst.ts.watcher.get_rule_class`.
-    """
+    """Test `lsst.ts.watcher.get_rule_class`."""
 
     def test_good_names(self):
         for classname, desired_class in (
@@ -146,8 +145,7 @@ class ModelTestCase(asynctest.TestCase):
         )
 
     async def write_states(self, index, states):
-        """Write a sequence of summary states to a specified controller.
-        """
+        """Write a sequence of summary states to a specified controller."""
         controller = self.controllers[index]
         for state in states:
             controller.evt_summaryState.set_put(summaryState=state, force_output=True)
@@ -376,8 +374,7 @@ class ModelTestCase(asynctest.TestCase):
             self.assertEqual(len(list(rules)), 3)
 
     async def test_mute_full_name(self):
-        """Test mute and unmute by full alarm name.
-        """
+        """Test mute and unmute by full alarm name."""
         user = "test_mute_alarm"
         remote_names = ["ScriptQueue:5", "Test:7"]
 
@@ -406,8 +403,7 @@ class ModelTestCase(asynctest.TestCase):
                 self.assertNotMuted(rule.alarm)
 
     async def test_mute_regex(self):
-        """Test mute and unmute by regex.
-        """
+        """Test mute and unmute by regex."""
         user = "test_mute_alarm"
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:62"]
         nrules = len(remote_names)

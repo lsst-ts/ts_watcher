@@ -63,8 +63,7 @@ class Alarm:
 
     @property
     def muted(self):
-        """Is this alarm muted?
-        """
+        """Is this alarm muted?"""
         return self.muted_severity != AlarmSeverity.NONE
 
     @property
@@ -127,8 +126,7 @@ class Alarm:
         self.escalate_delay = escalate_delay
 
     def close(self):
-        """Cancel pending tasks.
-        """
+        """Cancel pending tasks."""
         self._cancel_auto_acknowledge()
         self._cancel_auto_unacknowledge()
         self._cancel_escalate()
@@ -241,8 +239,7 @@ class Alarm:
         self._run_callback()
 
     def unmute(self):
-        """Unmute this alarm.
-        """
+        """Unmute this alarm."""
         self._cancel_unmute()
         self._run_callback()
 
@@ -435,8 +432,7 @@ class Alarm:
         return f"Alarm(name={self.name})"
 
     async def _auto_acknowledge_timer(self):
-        """Wait, then automatically acknowledge the alarm.
-        """
+        """Wait, then automatically acknowledge the alarm."""
         await asyncio.sleep(self.auto_acknowledge_delay)
         self.acknowledge(severity=self.max_severity, user="automatic")
 
@@ -450,8 +446,7 @@ class Alarm:
         self.unacknowledge(escalate=False)
 
     async def _escalate_timer(self):
-        """Wait, then escalate this alarm.
-        """
+        """Wait, then escalate this alarm."""
         await asyncio.sleep(self.escalate_delay)
         self.escalated = True
         self._run_callback()
@@ -470,40 +465,34 @@ class Alarm:
         self.unmute()
 
     def _cancel_auto_acknowledge(self):
-        """Cancel the auto acknowledge timer, if pending.
-        """
+        """Cancel the auto acknowledge timer, if pending."""
         self.timestamp_auto_acknowledge = 0
         self.auto_acknowledge_task.cancel()
 
     def _cancel_auto_unacknowledge(self):
-        """Cancel the auto unacknowledge timer, if pending.
-        """
+        """Cancel the auto unacknowledge timer, if pending."""
         self.timestamp_auto_unacknowledge = 0
         self.auto_unacknowledge_task.cancel()
 
     def _cancel_escalate(self):
-        """Cancel the escalate timer, if pending.
-        """
+        """Cancel the escalate timer, if pending."""
         self.timestamp_escalate = 0
         self.escalate_task.cancel()
 
     def _cancel_unmute(self):
-        """Cancel the unmute timer, if running.
-        """
+        """Cancel the unmute timer, if running."""
         self.muted_by = ""
         self.muted_severity = AlarmSeverity.NONE
         self.timestamp_unmute = 0
         self.unmute_task.cancel()
 
     def _run_callback(self):
-        """Run the callback function, if present.
-        """
+        """Run the callback function, if present."""
         if self.callback:
             self.callback(self)
 
     def _start_auto_acknowledge_timer(self):
-        """Start the auto_acknowledge timer.
-        """
+        """Start the auto_acknowledge timer."""
         self.auto_unacknowledge_task.cancel()
         # Set the timestamp here, rather than the timer method,
         # so it is set before the background task starts.
