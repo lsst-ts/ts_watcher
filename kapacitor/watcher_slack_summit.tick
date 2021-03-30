@@ -7,6 +7,10 @@
 // Create the Slack channel before using this alert script.
 var slack_channel = '#summit-watcher'
 
+// Severity at which to alarm:
+// 2 = warning, 3 = serious, 4 = critical
+var severity_threshold = 3
+
 var db = 'efd'
 
 var rp = 'autogen'
@@ -39,8 +43,6 @@ var outputMeasurement = 'alerts'
 
 var triggerType = 'threshold'
 
-var crit = 3
-
 var data = stream
     |from()
         .database(db)
@@ -53,7 +55,7 @@ var data = stream
 
 var trigger = data
     |alert()
-        .crit(lambda: "severity_value" >= crit)
+        .crit(lambda: "severity_value" >= severity_threshold)
         .message(message)
         .id(idVar)
         .idTag(idTag)
@@ -78,4 +80,3 @@ trigger
 
 trigger
     |httpOut('output')
-

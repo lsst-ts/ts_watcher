@@ -23,7 +23,6 @@ import asyncio
 import types
 import unittest
 
-import asynctest
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -33,7 +32,7 @@ from lsst.ts import watcher
 LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 
-class EnabledTestCase(asynctest.TestCase):
+class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
