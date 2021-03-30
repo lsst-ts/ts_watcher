@@ -28,7 +28,7 @@ The first list offers a GUI for creating and editing simple alert rules;
 the second list allows you to create more complex rules by editing the source code for the alert rule.
 The simple GUI is a great way to create a new alert, but risky, as explained in `Protecting Alerts`_.
 
-.. note:: Always save the TISKscript for your alert rule to github (e.g. by adding it to this directory).
+.. note:: Always save the TICKscript for your alert rule to github (e.g. by adding it to this directory).
           Choronograf 5 offers no history for rule scripts.
 
 Creating a rule using the simple GUI:
@@ -45,6 +45,11 @@ Creating a rule using TICKscript:
 * Press the green "+ Write TICKscript" button.
 * Create and save your code.
 * The alert should only show up in the second list, and so not need to be protected from corruption by the simple GUI.
+
+Parameters:
+
+* Most rules use source efd.autogen (var db = 'efd').
+* The Watcher to Slack rules use Stream mode (var data = stream).
 
 Protecting Alerts
 =================
