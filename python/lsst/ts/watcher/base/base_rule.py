@@ -51,6 +51,16 @@ class BaseRule(abc.ABC):
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
 
+    Attributes
+    ----------
+    alarm : `Alarm`
+        The alarm associated with this rule.
+    remote_keys : `frozenset` [`tuple` [`str`, `int`]]
+        Set of remote keys. Each element is a tuple of:
+
+        * SAL component name (e.g. "ATPtg")
+        * SAL index
+
     Notes
     -----
     `Model.add_rule` adds an attribute ``lowerremotename_index`` to the rule
@@ -63,6 +73,7 @@ class BaseRule(abc.ABC):
     def __init__(self, config, name, remote_info_list):
         self.config = config
         self.remote_info_list = remote_info_list
+        self.remote_keys = frozenset(info.key for info in remote_info_list)
         # The model sets the callback and auto delays
         self.alarm = alarm.Alarm(name=name)
 
@@ -101,22 +112,23 @@ class BaseRule(abc.ABC):
         """Get the rule name."""
         return self.alarm.name
 
-    @abc.abstractmethod
     def is_usable(self, disabled_sal_components):
         """Return True if rule can be used, despite disabled SAL components.
 
+        The default implementation returns true if all remotes used by this
+        rule are enabled. Override if you need something more complicated.
         The attributes ``config``, ``name`` and ``remote_info_list``
-        will all be available when this is called:
+        are all available when this method is called.
 
         Parameters
         ----------
-        disabled_sal_components : `list` [`tuple` [`str`, `int`]]
-            List of disabled SAL components. Each element is a tuple of:
+        disabled_sal_components : `set` [`tuple` [`str`, `int`]]
+            Set of disabled SAL components. Each element is a tuple of:
 
             * SAL component name (e.g. "ATPtg")
             * SAL index
         """
-        raise NotImplementedError("Subclasses must override")
+        return self.remote_keys.isdisjoint(disabled_sal_components)
 
     def start(self):
         """Start any background tasks, such as a polling loop.
