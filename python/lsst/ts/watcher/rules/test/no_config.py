@@ -54,8 +54,5 @@ class NoConfig(base.BaseRule):
     def get_schema(cls):
         return None
 
-    def is_usable(self, disabled_sal_components):
-        return True
-
     def __call__(self, topic_callback):
         raise RuntimeError("This should never be called")

@@ -84,10 +84,6 @@ class Heartbeat(base.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def is_usable(self, disabled_sal_components):
-        remote_info = self.remote_info_list[0]
-        return remote_info.key not in disabled_sal_components
-
     def __call__(self, topic_callback):
         self.restart_timer()
         return base.NoneNoReason

@@ -89,9 +89,6 @@ class ConfiguredSeverities(base.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def is_usable(self, disabled_sal_components):
-        return True
-
     def start(self):
         self.run_timer.cancel()
         self.run_timer = asyncio.ensure_future(self.run())
