@@ -145,6 +145,10 @@ class Model:
                     alarm.escalate_to = escalation_item["to"]
                     alarm.escalate_delay = escalation_item["delay"]
 
+        # Finish setup
+        for rule in self.rules.values():
+            rule.setup(self)
+
         self.start_task = asyncio.ensure_future(self.start())
 
     @property
