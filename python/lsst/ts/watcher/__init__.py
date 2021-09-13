@@ -26,6 +26,6 @@ except ImportError:
 
 from .config_schema import *
 from .base import *
-from .rules import *
+from . import rules
 from .model import *
 from .watcher_csc import *
