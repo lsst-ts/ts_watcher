@@ -23,3 +23,4 @@ from . import test
 from .clock import *
 from .enabled import *
 from .heartbeat import *
+from .mt_ccw_following_rotator import *

@@ -19,40 +19,50 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["NoConfig"]
+__all__ = ["MTCCWFollowingRotator"]
 
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts.watcher import base
 
 
-class NoConfig(base.BaseRule):
-    """A minimal test rule that has no configuration and no remotes.
+class MTCCWFollowingRotator(base.BaseRule):
+    """Check that the MT camera cable wrap is following the camera rotator.
 
-    Set alarm severity to NONE. This alarm basically does nothing
-    and is designed for unit tests.
+    Set alarm severity WARNING if the MTMount CSC reports that it is not
+    following the camera rotator, NONE otherwise.
 
     Parameters
     ----------
     config : `types.SimpleNamespace`
-        Rule configuration, as validated by the schema.
-
-    Raises
-    ------
-    RuntimeError
-        If ``__call__`` is called. When used as a normal alarm
-        this method should never be called because the rule
-        specifies topics to call it.
+        Ignored, because this rule has no configuration.
 
     Notes
     -----
-    The alarm name is "test.NoConfig".
+    The alarm name is "MTCCWFollowingRotator".
     """
 
     def __init__(self, config):
-        super().__init__(config=config, name="test.NoConfig", remote_info_list=[])
+        remote_info = base.RemoteInfo(
+            name="MTMount",
+            index=0,
+            callback_names=["evt_cameraCableWrapFollowing"],
+            poll_names=[],
+        )
+        super().__init__(
+            config=config,
+            name="MTCCWFollowingRotator",
+            remote_info_list=[remote_info],
+        )
 
     @classmethod
     def get_schema(cls):
         return None
 
     def __call__(self, topic_callback):
-        raise RuntimeError("This should never be called")
+        enabled = topic_callback.get().enabled
+        if enabled:
+            return base.NoneNoReason
+        return (
+            AlarmSeverity.WARNING,
+            "MT camera cable wrap is not following the rotator",
+        )

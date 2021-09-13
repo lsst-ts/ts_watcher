@@ -71,9 +71,6 @@ Python API reference
 
 .. automodapi:: lsst.ts.watcher
     :no-main-docstr:
-.. automodapi:: lsst.ts.watcher.rules
-    :no-main-docstr:
-    :no-inheritance-diagram:
 .. automodapi:: lsst.ts.watcher.rules.test
     :no-main-docstr:
     :no-inheritance-diagram:

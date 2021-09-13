@@ -79,11 +79,12 @@ class Model:
         # Dict of rule_name: Rule
         self.rules = dict()
 
-        # Convert the name of each disabled sal component from a string
-        # in the form ``name`` or ``name:index`` to a tuple ``(name, index)``.
-        config.disabled_sal_components = [
+        # Convert disabled_sal_components
+        # from a list of names in the form ``name`` or ``name:index``
+        # to frozenset of keys in the form ``(name, index)``.
+        config.disabled_sal_components = frozenset(
             salobj.name_to_name_index(name) for name in config.disabled_sal_components
-        ]
+        )
         self.config = config
 
         # Make the rules.
