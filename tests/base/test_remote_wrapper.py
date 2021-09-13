@@ -130,6 +130,17 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(set(event_names) & tel_wrapper_dir, set())
             self.assertEqual(set(telemetry_names) & evt_wrapper_dir, set())
 
+            for evt_name in event_names:
+                assert evt_wrapper.has_topic(evt_name)
+                assert not tel_wrapper.has_topic(evt_name)
+                topic = evt_wrapper.get_topic(evt_name)
+                assert isinstance(topic, salobj.topics.RemoteEvent)
+            for tel_name in telemetry_names:
+                assert tel_wrapper.has_topic(tel_name)
+                assert not evt_wrapper.has_topic(tel_name)
+                topic = tel_wrapper.get_topic(tel_name)
+                assert isinstance(topic, salobj.topics.RemoteTelemetry)
+
     async def test_constructor_error(self):
         async with salobj.Domain() as domain:
             remote = salobj.Remote(

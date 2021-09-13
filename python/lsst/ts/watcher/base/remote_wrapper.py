@@ -92,19 +92,48 @@ class RemoteWrapper:
         """Get the rule attribute name for this remote wrapper."""
         return f"{self.name.lower()}_{self.index}"
 
+    def get_topic(self, name):
+        """Return the appropriate `lsst.ts.salobj.ReadTopic`.
+
+        Parameters
+        ----------
+        name : `str`
+            Topic name, with the appropriate ``evt_`` or ``tel_`` prefix.
+            Example: "evt_logLevel".
+
+        Raises
+        ------
+        KeyError
+            If the topic does not exist.
+        """
+        return self._topics[name]
+
+    def has_topic(self, name):
+        """Return True if this wrapper has the specifies topic.
+
+        Parameters
+        ----------
+        name : `str`
+            Topic name, with the appropriate ``evt_`` or ``tel_`` prefix.
+            Example: "evt_logLevel".
+        """
+        return name in self._topics
+
     def __getattr__(self, name):
         """Get the current value for the specified topic.
 
         Parameters
         ----------
         name : `str`
-            Topic name, with the appropriate "evt_" or "tel_" prefix.
+            Topic name, with the appropriate ``evt_`` or ``tel_`` prefix.
             Example: "evt_logLevel".
 
         Raises
         ------
         RuntimeError
             If the Remote has not started.
+        KeyError
+            If the topic does not exist.
         """
         return self._topics[name].get()
 
