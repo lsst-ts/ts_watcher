@@ -27,6 +27,7 @@ import unittest
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts import utils
 from lsst.ts import watcher
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
@@ -350,7 +351,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Wait for automatic acknowledgement.
-            t0 = salobj.current_tai()
+            t0 = utils.current_tai()
             alarm = await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -358,7 +359,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledged=True,
                 acknowledgedBy="automatic",
             )
-            dt0 = salobj.current_tai() - t0
+            dt0 = utils.current_tai() - t0
             self.assertGreaterEqual(alarm.timestampAcknowledged, t0)
             self.assertGreaterEqual(dt0, expected_auto_acknowledge_delay)
 
@@ -386,7 +387,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Wait for automatic unacknowledgement
-            t1 = salobj.current_tai()
+            t1 = utils.current_tai()
             alarm = await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -394,7 +395,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledged=False,
                 acknowledgedBy="",
             )
-            dt1 = salobj.current_tai() - t1
+            dt1 = utils.current_tai() - t1
             self.assertGreaterEqual(alarm.timestampAcknowledged, t1)
             self.assertGreaterEqual(dt1, expected_auto_unacknowledge_delay)
 

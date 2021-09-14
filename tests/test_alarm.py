@@ -25,7 +25,7 @@ import itertools
 import unittest
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
 
@@ -219,10 +219,10 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(alarm.auto_acknowledge_task.done())
 
         # Now set severity None, making the alarm stale
-        t0 = salobj.current_tai()
+        t0 = utils.current_tai()
         alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         # Give the auto acknowledgement task time to start
-        curr_tai = salobj.current_tai()
+        curr_tai = utils.current_tai()
         dt = curr_tai - t0
         predicted_auto_ack_tai = curr_tai + auto_acknowledge_delay
         self.assertFalse(alarm.nominal)
@@ -282,9 +282,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(alarm.auto_unacknowledge_task.done())
 
         # Acknowledge the alarm; the auto-unack task should now be running
-        t0 = salobj.current_tai()
+        t0 = utils.current_tai()
         alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
-        curr_tai = salobj.current_tai()
+        curr_tai = utils.current_tai()
         dt = curr_tai - t0
         predicted_auto_unack_tai = curr_tai + auto_unacknowledge_delay
         self.assertAlmostEqual(
@@ -542,7 +542,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             for severity in reversed(list(AlarmSeverity)):
                 if severity >= alarm.severity:
                     continue
-                curr_tai = salobj.current_tai()
+                curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
                 desired_ncalls += 1
@@ -571,7 +571,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             for severity in AlarmSeverity:
                 if severity <= alarm.max_severity:
                     continue
-                curr_tai = salobj.current_tai()
+                curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
                 desired_ncalls += 1
@@ -595,7 +595,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         for alarm in self.alarm_iter(callback=self.callback):
             alarm0 = self.copy_alarm(alarm)
 
-            curr_tai = salobj.current_tai()
+            curr_tai = utils.current_tai()
             reason = f"set again to {alarm.severity}"
             self.assertNotEqual(alarm.reason, reason)
             updated = alarm.set_severity(severity=alarm.severity, reason=reason)
@@ -652,7 +652,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                         with self.assertRaises(ValueError):
                             alarm.acknowledge(severity=ack_severity, user=user)
                     else:
-                        tai1 = salobj.current_tai()
+                        tai1 = utils.current_tai()
                         updated = alarm.acknowledge(severity=ack_severity, user=user)
                         desired_ncalls += 1
                         self.assertTrue(updated)
@@ -751,7 +751,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # unacknowledge the alarm
                 acked_alarm = self.copy_alarm(alarm)
-                tai0 = salobj.current_tai()
+                tai0 = utils.current_tai()
                 updated = alarm.unacknowledge()
                 if acked_alarm.nominal:
                     self.assertFalse(updated)
@@ -816,9 +816,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             if severity == AlarmSeverity.NONE:
                 continue  # invalid value
             for alarm in self.alarm_iter(name=user, callback=self.callback):
-                t0 = salobj.current_tai()
+                t0 = utils.current_tai()
                 alarm.mute(duration=duration, severity=severity, user=user)
-                curr_tai = salobj.current_tai()
+                curr_tai = utils.current_tai()
                 dt = curr_tai - t0
                 await self.next_queued_alarm(expected_alarm=alarm)
                 self.assertTrue(alarm.muted)
@@ -907,9 +907,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(self.ncalls, ncalls0 + 1)
 
                 # mute alarm and unmute it again before it unmutes itself
-                t0 = salobj.current_tai()
+                t0 = utils.current_tai()
                 alarm.mute(duration=duration, severity=severity, user=user)
-                curr_tai = salobj.current_tai()
+                curr_tai = utils.current_tai()
                 dt = curr_tai - t0
                 self.assertEqual(self.ncalls, ncalls0 + 2)
                 self.assertTrue(alarm.muted)
@@ -959,7 +959,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 acked_alarm = alarm
                 for severity in AlarmSeverity:
                     alarm = self.copy_alarm(acked_alarm)
-                    tai0 = salobj.current_tai()
+                    tai0 = utils.current_tai()
                     reason = f"set severity to {severity} after ack"
                     updated = alarm.set_severity(severity, reason=reason)
                     if updated:

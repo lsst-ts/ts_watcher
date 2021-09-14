@@ -26,6 +26,7 @@ import fnmatch
 import re
 import types
 
+from lsst.ts import utils
 from lsst.ts import salobj
 from .remote_wrapper import RemoteWrapper
 from .topic_callback import TopicCallback
@@ -72,7 +73,7 @@ class Model:
         self.alarm_callback = alarm_callback
 
         self._enabled = False
-        self.enable_task = salobj.make_done_future()
+        self.enable_task = utils.make_done_future()
 
         # Dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote
         self.remotes = dict()

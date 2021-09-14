@@ -27,6 +27,7 @@ import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
 LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
@@ -40,7 +41,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
 
     async def aput(self, dt):
         """Write a sample with ``private_sndStamp = current time + dt``."""
-        self.data.private_sndStamp = salobj.current_tai() + dt
+        self.data.private_sndStamp = utils.current_tai() + dt
         self.data.private_revCode = self.rev_code
         self.data.private_origin = self.salinfo.domain.origin
         setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)

@@ -24,7 +24,7 @@ __all__ = ["ConfiguredSeverities"]
 import asyncio
 import yaml
 
-from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
 
@@ -55,7 +55,7 @@ class ConfiguredSeverities(watcher.BaseRule):
             name=f"test.ConfiguredSeverities.{config.name}",
             remote_info_list=[],
         )
-        self.run_timer = salobj.make_done_future()
+        self.run_timer = utils.make_done_future()
 
     @classmethod
     def get_schema(cls):

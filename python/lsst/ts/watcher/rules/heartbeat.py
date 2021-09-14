@@ -25,6 +25,7 @@ import asyncio
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts import utils
 from lsst.ts import salobj
 from lsst.ts import watcher
 
@@ -59,7 +60,7 @@ class Heartbeat(watcher.BaseRule):
             name=f"Heartbeat.{remote_info.name}:{remote_info.index}",
             remote_info_list=[remote_info],
         )
-        self.heartbeat_timer_task = salobj.make_done_future()
+        self.heartbeat_timer_task = utils.make_done_future()
 
     @classmethod
     def get_schema(cls):
