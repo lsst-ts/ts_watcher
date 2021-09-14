@@ -53,7 +53,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             for name in topic_names:
                 self.assertFalse(hasattr(remote, name))
 
-            wrapper = watcher.base.RemoteWrapper(remote=remote, topic_names=topic_names)
+            wrapper = watcher.RemoteWrapper(remote=remote, topic_names=topic_names)
             desired_attr_name = (
                 remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
             )
@@ -110,10 +110,8 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             for name in event_names + telemetry_names:
                 self.assertFalse(hasattr(remote, name))
 
-            evt_wrapper = watcher.base.RemoteWrapper(
-                remote=remote, topic_names=event_names
-            )
-            tel_wrapper = watcher.base.RemoteWrapper(
+            evt_wrapper = watcher.RemoteWrapper(remote=remote, topic_names=event_names)
+            tel_wrapper = watcher.RemoteWrapper(
                 remote=remote, topic_names=telemetry_names
             )
 
@@ -157,7 +155,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             ):
                 with self.subTest(bad_topic_names=bad_topic_names):
                     with self.assertRaises(ValueError):
-                        watcher.base.RemoteWrapper(
+                        watcher.RemoteWrapper(
                             remote=remote, topic_names=bad_topic_names
                         )
 

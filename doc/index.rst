@@ -18,8 +18,8 @@ Using lsst.ts.watcher
 The fundamental objects that make up the Watcher are rules and alarms.
 Rules monitor topics from remote SAL components and, based on that information, set the severity of alarms.
 Alarms contains the state of an alarm, including the current severity, whether the alarm has been acknowledged, and the maximum severity seen since last acknowledgement.
-Rules are instances of *subclasses* of `base.BaseRule`.
-Alarms are instances of `base.Alarm`.
+Rules are instances of *subclasses* of `BaseRule`.
+Alarms are instances of `Alarm`.
 
 There is a one to one relationship between rules and alarms: every rule contains one associated alarm.
 
@@ -70,6 +70,8 @@ Python API reference
 ====================
 
 .. automodapi:: lsst.ts.watcher
+    :no-main-docstr:
+.. automodapi:: lsst.ts.watcher.rules
     :no-main-docstr:
 .. automodapi:: lsst.ts.watcher.rules.test
     :no-main-docstr:

@@ -36,13 +36,13 @@ The primary purpose of a rule is to set the severity of its alarm.
 A rule can do this in two ways:
 
 * Most rules specify one or more topics for which they are called when the topic receives a sample.
-  The topic calls `base.BaseRule.__call__` which must return a tuple of (rule severity, reason).
+  The topic calls `BaseRule.__call__` which must return a tuple of (rule severity, reason).
   The calling code uses that returned tuple to set the alarm severity.
 * A rule may directly set the severity of its alarm by calling `self.alarm.set_severity`.
   One example is the `Heartbeat` rule which restarts a timer when a heartbeat event is received.
   If the timer expires the rule sets its alarm severity to `SERIOUS`.
 
-Note that the `base.BaseRule.__call__` should never directly set the alarm severity;
+Note that the `BaseRule.__call__` should never directly set the alarm severity;
 return the new (rule severity, reason) instead.
 
 Alarm Name
@@ -87,23 +87,23 @@ For each topic decide whether you want to be called back when the value changes 
 When in doubt use a callback, so you will not miss any data.
 
 Use this information to construct a `RemoteInfo` for each remote your rule listens to
-and pass a list of these to the `base.BaseRule.__init__`
+and pass a list of these to the `BaseRule.__init__`
 
 \_\_call\_\_
 ------------
-The `base.BaseRule.__call__` method is called whenever a topic you have subscribed receives a sample.
+The `BaseRule.__call__` method is called whenever a topic you have subscribed receives a sample.
 It receives a single argument: a `TopicWrapper` for the topic.
 
 Compute the new alarm severity and a reason for it and return these as a tuple: ``(severity, reason)``.
-you may return `base.NoneNoReason` if the severity is ``NONE``.
+you may return `NoneNoReason` if the severity is ``NONE``.
 
 start
 -----
-If your rule polls data or has other needs for background timers or events, start them in `base.BaseRule.start`.
+If your rule polls data or has other needs for background timers or events, start them in `BaseRule.start`.
 
 stop
 ----
-If your rule starts any background tasks then stop them in `base.BaseRule.stop`.
+If your rule starts any background tasks then stop them in `BaseRule.stop`.
 
 Testing a Rule
 ==============

@@ -27,7 +27,8 @@ import re
 import types
 
 from lsst.ts import salobj
-from . import base
+from .remote_wrapper import RemoteWrapper
+from .topic_callback import TopicCallback
 from . import rules
 
 
@@ -243,9 +244,7 @@ class Model:
                     start=False,
                 )
                 self.remotes[remote_info.key] = remote
-            wrapper = base.RemoteWrapper(
-                remote=remote, topic_names=remote_info.topic_names
-            )
+            wrapper = RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
             setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
                 topic = getattr(remote, topic_name, None)
@@ -255,9 +254,7 @@ class Model:
                         "after constructing the remote wrapper"
                     )
                 if topic.callback is None:
-                    topic.callback = base.TopicCallback(
-                        topic=topic, rule=rule, model=self
-                    )
+                    topic.callback = TopicCallback(topic=topic, rule=rule, model=self)
                 else:
                     topic.callback.add_rule(rule)
         # Add the rule.

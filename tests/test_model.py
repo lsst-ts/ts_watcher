@@ -155,7 +155,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
         Parameters
         ----------
-        alarm : `lsst.ts.watcher.base.Alarm`
+        alarm : `lsst.ts.watcher.Alarm`
             Alarm to test.
         muted_severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity`
             Expected value for rule.severity.
@@ -171,7 +171,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
         Parameters
         ----------
-        alarm : `lsst.ts.watcher.base.Alarm`
+        alarm : `lsst.ts.watcher.Alarm`
             Alarm to test.
         """
         self.assertFalse(alarm.muted)

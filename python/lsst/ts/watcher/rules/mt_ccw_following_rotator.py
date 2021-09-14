@@ -22,10 +22,10 @@
 __all__ = ["MTCCWFollowingRotator"]
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class MTCCWFollowingRotator(base.BaseRule):
+class MTCCWFollowingRotator(watcher.BaseRule):
     """Check that the MT camera cable wrap is following the camera rotator.
 
     Set alarm severity WARNING if the MTMount CSC reports that it is not
@@ -42,7 +42,7 @@ class MTCCWFollowingRotator(base.BaseRule):
     """
 
     def __init__(self, config):
-        remote_info = base.RemoteInfo(
+        remote_info = watcher.RemoteInfo(
             name="MTMount",
             index=0,
             callback_names=["evt_cameraCableWrapFollowing"],
@@ -61,7 +61,7 @@ class MTCCWFollowingRotator(base.BaseRule):
     def __call__(self, topic_callback):
         enabled = topic_callback.get().enabled
         if enabled:
-            return base.NoneNoReason
+            return watcher.NoneNoReason
         return (
             AlarmSeverity.WARNING,
             "MT camera cable wrap is not following the rotator",

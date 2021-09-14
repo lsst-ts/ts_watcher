@@ -51,7 +51,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         Parameters
         ----------
-        expected_alarm : `lsst.ts.watcher.base.Alarm` or `None`, optional
+        expected_alarm : `lsst.ts.watcher.Alarm` or `None`, optional
             The alarm that should be returned.
             If None (the default) then this is not checked.
         timeout : `float`
@@ -146,7 +146,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         Parameters
         ----------
-        alarm : `lsst.ts.watcher.base.Alarm`
+        alarm : `lsst.ts.watcher.Alarm`
             The alarm to copy.
         """
         alarm_copy = copy.copy(alarm)
@@ -184,7 +184,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             Delay before escalating a critical unacknowledged alarm (sec).
             If 0 (the default) the alarm is not escalated.
         """
-        alarm = watcher.base.Alarm(name=name)
+        alarm = watcher.Alarm(name=name)
         alarm.configure(
             callback=callback,
             auto_acknowledge_delay=auto_acknowledge_delay,

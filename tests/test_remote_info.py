@@ -31,7 +31,7 @@ class RemoteInfoTestCase(unittest.TestCase):
         callback_names = ("evt_call1", "tel_call2")
         poll_names = ("tel_poll1", "evt_poll2", "evt_poll3")
 
-        info1 = watcher.base.RemoteInfo(
+        info1 = watcher.RemoteInfo(
             name=name, index=index, callback_names=callback_names, poll_names=poll_names
         )
         self.assertEqual(info1.name, name)
@@ -39,7 +39,7 @@ class RemoteInfoTestCase(unittest.TestCase):
         self.assertEqual(info1.callback_names, callback_names)
         self.assertEqual(info1.poll_names, poll_names)
 
-        info2 = watcher.base.RemoteInfo(
+        info2 = watcher.RemoteInfo(
             name=name, index=index, callback_names=callback_names, poll_names=None
         )
         self.assertEqual(info2.name, name)
@@ -47,7 +47,7 @@ class RemoteInfoTestCase(unittest.TestCase):
         self.assertEqual(info2.callback_names, callback_names)
         self.assertEqual(info2.poll_names, ())
 
-        info3 = watcher.base.RemoteInfo(
+        info3 = watcher.RemoteInfo(
             name=name, index=index, callback_names=None, poll_names=poll_names
         )
         self.assertEqual(info3.name, name)
@@ -62,14 +62,14 @@ class RemoteInfoTestCase(unittest.TestCase):
         poll_names = ("tel_poll1", "evt_poll2", "evt_poll3")
 
         # make sure the basic parameters are OK
-        info = watcher.base.RemoteInfo(
+        info = watcher.RemoteInfo(
             name=name, index=index, callback_names=callback_names, poll_names=poll_names
         )
         self.assertEqual(info.name, name)
 
         # index must be castable to an integer
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index="not_an_integer",
                 callback_names=callback_names,
@@ -78,18 +78,16 @@ class RemoteInfoTestCase(unittest.TestCase):
 
         # must specify at least one callback or poll name
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name, index=index, callback_names=None, poll_names=None
             )
 
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
-                name=name, index=index, callback_names=(), poll_names=()
-            )
+            watcher.RemoteInfo(name=name, index=index, callback_names=(), poll_names=())
 
         # all callback and poll names must start with "evt_" or "tel_"
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=["call1", "tel_call1"],
@@ -97,7 +95,7 @@ class RemoteInfoTestCase(unittest.TestCase):
             )
 
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=callback_names,
@@ -106,7 +104,7 @@ class RemoteInfoTestCase(unittest.TestCase):
 
         # must have no overlapping callback or poll names
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=["evt_call1", "evt_call1", "evt_call2"],
@@ -114,7 +112,7 @@ class RemoteInfoTestCase(unittest.TestCase):
             )
 
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=None,
@@ -122,7 +120,7 @@ class RemoteInfoTestCase(unittest.TestCase):
             )
 
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=["name1", "evt_call2"],
@@ -130,7 +128,7 @@ class RemoteInfoTestCase(unittest.TestCase):
             )
 
         with self.assertRaises(ValueError):
-            watcher.base.RemoteInfo(
+            watcher.RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=["name1", "evt_call2"],

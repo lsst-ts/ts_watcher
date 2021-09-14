@@ -25,10 +25,10 @@ import asyncio
 import yaml
 
 from lsst.ts import salobj
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class ConfiguredSeverities(base.BaseRule):
+class ConfiguredSeverities(watcher.BaseRule):
     """A test rule that transitions through a specified list of severities,
     repeatedly.
 
