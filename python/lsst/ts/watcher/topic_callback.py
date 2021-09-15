@@ -19,7 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["TopicCallback"]
+__all__ = ["get_topic_key", "TopicCallback"]
+
+
+def get_topic_key(topic):
+    """Compute the key unique to a topic."""
+    return (topic.salinfo.name, topic.salinfo.index, topic.attr_name)
 
 
 class TopicCallback:
@@ -36,6 +41,15 @@ class TopicCallback:
     model : `Model`
         Watcher model. Used by `__call__`
         to check if the model is enabled.
+
+    Attributes
+    ----------
+    rules : `dict`
+        Dict of rule name: rule
+    model : `Model`
+        The Watcher model.
+    topic_key : `tuple`
+        The topic key computed by get_topic_key.
     """
 
     def __init__(self, topic, rule, model):
@@ -43,6 +57,7 @@ class TopicCallback:
         self.rules = {rule.name: rule}
         self.model = model
         self._topic.callback = self
+        self.topic_key = get_topic_key(self._topic)
 
     @property
     def attr_name(self):
