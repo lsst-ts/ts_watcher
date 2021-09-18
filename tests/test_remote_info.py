@@ -124,14 +124,14 @@ class RemoteInfoTestCase(unittest.TestCase):
             watcher.RemoteInfo(
                 name=name,
                 index=index,
-                callback_names=["name1", "evt_call2"],
-                poll_names=["name1", "evt_poll2"],
+                callback_names=["evt_duplicated", "evt_call2"],
+                poll_names=["evt_duplicated", "evt_poll2"],
             )
 
         with pytest.raises(ValueError):
             watcher.RemoteInfo(
                 name=name,
                 index=index,
-                callback_names=["name1", "evt_call2"],
-                poll_names=["name1", "evt_poll2"],
+                callback_names=["tel_duplicated", "evt_call2"],
+                poll_names=["tel_duplicated", "evt_poll2"],
             )
