@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import pytest
 import unittest
 
 from lsst.ts import salobj
@@ -51,26 +52,26 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Check that no topics have been added yet
             for name in topic_names:
-                self.assertFalse(hasattr(remote, name))
+                assert not hasattr(remote, name)
 
             wrapper = watcher.RemoteWrapper(remote=remote, topic_names=topic_names)
             desired_attr_name = (
                 remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
             )
-            self.assertEqual(wrapper.attr_name, desired_attr_name)
+            assert wrapper.attr_name == desired_attr_name
 
             # Check that all topics have been added
             for name in topic_names:
-                self.assertTrue(hasattr(remote, name))
+                assert hasattr(remote, name)
 
             wrapper_dir = set(dir(wrapper))
-            self.assertTrue(set(topic_names).issubset(wrapper_dir))
+            assert set(topic_names).issubset(wrapper_dir)
 
             await asyncio.wait_for(remote.start(), timeout=LONG_TIMEOUT)
 
             # Check that the initial value for each topic is None.
             for name in topic_names:
-                self.assertIsNone(getattr(wrapper, name))
+                assert getattr(wrapper, name) is None
 
             # Write one event and one telemetry topic
             evt_scalars_writer = salobj.topics.ControllerEvent(
@@ -89,8 +90,8 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             await remote.tel_scalars.next(flush=False, timeout=STD_TIMEOUT)
 
             # Verify that the wrapper produces the expected values.
-            self.assertEqual(wrapper.evt_scalars.int0, evtint)
-            self.assertEqual(wrapper.tel_scalars.int0, telint)
+            assert wrapper.evt_scalars.int0 == evtint
+            assert wrapper.tel_scalars.int0 == telint
 
     async def test_some_names(self):
         """Test wrappers that wrap a subset of names."""
@@ -108,7 +109,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Check that no topics have been added yet.
             for name in event_names + telemetry_names:
-                self.assertFalse(hasattr(remote, name))
+                assert not hasattr(remote, name)
 
             evt_wrapper = watcher.RemoteWrapper(remote=remote, topic_names=event_names)
             tel_wrapper = watcher.RemoteWrapper(
@@ -117,16 +118,16 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Check that all topics have been added to the remote.
             for name in event_names + telemetry_names:
-                self.assertTrue(hasattr(remote, name))
+                assert hasattr(remote, name)
 
             # Check that the event wrapper has all the event names
             # and none of the telemetry names, and vice-versa.
             evt_wrapper_dir = set(dir(evt_wrapper))
             tel_wrapper_dir = set(dir(tel_wrapper))
-            self.assertTrue(set(event_names).issubset(evt_wrapper_dir))
-            self.assertTrue(set(telemetry_names).issubset(tel_wrapper_dir))
-            self.assertEqual(set(event_names) & tel_wrapper_dir, set())
-            self.assertEqual(set(telemetry_names) & evt_wrapper_dir, set())
+            assert set(event_names).issubset(evt_wrapper_dir)
+            assert set(telemetry_names).issubset(tel_wrapper_dir)
+            assert set(event_names) & tel_wrapper_dir == set()
+            assert set(telemetry_names) & evt_wrapper_dir == set()
 
             for evt_name in event_names:
                 assert evt_wrapper.has_topic(evt_name)
@@ -154,11 +155,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 ["tel_scalars", "tel_nosuchtelemetry"],
             ):
                 with self.subTest(bad_topic_names=bad_topic_names):
-                    with self.assertRaises(ValueError):
+                    with pytest.raises(ValueError):
                         watcher.RemoteWrapper(
                             remote=remote, topic_names=bad_topic_names
                         )
-
-
-if __name__ == "__main__":
-    unittest.main()

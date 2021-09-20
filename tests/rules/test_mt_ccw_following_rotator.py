@@ -69,7 +69,7 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
             ) as model:
                 model.enable()
 
-                self.assertEqual(len(model.rules), 1)
+                assert len(model.rules) == 1
                 rule = model.rules["MTCCWFollowingRotator"]
 
                 read_severities = []
@@ -93,4 +93,4 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
                     # give the remote a chance to read the data
                     await asyncio.sleep(0.001)
 
-                self.assertEqual(read_severities, expected_severities)
+                assert read_severities == expected_severities

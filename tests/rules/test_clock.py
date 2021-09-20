@@ -77,29 +77,29 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
         for key in config_dict:
-            self.assertEqual(getattr(config, key), config_dict[key])
+            assert getattr(config, key) == config_dict[key]
         return config
 
     async def test_basics(self):
         schema = watcher.rules.Clock.get_schema()
-        self.assertIsNotNone(schema)
+        assert schema is not None
         name = "ScriptQueue"
         threshold = 1.2
         config = self.make_config(name=name, threshold=threshold)
         desired_rule_name = f"Clock.{name}:0"
 
         rule = watcher.rules.Clock(config=config)
-        self.assertEqual(rule.name, desired_rule_name)
-        self.assertEqual(rule.threshold, threshold)
-        self.assertIsInstance(rule.alarm, watcher.Alarm)
-        self.assertEqual(rule.alarm.name, rule.name)
-        self.assertTrue(rule.alarm.nominal)
-        self.assertEqual(len(rule.remote_info_list), 1)
+        assert rule.name == desired_rule_name
+        assert rule.threshold == threshold
+        assert isinstance(rule.alarm, watcher.Alarm)
+        assert rule.alarm.name == rule.name
+        assert rule.alarm.nominal
+        assert len(rule.remote_info_list) == 1
         remote_info = rule.remote_info_list[0]
-        self.assertEqual(remote_info.name, name)
-        self.assertEqual(remote_info.index, 0)
-        self.assertIn(name, repr(rule))
-        self.assertIn("Clock", repr(rule))
+        assert remote_info.name == name
+        assert remote_info.index == 0
+        assert name in repr(rule)
+        assert "Clock" in repr(rule)
 
     async def test_call(self):
         name = "ScriptQueue"
@@ -127,7 +127,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(domain=domain, config=watcher_config) as model:
                 model.enable()
 
-                self.assertEqual(len(model.rules), 1)
+                assert len(model.rules) == 1
                 rule_name = f"Clock.{name}:{index}"
                 rule = model.rules[rule_name]
                 alarm = rule.alarm
@@ -140,31 +140,27 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 good_dt = threshold * 0.9
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
-                    self.assertTrue(alarm.nominal)
+                    assert alarm.nominal
 
                 # The next heartbeat event with bad dt should set
                 # alarm severity to WARNING. The sign of the clock
                 # error should not matter, so try a negative error.
                 await heartbeat_writer.aput(dt=-bad_dt)
-                self.assertFalse(alarm.nominal)
-                self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
-                self.assertIn("mean", alarm.reason)
+                assert not alarm.nominal
+                assert alarm.severity == AlarmSeverity.WARNING
+                assert "mean" in alarm.reason
 
                 # A valid value should return alarm severity to NONE.
                 await heartbeat_writer.aput(dt=good_dt)
-                self.assertEqual(alarm.severity, AlarmSeverity.NONE)
+                assert alarm.severity == AlarmSeverity.NONE
 
                 # Sending fewer than Clock.min_errors heartbeat events
                 # with excessive error should leave the alarm severity
                 # at NONE
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
-                    self.assertEqual(alarm.severity, AlarmSeverity.NONE)
+                    assert alarm.severity == AlarmSeverity.NONE
 
                 await heartbeat_writer.aput(dt=bad_dt)
-                self.assertFalse(alarm.nominal)
-                self.assertEqual(alarm.severity, AlarmSeverity.WARNING)
-
-
-if __name__ == "__main__":
-    unittest.main()
+                assert not alarm.nominal
+                assert alarm.severity == AlarmSeverity.WARNING

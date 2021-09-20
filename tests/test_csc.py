@@ -22,6 +22,7 @@ import asyncio
 import glob
 import os
 import pathlib
+import pytest
 import sys
 import unittest
 
@@ -38,8 +39,8 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config
 
 class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
-        self.assertEqual(initial_state, salobj.State.STANDBY)
-        self.assertEqual(simulation_mode, 0)
+        assert initial_state == salobj.State.STANDBY
+        assert simulation_mode == 0
         return watcher.WatcherCsc(config_dir=config_dir)
 
     async def assert_next_alarm(
@@ -66,7 +67,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         """
         data = await self.remote.evt_alarm.next(flush=False, timeout=timeout)
         for name, value in kwargs.items():
-            self.assertEqual(getattr(data, name), value, msg=name)
+            assert getattr(data, name) == value
         return data
 
     async def test_bin_script(self):
@@ -81,7 +82,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ):
             await self.assert_next_summary_state(salobj.State.STANDBY)
-            self.assertIsNone(self.csc.model)
+            assert self.csc.model is None
 
             await self.assert_next_sample(
                 topic=self.remote.evt_softwareVersions,
@@ -96,23 +97,23 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
             await self.assert_next_summary_state(salobj.State.DISABLED)
             await self.assert_next_summary_state(salobj.State.ENABLED)
-            self.assertIsInstance(self.csc.model, watcher.Model)
+            assert isinstance(self.csc.model, watcher.Model)
             rule_names = list(self.csc.model.rules)
             expected_rule_names = [f"Enabled.ScriptQueue:{index}" for index in (1, 2)]
-            self.assertEqual(rule_names, expected_rule_names)
+            assert rule_names == expected_rule_names
 
             # Check that escalation info is not set for the first rule
             # and is set for the second rule.
             alarm1 = self.csc.model.rules[expected_rule_names[0]].alarm
             alarm2 = self.csc.model.rules[expected_rule_names[1]].alarm
-            self.assertEqual(alarm1.escalate_to, "")
-            self.assertEqual(alarm1.escalate_delay, 0)
-            self.assertEqual(alarm1.timestamp_escalate, 0)
-            self.assertFalse(alarm1.escalated)
-            self.assertEqual(alarm2.escalate_to, "stella")
-            self.assertEqual(alarm2.escalate_delay, 0.11)
-            self.assertEqual(alarm2.timestamp_escalate, 0)
-            self.assertFalse(alarm2.escalated)
+            assert alarm1.escalate_to == ""
+            assert alarm1.escalate_delay == 0
+            assert alarm1.timestamp_escalate == 0
+            assert not alarm1.escalated
+            assert alarm2.escalate_to == "stella"
+            assert alarm2.escalate_delay == 0.11
+            assert alarm2.timestamp_escalate == 0
+            assert not alarm2.escalated
 
     async def test_default_config_dir(self):
         async with self.make_csc(config_dir=None, initial_state=salobj.State.STANDBY):
@@ -120,8 +121,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             desired_config_env_name = desired_config_pkg_name.upper() + "_DIR"
             desird_config_pkg_dir = os.environ[desired_config_env_name]
             desired_config_dir = pathlib.Path(desird_config_pkg_dir) / "Watcher/v1"
-            self.assertEqual(self.csc.get_config_pkg(), desired_config_pkg_name)
-            self.assertEqual(self.csc.config_dir, desired_config_dir)
+            assert self.csc.get_config_pkg() == desired_config_pkg_name
+            assert self.csc.config_dir == desired_config_dir
 
     async def test_configuration_invalid(self):
         async with self.make_csc(
@@ -194,7 +195,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 escalated=False,
                 escalateTo="stella",
             )
-            self.assertGreater(data.timestampEscalate, 0)
+            assert data.timestampEscalate > 0
             timestamp_escalate = data.timestampEscalate
             # The next event indicates that the alarm has been escalated.
             await self.assert_next_alarm(
@@ -243,10 +244,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             scriptqueue_alarm_name = "Enabled.ScriptQueue:2"
 
             # Check that disabled_sal_components eliminated a rule.
-            self.assertEqual(len(self.csc.model.rules), 2)
-            self.assertEqual(
-                list(self.csc.model.rules), [atdome_alarm_name, scriptqueue_alarm_name]
-            )
+            assert len(self.csc.model.rules) == 2
+            assert list(self.csc.model.rules) == [
+                atdome_alarm_name,
+                scriptqueue_alarm_name,
+            ]
 
             # Make summary state writers for CSCs in `enabled.yaml`.
             atdome_salinfo = salobj.SalInfo(
@@ -312,11 +314,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Check the values encoded in the yaml config file.
             expected_auto_acknowledge_delay = 0.51
             expected_auto_unacknowledge_delay = 0.52
-            self.assertAlmostEqual(
+            pytest.approx(
                 self.csc.model.config.auto_acknowledge_delay,
                 expected_auto_acknowledge_delay,
             )
-            self.assertAlmostEqual(
+            pytest.approx(
                 self.csc.model.config.auto_unacknowledge_delay,
                 expected_auto_unacknowledge_delay,
             )
@@ -360,8 +362,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="automatic",
             )
             dt0 = utils.current_tai() - t0
-            self.assertGreaterEqual(alarm.timestampAcknowledged, t0)
-            self.assertGreaterEqual(dt0, expected_auto_acknowledge_delay)
+            assert alarm.timestampAcknowledged >= t0
+            assert dt0 >= expected_auto_acknowledge_delay
 
             # Make the ATDome alarm acknowledged and not stale
             atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
@@ -396,8 +398,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
             dt1 = utils.current_tai() - t1
-            self.assertGreaterEqual(alarm.timestampAcknowledged, t1)
-            self.assertGreaterEqual(dt1, expected_auto_unacknowledge_delay)
+            assert alarm.timestampAcknowledged >= t1
+            assert dt1 >= expected_auto_unacknowledge_delay
 
     async def test_show_alarms(self):
         """Test the showAlarms command."""
@@ -414,9 +416,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # All alarms should be nominal, so showAlarms should output
             # no alarm events.
             for rule in self.csc.model.rules.values():
-                self.assertTrue(rule.alarm.nominal)
+                assert rule.alarm.nominal
             await self.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             # Make summary state writers for CSCs in `enabled.yaml`.
@@ -456,7 +458,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # We expect no more alarm events (yet).
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             # Send the showAlarms command. This should trigger the same
@@ -470,10 +472,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     acknowledged=False,
                 )
                 alarm_names.append(alarm.name)
-            self.assertEqual(
-                set(alarm_names), set(("Enabled.ATDome:0", "Enabled.ScriptQueue:2"))
+            assert set(alarm_names) == set(
+                ("Enabled.ATDome:0", "Enabled.ScriptQueue:2")
             )
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             # Acknowledge the ATDome alarm.
@@ -511,7 +513,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledged=False,
                 acknowledgedBy="",
             )
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
     async def test_mute(self):
@@ -560,7 +562,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Now mute one rule for a long time, then explicitly unmute it.
             user2 = "test_mute 2"
             full_name = "Enabled.ScriptQueue:2"
-            self.assertIn(full_name, self.csc.model.rules)
+            assert full_name in self.csc.model.rules
             await self.remote.cmd_mute.set_start(
                 name=full_name,
                 duration=5,
@@ -572,7 +574,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 name=full_name, mutedSeverity=AlarmSeverity.SERIOUS, mutedBy=user2
             )
             # There should be the only alarm event from the mute command.
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             await self.remote.cmd_unmute.set_start(name=full_name, timeout=STD_TIMEOUT)
@@ -580,7 +582,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 name=full_name, mutedSeverity=AlarmSeverity.NONE, mutedBy=""
             )
             # There should be the only alarm event from the unmute command.
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=1)
 
     async def test_settings_required(self):
@@ -591,7 +593,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         try:
             for state_name in ("disabled", "enabled"):
                 sys.argv = [original_argv[0], "run_watcher.py", "--state", state_name]
-                with self.assertRaises(SystemExit):
+                with pytest.raises(SystemExit):
                     await watcher.WatcherCsc.make_from_cmd_line(index=None)
         finally:
             sys.argv = original_argv
@@ -610,8 +612,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             alarm_name1 = "Enabled.ScriptQueue:1"
             alarm_name2 = "Enabled.ScriptQueue:2"
-            self.assertEqual(len(self.csc.model.rules), 2)
-            self.assertEqual(list(self.csc.model.rules), [alarm_name1, alarm_name2])
+            assert len(self.csc.model.rules) == 2
+            assert list(self.csc.model.rules), [alarm_name1 == alarm_name2]
 
             # Make a summary state writer for alarm 1.
             sq1_salinfo = salobj.SalInfo(
@@ -636,7 +638,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # because alarm 1 is not acknowledged
             # and alarm 2 is in nominal state
             await self.remote.cmd_unacknowledge.set_start(name=".*")
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             # Unacknowledge an acknowledged alarm and check the alarm event.
@@ -681,9 +683,5 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             await self.remote.cmd_unacknowledge.set_start(name=alarm_name1)
-            with self.assertRaises(asyncio.TimeoutError):
+            with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
-
-
-if __name__ == "__main__":
-    unittest.main()

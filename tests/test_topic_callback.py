@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import pytest
 import types
 import unittest
 
@@ -84,17 +85,17 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             topic_callback = watcher.TopicCallback(
                 topic=remote.evt_summaryState, rule=rule, model=model
             )
-            self.assertEqual(topic_callback.attr_name, "evt_summaryState")
-            self.assertEqual(topic_callback.remote_name, "Test")
-            self.assertEqual(topic_callback.remote_index, self.index)
-            self.assertEqual(topic_callback.get(), None)
-            self.assertEqual(read_severities, [])
+            assert topic_callback.attr_name == "evt_summaryState"
+            assert topic_callback.remote_name == "Test"
+            assert topic_callback.remote_index == self.index
+            assert topic_callback.get() is None
+            assert read_severities == []
 
             controller.evt_summaryState.set_put(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await asyncio.sleep(0.001)
-            self.assertEqual(read_severities, [AlarmSeverity.WARNING])
+            assert read_severities == [AlarmSeverity.WARNING]
 
     async def test_add_rule(self):
         model = MockModel(enabled=True)
@@ -115,20 +116,19 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=remote.evt_summaryState, rule=rule, model=model
             )
 
-            self.assertEqual(read_severities, [])
-            self.assertEqual(read_severities2, [])
+            assert read_severities == []
+            assert read_severities2 == []
 
             controller.evt_summaryState.set_put(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await asyncio.sleep(0.001)
-
-            self.assertEqual(read_severities, [AlarmSeverity.WARNING])
+            assert read_severities == [AlarmSeverity.WARNING]
             # rule2 has not been added so read_severities2 should be empty
-            self.assertEqual(read_severities2, [])
+            assert read_severities2 == []
 
             # cannot add a rule with the same name as an existing rule
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 topic_callback.add_rule(rule2)
 
             # modify the rule and try again
@@ -138,11 +138,6 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
                 summaryState=salobj.State.FAULT, force_output=True
             )
             await asyncio.sleep(0.001)
-            self.assertEqual(
-                read_severities, [AlarmSeverity.WARNING, AlarmSeverity.SERIOUS]
-            )
-            self.assertEqual(read_severities2, [AlarmSeverity.SERIOUS])
+            assert read_severities == [AlarmSeverity.WARNING, AlarmSeverity.SERIOUS]
+            assert read_severities2 == [AlarmSeverity.SERIOUS]
 
-
-if __name__ == "__main__":
-    unittest.main()

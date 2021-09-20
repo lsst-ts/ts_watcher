@@ -21,6 +21,7 @@
 
 import asyncio
 import contextlib
+import pytest
 import types
 import unittest
 
@@ -39,7 +40,7 @@ class GetRuleClassTestCase(unittest.TestCase):
             ("test.ConfiguredSeverities", watcher.rules.test.ConfiguredSeverities),
         ):
             rule_class = watcher.get_rule_class(classname)
-            self.assertEqual(rule_class, desired_class)
+            assert rule_class == desired_class
 
     def test_bad_names(self):
         for bad_name in (
@@ -49,7 +50,7 @@ class GetRuleClassTestCase(unittest.TestCase):
             "NoConfig",  # wrong module
             "test_NoConfig",  # wrong separator
         ):
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 watcher.get_rule_class(bad_name)
 
 
@@ -113,10 +114,10 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             await self.model.enable_task
 
         for rule in self.model.rules.values():
-            self.assertTrue(rule.alarm.nominal)
-            self.assertFalse(rule.alarm.acknowledged)
-            self.assertFalse(rule.alarm.muted)
-            self.assertNotMuted(rule.alarm)
+            assert rule.alarm.nominal
+            assert not rule.alarm.acknowledged
+            assert not rule.alarm.muted
+            self.assert_not_muted(rule.alarm)
 
         try:
             yield
@@ -162,11 +163,11 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         muted_by : `str`
             Expected value for rule.muted_by.
         """
-        self.assertTrue(alarm.muted)
-        self.assertEqual(alarm.muted_severity, muted_severity)
-        self.assertEqual(alarm.muted_by, muted_by)
+        assert alarm.muted
+        assert alarm.muted_severity == muted_severity
+        assert alarm.muted_by == muted_by
 
-    def assertNotMuted(self, alarm):
+    def assert_not_muted(self, alarm):
         """Assert that the specified alarm is not muted.
 
         Parameters
@@ -174,9 +175,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         alarm : `lsst.ts.watcher.Alarm`
             Alarm to test.
         """
-        self.assertFalse(alarm.muted)
-        self.assertEqual(alarm.muted_severity, AlarmSeverity.NONE)
-        self.assertEqual(alarm.muted_by, "")
+        assert not alarm.muted
+        assert alarm.muted_severity == AlarmSeverity.NONE
+        assert alarm.muted_by == ""
 
     async def test_acknowledge_full_name(self):
         user = "test_ack_alarm"
@@ -185,16 +186,16 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
         async with self.make_model(names=remote_names, enable=True):
             full_rule_name = f"Enabled.{remote_names[0]}"
-            self.assertIn(full_rule_name, self.model.rules)
+            assert full_rule_name in self.model.rules
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
                 await self.write_states(index=index, states=[salobj.State.STANDBY])
 
             for name, rule in self.model.rules.items():
-                self.assertFalse(rule.alarm.nominal)
-                self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
+                assert not rule.alarm.nominal
+                assert rule.alarm.severity == AlarmSeverity.WARNING
+                assert rule.alarm.max_severity == AlarmSeverity.WARNING
 
             # Acknowledge one rule by full name but not the other.
             self.model.acknowledge_alarm(
@@ -202,11 +203,11 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             )
             for name, rule in self.model.rules.items():
                 if name == full_rule_name:
-                    self.assertTrue(rule.alarm.acknowledged)
-                    self.assertEqual(rule.alarm.acknowledged_by, user)
+                    assert rule.alarm.acknowledged
+                    assert rule.alarm.acknowledged_by == user
                 else:
-                    self.assertFalse(rule.alarm.acknowledged)
-                    self.assertEqual(rule.alarm.acknowledged_by, "")
+                    assert not rule.alarm.acknowledged
+                    assert rule.alarm.acknowledged_by == ""
 
     async def test_acknowledge_regex(self):
         user = "test_ack_alarm"
@@ -214,16 +215,16 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         nrules = len(remote_names)
 
         async with self.make_model(names=remote_names, enable=True):
-            self.assertEqual(len(self.model.rules), nrules)
+            assert len(self.model.rules) == nrules
 
             # Send STANDBY to all controllers to put all alarms into warning.
             for index in range(nrules):
                 await self.write_states(index=index, states=[salobj.State.STANDBY])
 
             for rule in self.model.rules.values():
-                self.assertFalse(rule.alarm.nominal)
-                self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
+                assert not rule.alarm.nominal
+                assert rule.alarm.severity == AlarmSeverity.WARNING
+                assert rule.alarm.max_severity == AlarmSeverity.WARNING
 
             # Acknowledge the ScriptQueue alarms but not Test.
             self.model.acknowledge_alarm(
@@ -231,18 +232,18 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             )
             for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
-                    self.assertTrue(rule.alarm.acknowledged)
-                    self.assertEqual(rule.alarm.acknowledged_by, user)
+                    assert rule.alarm.acknowledged
+                    assert rule.alarm.acknowledged_by == user
                 else:
-                    self.assertFalse(rule.alarm.acknowledged)
-                    self.assertEqual(rule.alarm.acknowledged_by, "")
+                    assert not rule.alarm.acknowledged
+                    assert rule.alarm.acknowledged_by == ""
 
     async def test_enable(self):
         remote_names = ["ScriptQueue:5", "Test:7"]
 
         async with self.make_model(names=remote_names, enable=True):
 
-            self.assertEqual(len(self.model.rules), 2)
+            assert len(self.model.rules) == 2
 
             # Enable the model and write ENABLED several times.
             # This triggers the rule callback but that does not
@@ -260,9 +261,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 )
 
             for name, rule in self.model.rules.items():
-                self.assertTrue(rule.alarm.nominal)
-                self.assertEqual(self.read_severities[name], [])
-                self.assertEqual(self.read_max_severities[name], [])
+                assert rule.alarm.nominal
+                assert self.read_severities[name] == []
+                assert self.read_max_severities[name] == []
 
             # Disable the model and issue several events that would
             # trigger an alarm if the model was enabled. Since the
@@ -273,9 +274,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                     index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
                 )
             for name, rule in self.model.rules.items():
-                self.assertTrue(rule.alarm.nominal)
-                self.assertEqual(self.read_severities[name], [])
-                self.assertEqual(self.read_max_severities[name], [])
+                assert rule.alarm.nominal
+                assert self.read_severities[name] == []
+                assert self.read_max_severities[name] == []
 
             # Enable the model. This will trigger a callback with
             # the current state of the event (STANDBY).
@@ -284,13 +285,11 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             self.model.enable()
             await self.model.enable_task
             for name, rule in self.model.rules.items():
-                self.assertFalse(rule.alarm.nominal)
-                self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(rule.alarm.max_severity, AlarmSeverity.WARNING)
-                self.assertEqual(self.read_severities[name], [AlarmSeverity.WARNING])
-                self.assertEqual(
-                    self.read_max_severities[name], [AlarmSeverity.WARNING]
-                )
+                assert not rule.alarm.nominal
+                assert rule.alarm.severity == AlarmSeverity.WARNING
+                assert rule.alarm.max_severity == AlarmSeverity.WARNING
+                assert self.read_severities[name] == [AlarmSeverity.WARNING]
+                assert self.read_max_severities[name] == [AlarmSeverity.WARNING]
 
             # Issue more events; they should be processed normally.
             for index in range(len(remote_names)):
@@ -298,25 +297,19 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                     index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
                 )
             for name, rule in self.model.rules.items():
-                self.assertFalse(rule.alarm.nominal)
-                self.assertEqual(rule.alarm.severity, AlarmSeverity.WARNING)
-                self.assertEqual(rule.alarm.max_severity, AlarmSeverity.SERIOUS)
-                self.assertEqual(
-                    self.read_severities[name],
-                    [
-                        AlarmSeverity.WARNING,
-                        AlarmSeverity.SERIOUS,
-                        AlarmSeverity.WARNING,
-                    ],
-                )
-                self.assertEqual(
-                    self.read_max_severities[name],
-                    [
-                        AlarmSeverity.WARNING,
-                        AlarmSeverity.SERIOUS,
-                        AlarmSeverity.SERIOUS,
-                    ],
-                )
+                assert not rule.alarm.nominal
+                assert rule.alarm.severity == AlarmSeverity.WARNING
+                assert rule.alarm.max_severity == AlarmSeverity.SERIOUS
+                assert self.read_severities[name] == [
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.SERIOUS,
+                    AlarmSeverity.WARNING,
+                ]
+                assert self.read_max_severities[name] == [
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.SERIOUS,
+                    AlarmSeverity.SERIOUS,
+                ]
 
     async def test_escalation(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
@@ -334,42 +327,42 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=[esc_info12, esc_info34, esc_notused],
         ):
             alarms = [rule.alarm for rule in self.model.rules.values()]
-            self.assertEqual(len(alarms), len(remote_names))
+            assert len(alarms) == len(remote_names)
             for alarm in alarms[0:2]:
-                self.assertEqual(alarm.escalate_to, esc_info12["to"])
-                self.assertEqual(alarm.escalate_delay, esc_info12["delay"])
+                assert alarm.escalate_to == esc_info12["to"]
+                assert alarm.escalate_delay == esc_info12["delay"]
             for alarm in alarms[2:4]:
-                self.assertEqual(alarm.escalate_to, esc_info34["to"])
-                self.assertEqual(alarm.escalate_delay, esc_info34["delay"])
+                assert alarm.escalate_to == esc_info34["to"]
+                assert alarm.escalate_delay == esc_info34["delay"]
             for alarm in alarms[4:]:
-                self.assertEqual(alarm.escalate_to, "")
-                self.assertEqual(alarm.escalate_delay, 0)
+                assert alarm.escalate_to == ""
+                assert alarm.escalate_delay == 0
             for alarm in alarms:
-                self.assertEqual(alarm.timestamp_escalate, 0)
+                assert alarm.timestamp_escalate == 0
 
     async def test_get_rules(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
 
         async with self.make_model(names=remote_names, enable=False):
             rules = self.model.get_rules("NoSuchName")
-            self.assertEqual(len(list(rules)), 0)
+            assert len(list(rules)) == 0
 
             # Search starts at beginning, so Enabled.foo works
             # but foo does not.
             rules = self.model.get_rules("ScriptQueue")
-            self.assertEqual(len(list(rules)), 0)
+            assert len(list(rules)) == 0
 
             rules = self.model.get_rules(".*")
-            self.assertEqual(len(list(rules)), len(remote_names))
+            assert len(list(rules)) == len(remote_names)
 
             rules = self.model.get_rules("Enabled")
-            self.assertEqual(len(list(rules)), len(remote_names))
+            assert len(list(rules)) == len(remote_names)
 
             rules = self.model.get_rules("Enabled.ScriptQueue")
-            self.assertEqual(len(list(rules)), 2)
+            assert len(list(rules)) == 2
 
             rules = self.model.get_rules("Enabled.Test")
-            self.assertEqual(len(list(rules)), 3)
+            assert len(list(rules)) == 3
 
     async def test_mute_full_name(self):
         """Test mute and unmute by full alarm name."""
@@ -378,7 +371,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
         async with self.make_model(names=remote_names, enable=True):
             full_rule_name = f"Enabled.{remote_names[0]}"
-            self.assertIn(full_rule_name, self.model.rules)
+            assert full_rule_name in self.model.rules
 
             # Mute one rule by full name.
             self.model.mute_alarm(
@@ -393,12 +386,12 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                         rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
                     )
                 else:
-                    self.assertNotMuted(rule.alarm)
+                    self.assert_not_muted(rule.alarm)
 
             # Nnmute one rule by full name.
             self.model.unmute_alarm(name=full_rule_name)
             for rule in self.model.rules.values():
-                self.assertNotMuted(rule.alarm)
+                self.assert_not_muted(rule.alarm)
 
     async def test_mute_regex(self):
         """Test mute and unmute by regex."""
@@ -407,7 +400,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         nrules = len(remote_names)
 
         async with self.make_model(names=remote_names, enable=True):
-            self.assertEqual(len(self.model.rules), nrules)
+            assert len(self.model.rules) == nrules
 
             # Mute the ScriptQueue alarms but not Test.
             self.model.mute_alarm(
@@ -422,13 +415,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                         rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
                     )
                 else:
-                    self.assertNotMuted(rule.alarm)
+                    self.assert_not_muted(rule.alarm)
 
             # Unmute the ScriptQueue alarms but not Test.
             self.model.unmute_alarm(name="Enabled.ScriptQueue.*")
             for rule in self.model.rules.values():
-                self.assertNotMuted(rule.alarm)
-
-
-if __name__ == "__main__":
-    unittest.main()
+                self.assert_not_muted(rule.alarm)
