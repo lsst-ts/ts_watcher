@@ -53,6 +53,13 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         self.num_valid_temperatures = 12
 
     def get_config(self, filepath):
+        """Read a config file and return the validated config.
+
+        Parameters
+        ----------
+        filepath : `pathlib.Path` or `str`
+            Full path to config file.
+        """
         schema = DewPointDepression.get_schema()
         validator = salobj.DefaultingValidator(schema)
         with open(filepath, "r") as f:
@@ -88,9 +95,13 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             assert remote_info.poll_names == expected_poll_names[i]
 
     async def test_operation(self):
+        poll_interval = 0.05
+        max_data_age = poll_interval * 5
         rule_config_path = self.configpath / "good_full.yaml"
         with open(rule_config_path, "r") as f:
             rule_config_dict = yaml.safe_load(f)
+            rule_config_dict["poll_interval"] = poll_interval
+            rule_config_dict["max_data_age"] = max_data_age
 
         watcher_config_dict = dict(
             disabled_sal_components=[],
@@ -167,7 +178,11 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 (warning_level + hysteresis + epsilon, AlarmSeverity.NONE),
             ]:
                 await send_ess_data(dew_point_depression=dew_point_depression)
+                await asyncio.sleep(poll_interval * 2.1)
                 assert rule.alarm.severity == expected_severity
+
+            await asyncio.sleep(max_data_age + poll_interval * 2.1)
+            assert rule.alarm.severity == AlarmSeverity.SERIOUS
 
     async def send_ess_data(
         self,
@@ -176,7 +191,6 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         dew_point_topics,
         temperature_topics,
         use_other_filter_values=False,
-        trigger_rule=True,
         verbose=False,
     ):
         """Send ESS data.
@@ -202,10 +216,6 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
-        trigger_rule : `bool`, optional
-            If True then trigger a rule update (restart the polling loop)
-            so that the effects are seen immediately instead of after
-            the polling interval.
         verbose : `bool`, optional
             If True then print the data sent.
 
@@ -224,12 +234,9 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         if verbose:
             print(
                 f"send_ess_data(dew_point_depression={dew_point_depression}, "
-                f"use_other_filter_values={use_other_filter_values}, "
-                f"trigger_rule={trigger_rule})"
+                f"use_other_filter_values={use_other_filter_values}"
             )
 
-        if trigger_rule:
-            rule.stop()
         # delta temperature is used as follows:
         # * temperature: regular temperature = delta + lowest temperature
         # * dew point: regular dew point is computed using
@@ -306,8 +313,4 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     f"(sensorName={filter_value!r}, temperature={temperatures})"
                 )
             topic.set_put(sensorName=filter_value, temperature=temperatures)
-            await asyncio.sleep(0.001)
-
-        if trigger_rule:
-            rule.start()
             await asyncio.sleep(0.001)
