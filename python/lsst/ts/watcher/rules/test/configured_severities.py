@@ -61,7 +61,6 @@ class ConfiguredSeverities(watcher.BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/ConfiguredSeverities.yaml
             description: Configuration for ConfiguredSeverities
             type: object
             properties:

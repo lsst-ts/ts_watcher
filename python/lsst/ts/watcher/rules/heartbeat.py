@@ -66,7 +66,6 @@ class Heartbeat(watcher.BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/Heartbeat.yaml
             description: Configuration for Heartbeat
             type: object
             properties:

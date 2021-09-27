@@ -180,8 +180,7 @@ class DewPointDepression(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         schema_yaml = """
-$schema: 'http://json-schema.org/draft-07/schema#'
-$id: 'https://github.com/lsst-ts/ts_watcher/Enabled.yaml'
+$schema: http://json-schema.org/draft-07/schema#
 description: Configuration for Enabled
 type: object
 properties:
