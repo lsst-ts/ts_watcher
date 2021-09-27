@@ -1,8 +1,17 @@
+properties(
+    [
+    buildDiscarder
+        (logRotator (
+            artifactDaysToKeepStr: '',
+            artifactNumToKeepStr: '',
+            daysToKeepStr: '14',
+            numToKeepStr: '10'
+        ) ),
+    disableConcurrentBuilds()
+    ]
+)
 pipeline {
     agent any
-    options {
-      disableConcurrentBuilds()
-    }
     environment {
         network_name = "n_${BUILD_ID}_${JENKINS_NODE_COOKIE}"
         container_name = "c_${BUILD_ID}_${JENKINS_NODE_COOKIE}"
@@ -14,9 +23,7 @@ pipeline {
         stage("Pulling docker image") {
             steps {
                 script {
-                    sh """
-                    docker pull lsstts/develop-env:develop
-                    """
+                    sh "docker pull lsstts/salobj:develop"
                 }
             }
         }
