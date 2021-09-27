@@ -125,17 +125,11 @@ class DewPointDepression(watcher.BaseRule):
     -----
     The alarm name is f"DewPointDepression.{name}".
 
-    Apache Point Observatory has a dew point depression closure limit of 2 C.
-    https://www.apo.nmsu.edu/arc35m/closure_conditions.htm
-
-
-    Like most rules based on data from the ESS CSC: this uses callbacks
-    because a given topic may be output for more than one sensor
-    (e.g. there may be two humidity sensors or two 4-channel temperature
-    sensors connected to the same CSC) where the data is differentiated
-    by the value of the sensorName field. Thus topic.get() is not a safe way
-    to get the most current values from a particular sensor.
-    Instead use ess topic wrappers
+    Like most rules based on data from the ESS CSC: this uses
+    `FilteredTopicField` and its ilk, because a given topic may be output
+    for more than one sensor (e.g. there may be two humidity sensors
+    or two 4-channel temperature sensors connected to the same CSC)
+    where the data is differentiated by the value of the sensorName field.
     """
 
     def __init__(self, config):
@@ -287,15 +281,17 @@ properties:
         - topics
       additionalProperties: false
   warning_level:
-    description: The temperature - dewPoint (C) above which a warning alarm is issued.
+    description: The temperature - dewPoint (C) below which a warning alarm is issued.
     type: number
     default: 3
   serious_level:
-    description: The temperature - dewPoint (C) above which a serious alarm is issued.
+    description: The temperature - dewPoint (C) below which a serious alarm is issued.
     type: number
     default: 2
   hysteresis:
-    description: The temperature drop (C) below which an alarm level is deactivated
+    description: >-
+        The amount by which temperature - dewPoint (C) must increase above
+        a severity level before alarm severity is decreased.
     type: number
     default: 0.2
   poll_interval:
@@ -393,8 +389,8 @@ additionalProperties: false
             await asyncio.sleep(self.config.poll_interval)
 
     def __call__(self, topic_callback=None):
-        # List of (dew_point, wrapper, index)
         current_tai = utils.current_tai()
+        # List of (dew_point, wrapper, index)
         dew_points = self.dew_point_field_wrappers.get_data(
             max_age=self.config.max_data_age
         )
@@ -485,11 +481,11 @@ additionalProperties: false
         dew_point_wrapper : `BaseFilteredTopicWrapper`
             Field wrapper for the dew point value used.
         dew_point_index : `int` or `None`
-            Index of the dew point value used.
+            Array index of the dew point value used. None if a scalar.
         temperature_wrapper : `BaseFilteredTopicWrapper`
             Field wrapper for the dew point value used.
         temperature_index : `int` or `None`
-            Index of the dew point value used.
+            Array index of the dew point value used. None if a scalar.
         """
         if severity is AlarmSeverity.WARNING:
             threshold = self.config.warning_level
