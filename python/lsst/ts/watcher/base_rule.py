@@ -63,11 +63,13 @@ class BaseRule(abc.ABC):
 
     Notes
     -----
-    `Model.add_rule` adds an attribute ``lowerremotename_index`` to the rule
-    for each remote in `remote_info_list`. The value of the attribute
-    is the appropriate ``RemoteWrapper``.
-    ``lowerremotename`` is the name of the remote converted to lowercase
-    and the index is the integer index of the remote, e.g. "atptg_0".
+    `Model.add_rule` adds an attribute
+    ``{lowerremotename}_{index} = `` `RemoteWrapper`
+    to the rule for each remote in `remote_info_list`, where
+    ``lowerremotename`` is the name of the SAL component cast to lowercase,
+    and ``index`` is the SAL index (0 if not an indexed component).
+    For example: ``atdome_0`` for ATDome (which is not indexed).
+    This gives each rule ready access to its remote wrappers.
     """
 
     def __init__(self, config, name, remote_info_list):
@@ -129,6 +131,32 @@ class BaseRule(abc.ABC):
             * SAL index
         """
         return self.remote_keys.isdisjoint(disabled_sal_components)
+
+    def setup(self, model):
+        """Perform post-constructor setup.
+
+        Called after the remotes are constructed and populated with topics,
+        but before the remotes have started.
+
+        Parameters
+        ----------
+        model : `Model`
+            The watcher model.
+
+        Notes
+        -----
+        Possible uses:
+
+        * Rules in which topics and/or fields are specified in configuration
+          should check that the topics and/or fields exist. They may also
+          set variables pointing to the appropriate topics.
+        * Rules that start a background process may start the process here
+          rather than in the constructor; this is especially helpful
+          if the process needs access to topics or fields.
+
+        Few rules require `setup`, so the default implemention is a no-op.
+        """
+        pass
 
     def start(self):
         """Start any background tasks, such as a polling loop.

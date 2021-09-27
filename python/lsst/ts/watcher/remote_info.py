@@ -56,14 +56,14 @@ class RemoteInfo:
     index : `int`
         SAL component index; use 0 if the component is not indexed.
     callback_names : `list` [`str`], optional
-        Names of telemetry or topic names for which the rule is called
+        Names of telemetry or event topics for which the rule is called
         when a sample is read. If None then no such topics.
         Each name must include prefix ``evt_`` or ``tel_``
         for event or telemetry.
         For example ["evt_FilterChangeInPosition", "evt_TrackingTarget"]
     poll_names : `list` [`str`], optional
-        Names of telemetry or topic names for which are available to the rule,
-        but do not trigger a callback. If None then no such topics.
+        Names of telemetry or event topics which are available to the rule,
+        but do not trigger a rule callback. If None then no such topics.
         Each name must include prefix ``evt_`` or ``tel_``
         for event or telemetry.
 
@@ -87,24 +87,30 @@ class RemoteInfo:
         self.index = int(index)
         self.callback_names = as_tuple(callback_names)
         self.poll_names = as_tuple(poll_names)
-        if not self.callback_names and not self.poll_names:
-            raise ValueError("Must specify at least one callback or poll name")
-        if len(set(self.callback_names) | set(self.poll_names)) < len(
-            self.callback_names
-        ) + len(self.poll_names):
+        all_names = self.topic_names
+        if not all_names:
+            raise ValueError("No topic names found callback_names or poll_names")
+        if len(all_names) > len(set(all_names)):
+            duplicates = list()
+            seen = set()
+            for name in all_names:
+                if name in seen:
+                    duplicates.append(name)
+                else:
+                    seen.add(name)
             raise ValueError(
-                f"There are duplicates in callback_names={callback_names} "
-                f"and poll_names={poll_names}"
+                f"Topic names {duplicates} appear more than once "
+                "in callback_names and/or poll_names"
             )
         invalid_names = [
             name
-            for name in self.callback_names + self.poll_names
+            for name in all_names
             if not (name.startswith("evt_") or name.startswith("tel_"))
         ]
         if invalid_names:
             raise ValueError(
-                "All callback and poll names must beging with 'evt_' or 'tel_': "
-                f"invalid names={invalid_names}"
+                f"Invalid topic names {invalid_names} in callback_names and/or "
+                "poll_names; all topic names must begin with 'evt_' or 'tel_'"
             )
 
     @property
@@ -113,4 +119,5 @@ class RemoteInfo:
 
     @property
     def topic_names(self):
+        """Get all topic names: callback_names + poll_names."""
         return self.callback_names + self.poll_names

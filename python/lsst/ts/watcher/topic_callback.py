@@ -19,7 +19,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["TopicCallback"]
+__all__ = ["get_topic_key", "TopicCallback"]
+
+
+def get_topic_key(topic):
+    """Compute the key unique to a topic.
+
+    Parameters
+    ----------
+    topic : `lsst.ts.salobj.ReadTopic`
+        Topic.
+
+    Returns
+    -------
+    topic_key : `tuple`
+        Topic key: (SAL component name, SAL index, topic attribute name)
+        where topic attribute name includes the ``tel_`` or ``evt_`` prefix.
+        Example: ``("ESS", 5, "tel_hx85a")``
+    """
+    return (topic.salinfo.name, topic.salinfo.index, topic.attr_name)
 
 
 class TopicCallback:
@@ -31,18 +49,34 @@ class TopicCallback:
     ----------
     topic : `salobj.ReadTopic`
         Topic to monitor.
-    rule : `BaseRule`
-        Rule to call.
+    rule : `BaseRule` or `None`
+        Rule to call, or None if none.
     model : `Model`
         Watcher model. Used by `__call__`
         to check if the model is enabled.
+
+    Attributes
+    ----------
+    rules : `dict`
+        Dict of rule name: rule.
+    topic_wrappers:
+        List of topic wrappers.
+    model : `Model`
+        The Watcher model.
+    topic_key : `tuple`
+        The topic key computed by get_topic_key.
     """
 
     def __init__(self, topic, rule, model):
         self._topic = topic
-        self.rules = {rule.name: rule}
+        self.topic_wrappers = list()
+        if rule is None:
+            self.rules = {}
+        else:
+            self.rules = {rule.name: rule}
         self.model = model
         self._topic.callback = self
+        self.topic_key = get_topic_key(self._topic)
 
     @property
     def attr_name(self):
@@ -61,6 +95,15 @@ class TopicCallback:
     def remote_index(self):
         """Get the SAL index of the remote."""
         return self._topic.salinfo.index
+
+    def add_topic_wrapper(self, wrapper):
+        """Add a topic wrapper, or other non-rule callable.
+
+        The callable is called with a single variable: this `TopicCallback`.
+
+        Wrapper callbacks are called before rule callbacks.
+        """
+        self.topic_wrappers.append(wrapper)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -85,12 +128,20 @@ class TopicCallback:
     def __call__(self, value):
         if not self.model.enabled:
             return
+        for wrapper in self.topic_wrappers:
+            try:
+                wrapper(self)
+            except Exception:
+                self._topic.log.exception(
+                    f"Error calling wrapper {wrapper} with value {value!s}"
+                )
+                pass
         for rule in self.rules.values():
             try:
                 severity, reason = rule(self)
                 rule.alarm.set_severity(severity=severity, reason=reason)
             except Exception:
                 self._topic.log.exception(
-                    f"Error calling rule {rule.name} with value {value!s}"
+                    f"Error calling rule {rule} with value {value!s}"
                 )
                 pass

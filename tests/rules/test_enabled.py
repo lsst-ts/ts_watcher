@@ -52,27 +52,27 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
         for key in config_dict:
-            self.assertEqual(getattr(config, key), config_dict[key])
+            assert getattr(config, key) == config_dict[key]
         return config
 
     async def test_basics(self):
         schema = watcher.rules.Enabled.get_schema()
-        self.assertIsNotNone(schema)
+        assert schema is not None
         name = "ScriptQueue"
         config = self.make_config(name=name)
         desired_rule_name = f"Enabled.{name}:0"
 
         rule = watcher.rules.Enabled(config=config)
-        self.assertEqual(rule.name, desired_rule_name)
-        self.assertIsInstance(rule.alarm, watcher.Alarm)
-        self.assertEqual(rule.alarm.name, rule.name)
-        self.assertTrue(rule.alarm.nominal)
-        self.assertEqual(len(rule.remote_info_list), 1)
+        assert rule.name == desired_rule_name
+        assert isinstance(rule.alarm, watcher.Alarm)
+        assert rule.alarm.name == rule.name
+        assert rule.alarm.nominal
+        assert len(rule.remote_info_list) == 1
         remote_info = rule.remote_info_list[0]
-        self.assertEqual(remote_info.name, name)
-        self.assertEqual(remote_info.index, 0)
-        self.assertIn(name, repr(rule))
-        self.assertIn("Enabled", repr(rule))
+        assert remote_info.name == name
+        assert remote_info.index == 0
+        assert name in repr(rule)
+        assert "Enabled" in repr(rule)
 
     async def test_call(self):
         name = "ScriptQueue"
@@ -98,7 +98,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
             ) as model:
                 model.enable()
 
-                self.assertEqual(len(model.rules), 1)
+                assert len(model.rules) == 1
                 rule_name = f"Enabled.{name}:{index}"
                 rule = model.rules[rule_name]
 
@@ -136,8 +136,4 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                     # give the remote a chance to read the data
                     await asyncio.sleep(0.001)
 
-                self.assertEqual(read_severities, expected_severities)
-
-
-if __name__ == "__main__":
-    unittest.main()
+                assert read_severities == expected_severities

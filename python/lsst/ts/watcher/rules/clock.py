@@ -27,10 +27,10 @@ import numpy as np
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class Clock(base.BaseRule):
+class Clock(watcher.BaseRule):
     """Monitor the system clock of a SAL component using the ``heartbeat``
     event.
 
@@ -55,7 +55,7 @@ class Clock(base.BaseRule):
 
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(
+        remote_info = watcher.RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_heartbeat"],
@@ -113,4 +113,4 @@ class Clock(base.BaseRule):
                 AlarmSeverity.WARNING,
                 f"Mininum |error|={min_abs_error:0.2f}; mean error={mean_error:0.2f} sec",
             )
-        return base.NoneNoReason
+        return watcher.NoneNoReason

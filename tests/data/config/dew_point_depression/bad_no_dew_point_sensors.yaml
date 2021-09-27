@@ -1,0 +1,10 @@
+name: Main Telescope
+dew_point_sensors: []
+temperature_sensors:
+  - sal_name: 'ESS:2'
+    topics:
+      - topic_name: temperature
+        sensor_field_names:
+          - sensor_name: somewhere
+            field_name: temperature
+            indices: [0, 1, 2, 3]

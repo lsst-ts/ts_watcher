@@ -1,0 +1,15 @@
+name: Main Telescope
+dew_point_sensors:
+  - sal_name: 'ESS:5'
+    topics:
+      - topic_name: hx85a
+        sensor_type: dewpoint
+        sensor_names:
+          - up
+          - down
+temperature_sensors:
+  - sal_name: 'ESS:2'
+    topics:
+      - topic_name: temperature
+        sensor_field_names:
+          - sensor_name: somewhere

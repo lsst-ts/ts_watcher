@@ -24,8 +24,16 @@ try:
 except ImportError:
     __version__ = "?"
 
+from .alarm import *
+from .base_rule import *
+from .remote_info import *
+from .remote_wrapper import *
+from .topic_callback import *
 from .config_schema import *
-from .base import *
+from .filtered_topic_wrapper import *
+from .filtered_field_wrapper import *
+from .field_wrapper_list import *
 from . import rules
 from .model import *
 from .watcher_csc import *
+from .testutils import *

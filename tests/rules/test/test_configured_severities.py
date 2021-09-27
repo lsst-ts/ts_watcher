@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import pytest
 import types
 import unittest
 
@@ -51,31 +52,31 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
         for key in config_dict:
-            self.assertEqual(getattr(config, key), config_dict[key])
+            assert getattr(config, key) == config_dict[key]
         return config
 
     async def test_basics(self):
         schema = watcher.rules.test.ConfiguredSeverities.get_schema()
-        self.assertIsNotNone(schema)
+        assert schema is not None
         name = "arulename"
         interval = 1.23
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
         config = self.make_config(name=name, interval=interval, severities=severities)
         # Check default config parameters
-        self.assertEqual(config.delay, 0)
-        self.assertEqual(config.repeats, 0)
+        assert config.delay == 0
+        assert config.repeats == 0
 
         desired_rule_name = f"test.ConfiguredSeverities.{name}"
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
-        self.assertEqual(rule.remote_info_list, [])
-        self.assertEqual(rule.name, desired_rule_name)
-        self.assertIsInstance(rule.alarm, watcher.Alarm)
-        self.assertEqual(rule.alarm.name, rule.name)
-        self.assertTrue(rule.alarm.nominal)
-        with self.assertRaises(RuntimeError):
+        assert rule.remote_info_list == []
+        assert rule.name == desired_rule_name
+        assert isinstance(rule.alarm, watcher.Alarm)
+        assert rule.alarm.name == rule.name
+        assert rule.alarm.nominal
+        with pytest.raises(RuntimeError):
             rule(topic_callback=None)
-        self.assertIn(name, repr(rule))
-        self.assertIn("test.ConfiguredSeverities", repr(rule))
+        assert name in repr(rule)
+        assert "test.ConfiguredSeverities" in repr(rule)
 
     async def test_run(self):
         interval = 0.01
@@ -94,8 +95,8 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
             delay=0.1,
             repeats=repeats,
         )
-        self.assertEqual(config.delay, 0.1)
-        self.assertEqual(config.repeats, 2)
+        assert config.delay == 0.1
+        assert config.repeats == 2
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
         read_severities = []
@@ -113,8 +114,4 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(done_future, timeout=2)
         rule.stop()
         expected_severities = severities * repeats
-        self.assertEqual(read_severities, expected_severities)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert read_severities == expected_severities
