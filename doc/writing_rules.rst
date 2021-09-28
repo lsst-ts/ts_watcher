@@ -73,8 +73,8 @@ Determine the configuration options you want to offer.
 Examples include:
 
 * `rules.Enabled` accepts a remote name and SAL index, formatted as ``{name}[:{index}]`` (a standard that can be parsed with `lsst.ts.salobj.name_to_name_index`).
-* `rules.DewPointDepression` is quite complicated.
-  It accepts a list of dew point sensors, another list of temperature sensors, and levels and hystersis.
+* `rules.Humidity` is a good example of a :ref:`rule that uses ESS data <lsst.ts.watcher.writing_rules.ess_data>`.
+  It specifies name, alarm levels, hystersis, and a list of humidity sensors.
 
 Construct a jsonschema describing the configuration and return it from the `BaseRule.get_schema` classmethod.
 
@@ -101,7 +101,7 @@ setup
 This optional method is an extra constructor stage that is called after the `Model` and all `lsst.ts.salobj.Remote`\ s are constructed,
 but before the remotes have fully started.
 
-This method is required by `Rules that use ESS Data`_ and any other rules that use `FilteredTopicWrapper` and similar.
+This method is required by :ref:`rules that use ESS data <lsst.ts.watcher.writing_rules.ess_data>` and any other rules that use `FilteredTopicWrapper` and similar.
 
 The default implementation is a no-op, and that suffices for most rules.
 
@@ -124,6 +124,8 @@ stop
 ----
 If your rule starts any background tasks, then stop them in `BaseRule.stop`.
 
+.. _lsst.ts.watcher.writing_rules.ess_data:
+
 Rules that use ESS Data
 =======================
 Data from the ESS presents a special challenge for watcher rules,
@@ -132,10 +134,12 @@ For example: an ESS CSC that is connected to two multi-channel thermometers will
 
 In order to handle this, the rule should create a `FilteredFieldWrapper` (or similar) for each field of each ESS topic of interest, and keep track of them one or more `FieldWrapperList`\ s.
 These objects take care of caching data from the desired sensors.
-For example the `rules.DewPointDepression` rule has two `FieldWrapperList`\ s: one for dew point and one for temperature.
+For example the `rules.Humidity` rule has one `FieldWrapperList` and the `rules.DewPointDepression` rule has two: one for dew point and one for temperature.
 
 `FilteredFieldWrapper` \ s may only be constructed after the `Model` and `lsst.ts.salobj.Remote`\ s have been constructed,
 so that must be done in the `BaseRule.setup` method, rather than the constructor.
+
+See `rules.Humidity` for a fairly simple example.
 
 Testing a Rule
 ==============
