@@ -25,3 +25,4 @@ from .enabled import *
 from .heartbeat import *
 from .mt_ccw_following_rotator import *
 from .dew_point_depression import *
+from .humidity import *
