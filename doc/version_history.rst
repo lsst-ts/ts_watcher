@@ -12,6 +12,7 @@ v1.6.0
 Changes:
 
 * Add rule `rules.DewPointDepression`.
+* Add rule `rules.Humidity`.
 * Add rule `rules.MTCCWFollowingRototor`: warn when the MT camera cable wrap is not following the camera rotator.
 * Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredFieldWrapper`, and `IndexedFilteredFieldWrapper`.
   These allow rules to handle data from CSCs such as the ESS, that publish the the same topic with different data for different subystems.
