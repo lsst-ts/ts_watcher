@@ -31,18 +31,18 @@ For instance the `Enabled` rule is configured with the name and index of the CSC
 
 Alarm Severity
 --------------
-The primary purpose of a rule is to set the severity of its alarm.
+The primary purpose of a rule is to compute the :ref:`severity <lsst.ts.watcher.severity_levels>` of its alarm.
 A rule can do this in two ways:
 
 * Most rules specify one or more topics for which they are called when the topic receives a sample.
-  The topic calls `BaseRule.__call__` which must return a tuple of (rule severity, reason).
-  The calling code uses that returned tuple to set the alarm severity.
+  When data for that topic is received, code calls `BaseRule.__call__`, which must return a tuple of ``(severity, reason)``.
+  The calling code then uses that returned tuple to set the alarm severity.
 * A rule may directly set the severity of its alarm by calling `self.alarm.set_severity`.
   One example is the `Heartbeat` rule which restarts a timer when a heartbeat event is received.
   If the timer expires the rule sets its alarm severity to `SERIOUS`.
 
-Note that the `BaseRule.__call__` should never directly set the alarm severity;
-return the new (rule severity, reason) instead.
+Note that `BaseRule.__call__` should _never_ directly set the alarm severity;
+always return ``(severity, reason)`` instead.
 
 Alarm Name
 ----------
@@ -73,8 +73,8 @@ Determine the configuration options you want to offer.
 Examples include:
 
 * `rules.Enabled` accepts a remote name and SAL index, formatted as ``{name}[:{index}]`` (a standard that can be parsed with `lsst.ts.salobj.name_to_name_index`).
-* `rules.DewPointDepression` is quite complicated.
-  It accepts a list of dew point sensors, another list of temperature sensors, and levels and hystersis.
+* `rules.Humidity` is a good example of a :ref:`rule that uses ESS data <lsst.ts.watcher.writing_rules.ess_data>`.
+  It specifies name, alarm levels, hystersis, and a list of humidity sensors.
 
 Construct a jsonschema describing the configuration and return it from the `BaseRule.get_schema` classmethod.
 
@@ -101,7 +101,7 @@ setup
 This optional method is an extra constructor stage that is called after the `Model` and all `lsst.ts.salobj.Remote`\ s are constructed,
 but before the remotes have fully started.
 
-This method is required by `Rules that use ESS Data`_ and any other rules that use `FilteredTopicWrapper` and similar.
+This method is required by :ref:`rules that use ESS data <lsst.ts.watcher.writing_rules.ess_data>` and any other rules that use `FilteredTopicWrapper` and similar.
 
 The default implementation is a no-op, and that suffices for most rules.
 
@@ -124,6 +124,8 @@ stop
 ----
 If your rule starts any background tasks, then stop them in `BaseRule.stop`.
 
+.. _lsst.ts.watcher.writing_rules.ess_data:
+
 Rules that use ESS Data
 =======================
 Data from the ESS presents a special challenge for watcher rules,
@@ -132,10 +134,12 @@ For example: an ESS CSC that is connected to two multi-channel thermometers will
 
 In order to handle this, the rule should create a `FilteredFieldWrapper` (or similar) for each field of each ESS topic of interest, and keep track of them one or more `FieldWrapperList`\ s.
 These objects take care of caching data from the desired sensors.
-For example the `rules.DewPointDepression` rule has two `FieldWrapperList`\ s: one for dew point and one for temperature.
+For example the `rules.Humidity` rule has one `FieldWrapperList` and the `rules.DewPointDepression` rule has two: one for dew point and one for temperature.
 
 `FilteredFieldWrapper` \ s may only be constructed after the `Model` and `lsst.ts.salobj.Remote`\ s have been constructed,
 so that must be done in the `BaseRule.setup` method, rather than the constructor.
+
+See `rules.Humidity` for a fairly simple example.
 
 Testing a Rule
 ==============

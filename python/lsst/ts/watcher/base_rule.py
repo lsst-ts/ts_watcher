@@ -96,7 +96,6 @@ class BaseRule(abc.ABC):
 
             schema_yaml = \"\"\"
                 $schema: http://json-schema.org/draft-07/schema#
-                $id: https://github.com/lsst-ts/ts_watcher/MyRule.yaml
                 description: Configuration for MyRule
                 type: object
                 properties:

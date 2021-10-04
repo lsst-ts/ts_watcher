@@ -63,7 +63,6 @@ class Enabled(watcher.BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/Enabled.yaml
             description: Configuration for Enabled
             type: object
             properties:
