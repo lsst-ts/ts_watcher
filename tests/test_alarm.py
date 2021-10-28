@@ -227,7 +227,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         dt = curr_tai - t0
         predicted_auto_ack_tai = curr_tai + auto_acknowledge_delay
         assert not alarm.nominal
-        pytest.approx(alarm.timestamp_auto_acknowledge, predicted_auto_ack_tai, abs=dt)
+        assert alarm.timestamp_auto_acknowledge == pytest.approx(
+            predicted_auto_ack_tai, abs=dt
+        )
         await asyncio.sleep(0)
         assert not alarm.auto_acknowledge_task.done()
 
@@ -286,8 +288,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         curr_tai = utils.current_tai()
         dt = curr_tai - t0
         predicted_auto_unack_tai = curr_tai + auto_unacknowledge_delay
-        pytest.approx(
-            alarm.timestamp_auto_unacknowledge, predicted_auto_unack_tai, abs=dt
+        assert alarm.timestamp_auto_unacknowledge == pytest.approx(
+            predicted_auto_unack_tai, abs=dt
         )
         assert alarm.acknowledged
         await asyncio.sleep(0)
@@ -811,7 +813,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 # Check that timestamp_unmute is close to and no less than
                 # the current time + duration.
                 assert curr_tai + duration >= alarm.timestamp_unmute
-                pytest.approx(alarm.timestamp_unmute, curr_tai + duration, abs=dt)
+                assert alarm.timestamp_unmute == pytest.approx(
+                    curr_tai + duration, abs=dt
+                )
                 # Wait for the alrm to unmute itself.
                 await self.next_queued_alarm(
                     expected_alarm=alarm, timeout=STD_TIMEOUT + duration
@@ -898,7 +902,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 assert alarm.muted_by == user
                 assert alarm.muted_severity == severity
                 assert curr_tai + duration >= alarm.timestamp_unmute
-                pytest.approx(alarm.timestamp_unmute, curr_tai + duration, abs=dt)
+                assert alarm.timestamp_unmute == pytest.approx(
+                    curr_tai + duration, abs=dt
+                )
 
                 alarm.unmute()
                 assert self.ncalls == ncalls0 + 3

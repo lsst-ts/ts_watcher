@@ -314,13 +314,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Check the values encoded in the yaml config file.
             expected_auto_acknowledge_delay = 0.51
             expected_auto_unacknowledge_delay = 0.52
-            pytest.approx(
-                self.csc.model.config.auto_acknowledge_delay,
-                expected_auto_acknowledge_delay,
+            assert self.csc.model.config.auto_acknowledge_delay == pytest.approx(
+                expected_auto_acknowledge_delay
             )
-            pytest.approx(
-                self.csc.model.config.auto_unacknowledge_delay,
-                expected_auto_unacknowledge_delay,
+            assert self.csc.model.config.auto_unacknowledge_delay == pytest.approx(
+                expected_auto_unacknowledge_delay
             )
 
             atdome_alarm_name = "Enabled.ATDome:0"
