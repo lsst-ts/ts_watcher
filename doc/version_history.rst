@@ -13,7 +13,7 @@ Changes:
 
 * Add rule `rules.DewPointDepression`.
 * Add rule `rules.Humidity`.
-* Add rule `rules.MTCCWFollowingRototor`: warn when the MT camera cable wrap is not following the camera rotator.
+* Add rule `rules.MTCCWFollowingRotator`: warn when the MT camera cable wrap is not following the camera rotator.
 * Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredFieldWrapper`, and `IndexedFilteredFieldWrapper`.
   These allow rules to handle data from CSCs such as the ESS, that publish the the same topic with different data for different subystems.
 * `BaseRule` changes:
@@ -33,6 +33,8 @@ Changes:
 * Add function `get_topic_key`.
 * Use package ``ts_utils``.
 * Remove the ``base`` subpackage and move the contents up one level.
+* Modernize unit tests to use bare assert.
+* Make ``test_auto_acknowledge_unacknowledge`` in ``test_csc.py`` more robust by allowing a bit of clock jitter.
 * Add ``Jenkinsfile``.
 
 Requires:
