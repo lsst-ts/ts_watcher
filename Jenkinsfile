@@ -10,167 +10,116 @@ properties(
     disableConcurrentBuilds()
     ]
 )
+
 pipeline {
-    agent any
+
+    agent {
+        // Use the docker to assign the Python version.
+        // Use the label to assign the node to run the test.
+        // It is recommended by SQUARE to not add the label
+        docker {
+            alwaysPull true
+            image 'lsstts/develop-env:develop'
+            args "-u root --entrypoint=''"
+        }
+    }
+
     environment {
-        network_name = "n_${BUILD_ID}_${JENKINS_NODE_COOKIE}"
-        container_name = "c_${BUILD_ID}_${JENKINS_NODE_COOKIE}"
+        // XML report path
+        XML_REPORT="jenkinsReport/report.xml"
+        // Module name used in the pytest coverage analysis
+        MODULE_NAME="lsst.ts.watcher"
+        user_ci = credentials('lsst-io')
+        LTD_USERNAME="${user_ci_USR}"
+        LTD_PASSWORD="${user_ci_PSW}"
         work_branches = "${GIT_BRANCH} ${CHANGE_BRANCH} develop"
-        LSST_IO_CREDS = credentials("lsst-io")
     }
 
     stages {
-        stage("Pulling docker image") {
+        stage ('Install Requirements And Update Branches') {
             steps {
-                script {
-                    sh "docker pull lsstts/salobj:develop"
-                }
-            }
-        }
-        stage("Preparing environment") {
-            steps {
-                script {
+                // When using the docker container, we need to change
+                // the HOME path to WORKSPACE to have the authority
+                // to install the packages.
+                withEnv(["HOME=${env.WORKSPACE}"]) {
                     sh """
-                    docker network create \${network_name}
-                    chmod -R a+rw \${WORKSPACE}
-                    container=\$(docker run -v \${WORKSPACE}:/home/saluser/repo/ -td --rm --net \${network_name} -e LTD_USERNAME=\${LSST_IO_CREDS_USR} -e LTD_PASSWORD=\${LSST_IO_CREDS_PSW} --name \${container_name} lsstts/develop-env:develop)
+                        source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
+                        cd /home/saluser/repos/ts_utils
+                        /home/saluser/.checkout_repo.sh ${work_branches}
+                        git pull
+                        cd /home/saluser/repos/ts_xml
+                        /home/saluser/.checkout_repo.sh ${work_branches}
+                        git pull
+                        cd /home/saluser/repos/ts_salobj
+                        /home/saluser/.checkout_repo.sh ${work_branches}
+                        git pull
+                        cd /home/saluser/repos/ts_idl
+                        /home/saluser/.checkout_repo.sh ${work_branches}
+                        git pull
+                        cd /home/saluser/repos/ts_config_ocs
+                        /home/saluser/.checkout_repo.sh ${work_branches}
+                        git pull
+                        make_idl_files.py ESS Test
                     """
                 }
             }
         }
-        stage("Checkout ts_utils") {
+
+        stage('Unit Tests and Coverage Analysis') {
             steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "cd /home/saluser/repos/ts_utils && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
+                // Direct the HOME to WORKSPACE for pip to get the
+                // installed library.
+                // 'PATH' can only be updated in a single shell block.
+                // We can not update PATH in 'environment' block.
+                // Pytest needs to export the junit report.
+                withEnv(["HOME=${env.WORKSPACE}"]) {
+                    sh """
+                        source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
+                        setup -k -r .
+                        pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
+                    """
                 }
             }
         }
-        stage("Checkout ts_ddsconfig") {
+        stage('Build and Upload Documentation') {
             steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "cd /home/saluser/repos/ts_ddsconfig && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
-                }
-            }
-        }
-        stage("Checkout ts_sal") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "cd /home/saluser/repos/ts_sal && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
-                }
-            }
-        }
-        stage("Checkout ts_xml") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "cd /home/saluser/repos/ts_xml && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
-                }
-            }
-        }
-        stage("Checkout ts_idl") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "source /home/saluser/.bashrc && " +
-                        "cd /home/saluser/repos/ts_idl && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
-                }
-            }
-        }
-        stage("Build IDL files") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "source /home/saluser/.bashrc && " +
-                        "make_idl_files.py ESS Test\""
-                }
-            }
-        }
-        stage("Checkout ts_salobj") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "source /home/saluser/.bashrc && " +
-                        "cd /home/saluser/repos/ts_salobj && " +
-                        "/home/saluser/.checkout_repo.sh \${work_branches} && " +
-                        "git pull\""
-                }
-            }
-        }
-        stage("Run tests") {
-            steps {
-                script {
-                    sh "docker exec -u saluser \${container_name} sh -c \"" +
-                        "source ~/.setup.sh && " +
-                        "cd /home/saluser/repo/ && " +
-                        "eups declare -r . -t saluser && " +
-                        "setup ts_watcher -t saluser && " +
-                        "pytest --junitxml=tests/.tests/junit.xml\""
+                withEnv(["HOME=${env.WORKSPACE}"]) {
+                    sh """
+                        source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
+                        pip install .
+                        package-docs build
+                        ltd upload --product ts-watcher --git-ref ${GIT_BRANCH} --dir doc/_build/html
+                    """
                 }
             }
         }
     }
+
     post {
         always {
+            // Change the ownership of workspace to Jenkins for the clean up
+            // This is a "work around" method
+            withEnv(["HOME=${env.WORKSPACE}"]) {
+                sh 'chown -R 1003:1003 ${HOME}/'
+            }
+
             // The path of xml needed by JUnit is relative to
             // the workspace.
-            junit 'tests/.tests/junit.xml'
+            junit 'jenkinsReport/*.xml'
 
             // Publish the HTML report
             publishHTML (target: [
                 allowMissing: false,
                 alwaysLinkToLastBuild: false,
                 keepAll: true,
-                reportDir: 'tests/.tests/',
+                reportDir: 'htmlcov',
                 reportFiles: 'index.html',
                 reportName: "Coverage Report"
               ])
-
-              sh "docker exec -u saluser \${container_name} sh -c \"" +
-                "source ~/.setup.sh && " +
-                "cd /home/saluser/repo/ && " +
-                "pip install ltd-conveyor && " +
-                "setup ts_watcher -t saluser && " +
-                "package-docs build\""
-
-            script {
-
-                def RESULT = sh returnStatus: true, script: "docker exec -u saluser \${container_name} sh -c \"" +
-                    "source ~/.setup.sh && " +
-                    "cd /home/saluser/repo/ && " +
-                    "setup ts_watcher -t saluser && " +
-                    "ltd upload --product ts-watcher --git-ref \${GIT_BRANCH} --dir doc/_build/html\""
-
-                if ( RESULT != 0 ) {
-                    unstable("Failed to push documentation.")
-                }
-             }
         }
+
         cleanup {
-            sh """
-                docker exec -u root --privileged \${container_name} sh -c \"chmod -R a+rw /home/saluser/repo/ \"
-                docker stop \${container_name} || echo Could not stop container
-                docker network rm \${network_name} || echo Could not remove network
-            """
+            // clean up the workspace
             deleteDir()
         }
     }

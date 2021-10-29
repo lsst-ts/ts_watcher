@@ -36,6 +36,9 @@ NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
 LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
+# Time delta to compensate for clock jitter on Docker on macOS (sec).
+TIME_EPSILON = 0.1
+
 
 class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     def basic_make_csc(self, initial_state, config_dir, simulation_mode):
@@ -314,13 +317,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Check the values encoded in the yaml config file.
             expected_auto_acknowledge_delay = 0.51
             expected_auto_unacknowledge_delay = 0.52
-            pytest.approx(
-                self.csc.model.config.auto_acknowledge_delay,
-                expected_auto_acknowledge_delay,
+            assert self.csc.model.config.auto_acknowledge_delay == pytest.approx(
+                expected_auto_acknowledge_delay
             )
-            pytest.approx(
-                self.csc.model.config.auto_unacknowledge_delay,
-                expected_auto_unacknowledge_delay,
+            assert self.csc.model.config.auto_unacknowledge_delay == pytest.approx(
+                expected_auto_unacknowledge_delay
             )
 
             atdome_alarm_name = "Enabled.ATDome:0"
@@ -362,8 +363,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="automatic",
             )
             dt0 = utils.current_tai() - t0
-            assert alarm.timestampAcknowledged >= t0
-            assert dt0 >= expected_auto_acknowledge_delay
+            assert alarm.timestampAcknowledged >= t0 - TIME_EPSILON
+            assert dt0 >= expected_auto_acknowledge_delay - TIME_EPSILON
 
             # Make the ATDome alarm acknowledged and not stale
             atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
@@ -398,8 +399,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
             dt1 = utils.current_tai() - t1
-            assert alarm.timestampAcknowledged >= t1
-            assert dt1 >= expected_auto_unacknowledge_delay
+            assert alarm.timestampAcknowledged >= t1 - TIME_EPSILON
+            assert dt1 >= expected_auto_unacknowledge_delay - TIME_EPSILON
 
     async def test_show_alarms(self):
         """Test the showAlarms command."""
