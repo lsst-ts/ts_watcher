@@ -12,6 +12,7 @@ v1.6.0
 Changes:
 
 * Add rule `rules.DewPointDepression`.
+  This rule requires ts_xml 10.1.
 * Add rule `rules.Humidity`.
 * Add rule `rules.MTCCWFollowingRotator`: warn when the MT camera cable wrap is not following the camera rotator.
 * Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredFieldWrapper`, and `IndexedFilteredFieldWrapper`.
@@ -43,7 +44,7 @@ Requires:
 * ts_salobj 6.3
 * ts_xml 7
 * ts_idl 2
-* IDL files for ``Watcher``, ``ATDome``, ``ScriptQueue``, and ``Test``, plus any SAL components you wish to watch.
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
   These may be generated using ``make_idl_files.py``
 
 v1.5.3
