@@ -59,7 +59,7 @@ pipeline {
                         cd /home/saluser/repos/ts_config_ocs
                         /home/saluser/.checkout_repo.sh ${work_branches}
                         git pull
-                        make_idl_files.py ESS Test
+                        make_idl_files.py ESS Test Watcher
                     """
                 }
             }
