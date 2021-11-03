@@ -34,7 +34,7 @@ import yaml
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
-from lsst.ts.watcher.rules import DewPointDepression, DewPointFromHumidityWrapper
+from lsst.ts.watcher.rules import DewPointDepression
 
 index_gen = salobj.index_generator()
 
@@ -203,16 +203,15 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         Parameters
         ----------
         dew_point_depression : `float`
-            Desired dew point depression
+            Desired pessimistic dew point depression
         rule : `DewPointDepressionRule`
             Dew point depression rule.
         dew_point_topics : `dict` of ``str`: write topic
-            Dict of filter_value: controller topic
-            that writes dew point or humidity
+            Dict of filter_value: controller topic that writes dew point.
         temperature_topics : `dict` of `str`: (write topic, indices)
             Dict of filter_value: (controller topic, indices)
             where the topic writes temperature, and indices indicates
-            which indices to write (None for all of them)
+            which indices to write (None for all of them).
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
@@ -222,10 +221,9 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         Notes
         -----
         Write pessimistic data to one dew point topic (higher than normal
-        air temperature and dew point) and to one temperature channel
-        (lower than normal temperature), and normal data to the remaining
-        topics, such that: pessimistic temperature - pessimistic dew point
-        = dew_point_depression.
+        dew point) and to one temperature channel (lower than normal
+        temperature), and normal data to the remaining topics, such that:
+        pessimistic temperature - pessimistic dew point = dew_point_depression.
 
         The topics and (for temperature) channel for the pessimistic data
         are randomly chosen. This helps ensure that the rule uses the
@@ -239,19 +237,14 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
         # delta temperature is used as follows:
         # * temperature: regular temperature = delta + lowest temperature
-        # * dew point: regular dew point is computed using
+        # * dew point: regular dew point is computed using dew point - delta
         #   air temperature - delta
         delta_temperature = 2
 
-        relative_humidity = 75
         pessimistic_air_temperature = 10
-        normal_air_temperature = pessimistic_air_temperature - delta_temperature
-        pessimistic_dew_point = DewPointFromHumidityWrapper.compute_dew_point(
-            relative_humidity=relative_humidity, temperature=pessimistic_air_temperature
-        )
-        normal_dew_point = DewPointFromHumidityWrapper.compute_dew_point(
-            relative_humidity=relative_humidity, temperature=normal_air_temperature
-        )
+
+        pessimistic_dew_point = pessimistic_air_temperature - dew_point_depression
+        normal_dew_point = pessimistic_dew_point - delta_temperature
         if verbose:
             print(f"pessimistic_dew_point={pessimistic_dew_point}")
             print(f"normal_dew_point={normal_dew_point}")
@@ -260,27 +253,17 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         pessimistic_dew_point_filter_value = rng.choice(list(dew_point_topics.keys()))
         for filter_value, topic in dew_point_topics.items():
             if filter_value == pessimistic_dew_point_filter_value:
-                data_dict = dict(
-                    relativeHumidity=relative_humidity,
-                    temperature=pessimistic_air_temperature,
-                    dewPoint=pessimistic_dew_point,
-                )
+                dew_point = pessimistic_dew_point
             else:
-                data_dict = dict(
-                    relativeHumidity=relative_humidity,
-                    temperature=normal_air_temperature,
-                    dewPoint=normal_dew_point,
-                )
-            if not hasattr(topic.data, "dewPoint"):
-                del data_dict["dewPoint"]
+                dew_point = normal_dew_point
             if use_other_filter_values:
                 filter_value += " with modifications"
             if verbose:
                 print(
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, {data_dict})"
+                    f"(sensorName={filter_value!r}, dewPoint={dew_point})"
                 )
-            topic.set_put(sensorName=filter_value, **data_dict)
+            topic.set_put(sensorName=filter_value, dewPoint=dew_point)
             await asyncio.sleep(0.001)
 
         pessimistic_temperature = pessimistic_dew_point + dew_point_depression

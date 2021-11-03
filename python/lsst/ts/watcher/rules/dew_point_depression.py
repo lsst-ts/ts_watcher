@@ -19,12 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["DewPointFromHumidityWrapper", "DewPointDepression"]
+__all__ = ["DewPointDepression"]
 
 import asyncio
 import functools
 import itertools
-import math
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -34,78 +33,6 @@ from lsst.ts import watcher
 
 # ESS topics are filtered by the sensorName field
 ESSFilterField = "sensorName"
-
-
-class DewPointFromHumidityWrapper(watcher.BaseFilteredFieldWrapper):
-    """Compute dew point from a sensor that measures humidity and temperature.
-
-    Parameters
-    ----------
-    model : `Model`
-        Watcher model.
-    topic : `lsst.ts.salobj.ReadTopic`
-        Topic to read. It must have fields ``relativeHumidity``,
-        ``temperature`` and ``sensorName``.
-        One such topic is ``hx85ba``. Another is ``hx85a``, thought that
-        sensor already reports dew point in the ``dewPoint`` field.
-    filter_field : `str`
-        Name of filter field. Use ESSFilterField for ESS topics.
-    filter_value : `str`
-        Required value of the ``sensorName`` field.
-
-    Notes
-    -----
-    Use the `Magnus formula
-    <https://github.com/lsst-ts/ts_watcher/blob/develop/doc/Dewpoint_Calculation_Humidity_Sensor_E.pdf>`_:: # noqa
-
-        dp = λ·f / (β - f)
-
-        Where:
-
-        • dp is dew point in deg C
-        • β = 17.62
-        • λ = 243.12 C
-        • f = ln(rh/100) + (β·t)/(λ+t))
-        • t = air temperature in deg C
-        • rh = relative humidity in %
-    """
-
-    def __init__(self, model, topic, filter_field, filter_value):
-        super().__init__(
-            model=model,
-            topic=topic,
-            filter_field=filter_field,
-            filter_value=filter_value,
-            field_descr="dewPointFromHumidity",
-        )
-
-    @staticmethod
-    def compute_dew_point(relative_humidity, temperature):
-        """Compute dew point using the Magnus formula.
-
-        Parameters
-        ----------
-        relative_humidity : `float`
-            Relative humidity (%)
-        temperature : `float`
-            Air temperature (C)
-        """
-        β = 17.62
-        λ = 243.12
-        f = math.log(relative_humidity * 0.01) + β * temperature / (λ + temperature)
-        return λ * f / (β - f)
-
-    def update_value(self, data):
-        """Compute dew point."""
-        self.value = self.compute_dew_point(
-            relative_humidity=data.relativeHumidity, temperature=data.temperature
-        )
-
-    def _get_nelts(self, data):
-        for attr_name in "relativeHumidity", "temperature":
-            if not hasattr(data, attr_name):
-                raise ValueError(f"Could not find required field {attr_name}")
-        return None
 
 
 class DewPointDepression(watcher.BaseRule):
@@ -200,15 +127,6 @@ properties:
               topic_name:
                 description: name of ESS telemetry topic
                 type: string
-              sensor_type:
-                description: >-
-                  Options are: - dewpoint: sensor provides dewPoint directly -
-                  humidity: sensor provides relativeHumidity and temperature;
-                    the rule computes dewpoint
-                type: string
-                enum:
-                  - humidity
-                  - dewpoint
               sensor_names:
                 description: Values of sensorName field to read.
                 type: array
@@ -217,7 +135,6 @@ properties:
                   type: string
             required:
               - topic_name
-              - sensor_type
               - sensor_names
             additionalProperties: false
       required:
@@ -319,12 +236,6 @@ additionalProperties: false
 
     def setup(self, model):
         """Create filtered topic wrappers."""
-        dewpoint_wrapper_factory_dict = dict(
-            dewpoint=functools.partial(
-                watcher.FilteredFieldWrapper, field_name="dewPoint"
-            ),
-            humidity=DewPointFromHumidityWrapper,
-        )
         for dew_point_sensor_info in self.config.dew_point_sensors:
             name, index = salobj.name_to_name_index(dew_point_sensor_info["sal_name"])
             remote = model.remotes[(name, index)]
@@ -332,15 +243,13 @@ additionalProperties: false
                 topic_attr_name = "tel_" + topic_info["topic_name"]
                 topic = getattr(remote, topic_attr_name)
 
-                wrapper_factory = dewpoint_wrapper_factory_dict[
-                    topic_info["sensor_type"]
-                ]
                 for sensor_name in topic_info["sensor_names"]:
-                    field_wrapper = wrapper_factory(
+                    field_wrapper = watcher.FilteredFieldWrapper(
                         model=model,
                         topic=topic,
                         filter_field=ESSFilterField,
                         filter_value=sensor_name,
+                        field_name="dewPoint",
                     )
                     self.dew_point_field_wrappers.add_wrapper(field_wrapper)
 

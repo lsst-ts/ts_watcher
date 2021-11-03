@@ -2,8 +2,7 @@ name: Main Telescope
 dew_point_sensors:
   - sal_name: 'ESS:5'
     topics:
-      - sensor_type: dewpoint
-        sensor_names:
+      - sensor_names:
           - up
           - down
 temperature_sensors:
