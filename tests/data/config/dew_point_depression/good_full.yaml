@@ -3,18 +3,15 @@ dew_point_sensors:
   - sal_name: 'ESS:5'
     topics:
       - topic_name: hx85a
-        sensor_type: dewpoint
         sensor_names:
           - high
           - low
       - topic_name: hx85ba
-        sensor_type: humidity
         sensor_names:
           - outside
   - sal_name: 'ESS:1'
     topics:
       - topic_name: hx85a
-        sensor_type: humidity  # unusal, but allowed, for this topic
         sensor_names:
           - inside
 temperature_sensors:
