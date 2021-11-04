@@ -1,6 +1,6 @@
 name: Main Telescope
 dew_point_sensors:
-  - sal_name: 'ESS:5'
+  - sal_index: 5
     topics:
       - topic_name: hx85a
         sensor_names:
@@ -9,20 +9,18 @@ dew_point_sensors:
       - topic_name: hx85ba
         sensor_names:
           - outside
-  - sal_name: 'ESS:1'
+  - sal_index: 1
     topics:
       - topic_name: hx85a
         sensor_names:
           - inside
 temperature_sensors:
-  - sal_name: 'ESS:1'
+  - sal_index: 1
     topics:
       - topic_name: temperature
-        sensor_field_names:
+        sensor_names:
           - sensor_name: maintel
-            field_name: temperature
           - sensor_name: auxtel
-            field_name: temperature
             indices: [0, 2, 1, 3]
 warning_level: 2.5
 serious_level: 2

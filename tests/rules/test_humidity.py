@@ -65,12 +65,14 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_validation(self):
         for filepath in self.configpath.glob("good_*.yaml"):
-            config = self.get_config(filepath=filepath)
-            assert isinstance(config, types.SimpleNamespace)
+            with self.subTest(filepath=filepath):
+                config = self.get_config(filepath=filepath)
+                assert isinstance(config, types.SimpleNamespace)
 
         for filepath in self.configpath.glob("bad_*.yaml"):
-            with pytest.raises(jsonschema.ValidationError):
-                self.get_config(filepath=filepath)
+            with self.subTest(filepath=filepath):
+                with pytest.raises(jsonschema.ValidationError):
+                    self.get_config(filepath=filepath)
 
     async def test_constructor(self):
         config = self.get_config(filepath=self.configpath / "good_full.yaml")
@@ -137,34 +139,11 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             await send_ess_data(humidity=100, use_other_filter_values=True)
             assert rule.alarm.nominal
 
-            # Check a sequence of dew points
-            hysteresis = rule.config.hysteresis
-            warning_level = rule.config.warning_level
-            serious_level = rule.config.serious_level
-            assert hysteresis > 0
-            epsilon = 0.1 * hysteresis
-            assert warning_level < serious_level - hysteresis - epsilon
-
-            for humidity, expected_severity in [
-                # Just below warning level
-                (warning_level - epsilon, AlarmSeverity.NONE),
-                # Just below warning level
-                (warning_level + epsilon, AlarmSeverity.WARNING),
-                # Still in hysteresis range
-                (warning_level - hysteresis + epsilon, AlarmSeverity.WARNING),
-                # Below hysteresis range
-                (warning_level - hysteresis - epsilon, AlarmSeverity.NONE),
-                # Just below the serious level
-                (serious_level - epsilon, AlarmSeverity.WARNING),
-                # Just above serious level
-                (serious_level + epsilon, AlarmSeverity.SERIOUS),
-                # Still in hysteresis range
-                (serious_level - hysteresis + epsilon, AlarmSeverity.SERIOUS),
-                # Juat below hysteresis range
-                (serious_level - hysteresis - epsilon, AlarmSeverity.WARNING),
-                # Just below warning + hysteresis: back to normal
-                (warning_level - hysteresis - epsilon, AlarmSeverity.NONE),
-            ]:
+            # Check a sequence of humidities
+            for (
+                humidity,
+                expected_severity,
+            ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(humidity=humidity)
                 await asyncio.sleep(poll_interval * 2.1)
                 assert rule.alarm.severity == expected_severity
@@ -190,7 +169,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             Dew point depression rule.
         humidity_topics : `dict` of ``str`: write topic
             Dict of filter_value: controller topic
-            that writes dew point or humidity
+            that writes humidity
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.

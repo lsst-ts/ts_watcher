@@ -22,26 +22,25 @@
 __all__ = ["DewPointDepression"]
 
 import asyncio
-import functools
 import itertools
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
-from lsst.ts import salobj
 from lsst.ts import watcher
 
-# ESS topics are filtered by the sensorName field
-ESSFilterField = "sensorName"
+# Name of dew point field in ESS telemetry topics
+# for dew point and humidity sensors.
+ESSDewPointField = "dewPoint"
+
+# Name of temperature field in ESS telemetry topics for humidity sensors.
+ESSTemperatureField = "temperature"
 
 
 class DewPointDepression(watcher.BaseRule):
     """Check the dew point depression.
 
-    Set alarm severity WARNING if dew point depression is near
-    the closing limit, and SERIOUS if it is above the closing limit.
-
-    This rule only reads telemetry topics.
+    This rule only reads ES telemetry topics.
 
     Parameters
     ----------
@@ -68,20 +67,36 @@ class DewPointDepression(watcher.BaseRule):
         # Temperature field wrappers; computed in `setup`.
         self.temperature_field_wrappers = watcher.FieldWrapperList()
 
+        self.threshold_handler = watcher.ThresholdHandler(
+            warning_level=getattr(config, "warning_level", None),
+            serious_level=getattr(config, "serious_level", None),
+            critical_level=getattr(config, "critical_level", None),
+            warning_msg="Check for condensation",
+            serious_msg="Close the dome",
+            critical_msg="Close the dome",
+            hysteresis=config.hysteresis,
+            big_is_bad=False,
+            value_name="dew point",
+            units="C",
+            value_format="0.2f",
+        )
+
         # Compute dict of (sal_name, sal_index): list of topic attribute names,
         # in order to creat remote_info_list
         topic_names_dict = dict()
+        sal_name = "ESS"
         for sensor_info in itertools.chain(
             config.dew_point_sensors, config.temperature_sensors
         ):
-            name, index = salobj.name_to_name_index(sensor_info["sal_name"])
+            sal_index = sensor_info["sal_index"]
             topic_attr_names = [
                 "tel_" + topic["topic_name"] for topic in sensor_info["topics"]
             ]
-            if (name, index) not in topic_names_dict:
-                topic_names_dict[(name, index)] = topic_attr_names
+            sal_name_index = (sal_name, sal_index)
+            if sal_name_index not in topic_names_dict:
+                topic_names_dict[sal_name_index] = topic_attr_names
             else:
-                topic_names_dict[(name, index)] += topic_attr_names
+                topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
             watcher.RemoteInfo(
@@ -102,22 +117,27 @@ class DewPointDepression(watcher.BaseRule):
     def get_schema(cls):
         schema_yaml = """
 $schema: http://json-schema.org/draft-07/schema#
-description: Configuration for Enabled
+description: >-
+    Configuration for DewPointDepression rule.
+    A typical closure limit is 2 C. A typical warning level is 3 C.
 type: object
 properties:
   name:
-    description: 'Telescope being monitored, typically AuxTel or MainTel'
+    description: Telescope being monitored, typically AuxTel or MainTel.
     type: string
   dew_point_sensors:
-    description: Dew point and humidity sensors to monitor.
+    description: >-
+        ESS dew point and humidity sensors to monitor.
+        These can be any topic with a "dewPoint" field,
+        including hx85a and hx85ba.
     type: array
     minItems: 1
     items:
       type: object
       properties:
-        sal_name:
-          description: 'SAL component name[:SAL index] e.g. ESS:1'
-          type: string
+        sal_index:
+          description: SAL index of ESS CSC.
+          type: integer
         topics:
           type: array
           minItems: 1
@@ -125,7 +145,9 @@ properties:
             type: object
             properties:
               topic_name:
-                description: name of ESS telemetry topic
+                description: >-
+                    Name of ESS dew point or humidity telemetry topic.
+                    Typically "hx85a" or "hx85ba".
                 type: string
               sensor_names:
                 description: Values of sensorName field to read.
@@ -138,23 +160,22 @@ properties:
               - sensor_names
             additionalProperties: false
       required:
-        - sal_name
+        - sal_index
         - topics
       additionalProperties: false
-    required:
-      - index
-      - topics
-    additionalProperties: false
   temperature_sensors:
-    description: Temperature sensors to monitor.
+    description: >-
+        ESS temperature sensors to monitor.
+        These can be any topic with a "temperature" field,
+        including temperature, hx85a and hx85ba.
     type: array
     minItems: 1
     items:
       type: object
       properties:
-        sal_name:
-          description: 'SAL component name[:SAL index] e.g. ESS:1'
-          type: string
+        sal_index:
+          description: SAL index of ESS CSC.
+          type: integer
         topics:
           type: array
           minItems: 1
@@ -162,49 +183,57 @@ properties:
             type: object
             properties:
               topic_name:
-                description: name of ESS telemetry topic
+                description: >-
+                    Name of ESS telemetry topic.
+                    Typically "temperature", "hx85a", or "hx85ba".
                 type: string
-              sensor_field_names:
-                description: 'list of [sensorName, fieldName, indices]'
+              sensor_names:
+                description: List of dict of sensor_name, indices.
                 type: array
                 minItems: 1
                 items:
                   type: object
                   properties:
                     sensor_name:
-                      description: value of sensorName field
-                      type: string
-                    field_name:
-                      description: 'field name containing the data, typically temperature'
+                      description: value of sensorName field.
                       type: string
                     indices:
                       description: >-
-                        indices of the data to read (optional). If omitted then
-                        read all non-nan values. Must be omitted if the field is
-                        a scalar.
+                        Indices of the data to read (optional).
+                        If omitted then read all non-nan values.
+                        Must be omitted if the field is a scalar.
                       type: array
                       items:
                         type: integer
                   required:
                     - sensor_name
-                    - field_name
                   additionalProperties: false
             required:
               - topic_name
-              - sensor_field_names
+              - sensor_names
             additionalProperties: false
       required:
-        - sal_name
+        - sal_index
         - topics
       additionalProperties: false
   warning_level:
-    description: The temperature - dewPoint (C) below which a warning alarm is issued.
+    description: >-
+        The dew point depression (temperature - dew point) (C) below which
+        a warning alarm is issued.
+        Omit for no such alarm.
     type: number
-    default: 3
   serious_level:
-    description: The temperature - dewPoint (C) below which a serious alarm is issued.
+    description: >-
+        The dew point depression (temperature - dew point) (C) below which
+        a serious alarm is issued.
+        Omit for no such alarm.
     type: number
-    default: 2
+  critical_level:
+    description: >-
+        The dew point depression (temperature - dew point) (C) below which
+        a critical alarm is issued.
+        Omit for no such alarm.
+    type: number
   hysteresis:
     description: >-
         The amount by which temperature - dewPoint (C) must increase above
@@ -212,7 +241,7 @@ properties:
     type: number
     default: 0.2
   poll_interval:
-    description: Time delay between polling updates (second)
+    description: Time delay between polling updates (second).
     type: number
     default: 60
   max_data_age:
@@ -225,8 +254,6 @@ required:
   - name
   - dew_point_sensors
   - temperature_sensors
-  - warning_level
-  - serious_level
   - hysteresis
   - poll_interval
   - max_data_age
@@ -236,50 +263,47 @@ additionalProperties: false
 
     def setup(self, model):
         """Create filtered topic wrappers."""
+        sal_name = "ESS"
         for dew_point_sensor_info in self.config.dew_point_sensors:
-            name, index = salobj.name_to_name_index(dew_point_sensor_info["sal_name"])
-            remote = model.remotes[(name, index)]
+            sal_index = dew_point_sensor_info["sal_index"]
+            remote = model.remotes[(sal_name, sal_index)]
             for topic_info in dew_point_sensor_info["topics"]:
                 topic_attr_name = "tel_" + topic_info["topic_name"]
                 topic = getattr(remote, topic_attr_name)
 
                 for sensor_name in topic_info["sensor_names"]:
-                    field_wrapper = watcher.FilteredFieldWrapper(
+                    field_wrapper = watcher.FilteredEssFieldWrapper(
                         model=model,
                         topic=topic,
-                        filter_field=ESSFilterField,
-                        filter_value=sensor_name,
-                        field_name="dewPoint",
+                        sensor_name=sensor_name,
+                        field_name=ESSDewPointField,
                     )
                     self.dew_point_field_wrappers.add_wrapper(field_wrapper)
 
         for temperature_sensor_info in self.config.temperature_sensors:
-            name, index = salobj.name_to_name_index(temperature_sensor_info["sal_name"])
-            remote = model.remotes[(name, index)]
+            sal_index = temperature_sensor_info["sal_index"]
+            remote = model.remotes[(sal_name, sal_index)]
             for topic_info in temperature_sensor_info["topics"]:
                 topic_attr_name = "tel_" + topic_info["topic_name"]
                 topic = getattr(remote, topic_attr_name)
 
-                for sensor_field_name in topic_info["sensor_field_names"]:
+                for sensor_field_name in topic_info["sensor_names"]:
                     sensor_name = sensor_field_name["sensor_name"]
-                    field_name = sensor_field_name["field_name"]
                     indices = sensor_field_name.get("indices", None)
                     if indices is not None:
-                        field_wrapper = watcher.IndexedFilteredFieldWrapper(
+                        field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
                             model=model,
                             topic=topic,
-                            filter_field=ESSFilterField,
-                            filter_value=sensor_name,
-                            field_name=field_name,
+                            sensor_name=sensor_name,
+                            field_name=ESSTemperatureField,
                             indices=indices,
                         )
                     else:
-                        field_wrapper = watcher.FilteredFieldWrapper(
+                        field_wrapper = watcher.FilteredEssFieldWrapper(
                             model=model,
                             topic=topic,
-                            filter_field=ESSFilterField,
-                            filter_value=sensor_name,
-                            field_name=field_name,
+                            sensor_name=sensor_name,
+                            field_name=ESSTemperatureField,
                         )
                     self.temperature_field_wrappers.add_wrapper(field_wrapper)
 
@@ -327,7 +351,7 @@ additionalProperties: false
                 # We have not been polling long enough to complain
                 return watcher.NoneNoReason
 
-        # We got dew point and temperature data
+        # We got data; use the most pessimistic measured value.
         max_dew_point, dew_point_wrapper, dew_point_index = max(
             dew_points, key=lambda v: v[0]
         )
@@ -336,94 +360,12 @@ additionalProperties: false
         )
         dew_point_depression = min_temperature - max_dew_point
 
-        make_severity_reason = functools.partial(
-            self._make_severity_reason,
-            dew_point_depression=dew_point_depression,
-            dew_point_wrapper=dew_point_wrapper,
-            dew_point_index=dew_point_index,
-            temperature_wrapper=temperature_wrapper,
-            temperature_index=temperature_index,
+        source_descr = (
+            f"{dew_point_wrapper.get_value_descr(dew_point_index)} and "
+            f"{temperature_wrapper.get_value_descr(temperature_index)}"
         )
-
-        if dew_point_depression < self.config.serious_level:
-            return make_severity_reason(
-                severity=AlarmSeverity.SERIOUS, with_hysteresis=False
-            )
-        elif (
-            self.alarm.severity == AlarmSeverity.SERIOUS
-            and dew_point_depression
-            < self.config.serious_level + self.config.hysteresis
-        ):
-            return make_severity_reason(
-                severity=AlarmSeverity.SERIOUS, with_hysteresis=True
-            )
-        elif dew_point_depression < self.config.warning_level:
-            return make_severity_reason(
-                severity=AlarmSeverity.WARNING, with_hysteresis=False
-            )
-        elif (
-            self.alarm.severity == AlarmSeverity.WARNING
-            and dew_point_depression
-            < self.config.warning_level + self.config.hysteresis
-        ):
-            return make_severity_reason(
-                severity=AlarmSeverity.WARNING, with_hysteresis=True
-            )
-        return watcher.NoneNoReason
-
-    def _make_severity_reason(
-        self,
-        severity,
-        with_hysteresis,
-        dew_point_depression,
-        dew_point_wrapper,
-        dew_point_index,
-        temperature_wrapper,
-        temperature_index,
-    ):
-        """Make (alarm severity, reason).
-
-        Parameters
-        ----------
-        severity : `AlarmSeverity`
-            Alarm severity; must be WARNING or SERIOUS.
-        with_hysteresis : `bool`
-            Should the reason include hysteresis?
-        dew_point_depression : `float`
-            Dew point depression (C).
-        dew_point_wrapper : `BaseFilteredTopicWrapper`
-            Field wrapper for the dew point value used.
-        dew_point_index : `int` or `None`
-            Array index of the dew point value used. None if a scalar.
-        temperature_wrapper : `BaseFilteredTopicWrapper`
-            Field wrapper for the dew point value used.
-        temperature_index : `int` or `None`
-            Array index of the dew point value used. None if a scalar.
-        """
-        if severity is AlarmSeverity.WARNING:
-            threshold = self.config.warning_level
-        elif severity is AlarmSeverity.SERIOUS:
-            threshold = self.config.serious_level
-        else:
-            raise ValueError(f"Unsupported severity {severity!r}")
-
-        if with_hysteresis:
-            value_str = (
-                f"Dew point depression {dew_point_depression:0.2f} "
-                f"- hysteresis {self.config.hysteresis:0.2f}"
-            )
-        else:
-            value_str = f"Dew point depression {dew_point_depression:0.2f}"
-
-        dew_point_descr = self.dew_point_field_wrappers.get_descr(
-            dew_point_wrapper, dew_point_index
+        return self.threshold_handler.get_severity_reason(
+            value=dew_point_depression,
+            current_severity=self.alarm.severity,
+            source_descr=source_descr,
         )
-        temperature_descr = self.temperature_field_wrappers.get_descr(
-            temperature_wrapper, temperature_index
-        )
-        reason = (
-            f"{value_str} < {threshold:0.2f} as reported by "
-            f"dew point {dew_point_descr} and temperature {temperature_descr}"
-        )
-
-        return (severity, reason)

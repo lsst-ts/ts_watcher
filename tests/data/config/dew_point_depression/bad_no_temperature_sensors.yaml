@@ -1,9 +1,11 @@
 name: Main Telescope
 dew_point_sensors:
-  - sal_name: 'ESS:5'
+  - sal_index: 5
     topics:
       - topic_name: hx85a
         sensor_names:
           - up
           - down
 temperature_sensors: []
+warning_level: 2
+serious_level: 3

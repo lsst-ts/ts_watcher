@@ -73,12 +73,14 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_validation(self):
         for filepath in self.configpath.glob("good_*.yaml"):
-            config = self.get_config(filepath=filepath)
-            assert isinstance(config, types.SimpleNamespace)
+            with self.subTest(filepath=filepath):
+                config = self.get_config(filepath=filepath)
+                assert isinstance(config, types.SimpleNamespace)
 
         for filepath in self.configpath.glob("bad_*.yaml"):
-            with pytest.raises(jsonschema.ValidationError):
-                self.get_config(filepath=filepath)
+            with self.subTest(filepath=filepath):
+                with pytest.raises(jsonschema.ValidationError):
+                    self.get_config(filepath=filepath)
 
     async def test_constructor(self):
         config = self.get_config(filepath=self.configpath / "good_full.yaml")
@@ -150,33 +152,10 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.nominal
 
             # Check a sequence of dew points
-            hysteresis = rule.config.hysteresis
-            warning_level = rule.config.warning_level
-            serious_level = rule.config.serious_level
-            assert hysteresis > 0
-            epsilon = 0.1 * hysteresis
-            assert warning_level > serious_level + hysteresis + epsilon
-
-            for dew_point_depression, expected_severity in [
-                # Just above warning level
-                (warning_level + epsilon, AlarmSeverity.NONE),
-                # Just below warning level
-                (warning_level - epsilon, AlarmSeverity.WARNING),
-                # Still in hysteresis range
-                (warning_level + hysteresis - epsilon, AlarmSeverity.WARNING),
-                # Above hysteresis range
-                (warning_level + hysteresis + epsilon, AlarmSeverity.NONE),
-                # Just above the serious level
-                (serious_level + epsilon, AlarmSeverity.WARNING),
-                # Just below serious level
-                (serious_level - epsilon, AlarmSeverity.SERIOUS),
-                # Still in hysteresis range
-                (serious_level + hysteresis - epsilon, AlarmSeverity.SERIOUS),
-                # Juat above hysteresis range
-                (serious_level + hysteresis + epsilon, AlarmSeverity.WARNING),
-                # Just above warning + hysteresis: back to normal
-                (warning_level + hysteresis + epsilon, AlarmSeverity.NONE),
-            ]:
+            for (
+                dew_point_depression,
+                expected_severity,
+            ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(dew_point_depression=dew_point_depression)
                 await asyncio.sleep(poll_interval * 2.1)
                 assert rule.alarm.severity == expected_severity
