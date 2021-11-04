@@ -43,9 +43,11 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
         filter_field = "sensorName"
         scalar_data_field = "relativeHumidity"
         array_data_field = "temperature"
+        array_len = 16
         nan_array_len = 2
-        # Indices to data; the last index will always point to NaN
-        indices = (1, 2, -(nan_array_len + 1), -1)
+        # Indices to data; the last index points to NaN
+        # and the rest to valid data.
+        indices = (1, 2, array_len - nan_array_len - 1, array_len - 1)
         # Indices to valid (non-nan) data
         nonnan_indices = indices[:-1]
 
@@ -107,31 +109,28 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             wrapper_list = watcher.FieldWrapperList()
 
             # Scalar field wrapper
-            scalar_field_wrapper = watcher.FilteredFieldWrapper(
+            scalar_field_wrapper = watcher.FilteredEssFieldWrapper(
                 model=model,
                 topic=remote_scalar_topic,
-                filter_field=filter_field,
-                filter_value=this_filter_value,
+                sensor_name=this_filter_value,
                 field_name=scalar_data_field,
             )
             wrapper_list.add_wrapper(scalar_field_wrapper)
 
             # Array field wrapper; all elements
-            array_field_wrapper = watcher.FilteredFieldWrapper(
+            array_field_wrapper = watcher.FilteredEssFieldWrapper(
                 model=model,
                 topic=remote_array_topic,
-                filter_field=filter_field,
-                filter_value=this_filter_value,
+                sensor_name=this_filter_value,
                 field_name=array_data_field,
             )
             wrapper_list.add_wrapper(array_field_wrapper)
 
             # Array field wrapper; a subset of elements
-            indexed_field_wrapper = watcher.IndexedFilteredFieldWrapper(
+            indexed_field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
                 model=model,
                 topic=remote_array_topic,
-                filter_field=filter_field,
-                filter_value=this_filter_value,
+                sensor_name=this_filter_value,
                 field_name=array_data_field,
                 indices=indices,
             )
@@ -175,14 +174,6 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             assert len(data) == len(expected_data)
             assert data == expected_data
 
-            for i, (value, field_wrapper, value_index) in enumerate(data):
-                descr = wrapper_list.get_descr(
-                    field_wrapper=field_wrapper, value_index=value_index
-                )
-                if value_index is not None:
-                    assert str(value_index) in descr
-                assert field_wrapper.descr in descr
-
             # Test omit_nan=False argument to get_data
             data = wrapper_list.get_data(omit_nan=False)
             # We expect the following data (in order):
@@ -203,15 +194,6 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                     assert item1[1:] == item2[1:]
                 else:
                     assert item1 == item2
-
-            # Test get_descr
-            for i, (value, field_wrapper, value_index) in enumerate(data):
-                descr = wrapper_list.get_descr(
-                    field_wrapper=field_wrapper, value_index=value_index
-                )
-                if value_index is not None:
-                    assert str(value_index) in descr
-                assert field_wrapper.descr in descr
 
             # Test max_age argument to get_data
             # Rather waiting a long time and then publishing some data,
