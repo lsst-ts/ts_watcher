@@ -326,7 +326,7 @@ class Model:
         Notes
         -----
         Watcher rules typically do not use `FilteredTopicWrapper` directly.
-        Instead they use `FilteredFieldWrapper` and related classes.
+        Instead they use subclasses of `BaseFilteredFieldWrapper`.
         Each filtered field wrapper creates a `FilteredTopicWrapper`
         for internal use.
         """
