@@ -29,6 +29,7 @@ from .base_rule import *
 from .remote_info import *
 from .remote_wrapper import *
 from .topic_callback import *
+from .threshold_handler import *
 from .config_schema import *
 from .filtered_topic_wrapper import *
 from .filtered_field_wrapper import *
