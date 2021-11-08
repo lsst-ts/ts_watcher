@@ -21,6 +21,7 @@
 
 import asyncio
 import functools
+import math
 import pathlib
 import pytest
 import types
@@ -33,12 +34,12 @@ import yaml
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
-from lsst.ts.watcher.rules import Humidity
+from lsst.ts.watcher.rules import OverTemperature
 
 index_gen = salobj.index_generator()
 
 
-class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
+class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
@@ -46,17 +47,16 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
-            / "humidity"
+            / "over_temperature"
         )
         # Number of values to set to real temperatures; the rest are NaN.
         self.num_valid_temperatures = 12
 
     def get_config(self, filepath):
-        schema = Humidity.get_schema()
+        schema = OverTemperature.get_schema()
         validator = salobj.DefaultingValidator(schema)
         with open(filepath, "r") as f:
             config_dict = yaml.safe_load(f)
-
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
         for key in config_dict:
@@ -76,12 +76,12 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor(self):
         config = self.get_config(filepath=self.configpath / "good_full.yaml")
-        rule = Humidity(config=config)
+        rule = OverTemperature(config=config)
         assert len(rule.remote_info_list) == 2
-        expected_sal_indices = (5, 1)
+        expected_sal_indices = (1, 5)
         expected_poll_names = [
-            ("tel_hx85a", "tel_hx85ba"),
-            ("tel_hx85a",),
+            ("tel_temperature",),
+            ("tel_temperature",),
         ]
         for i, remote_info in enumerate(rule.remote_info_list):
             assert remote_info.name == "ESS"
@@ -101,7 +101,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname="Humidity", configs=[rule_config_dict])],
+            rules=[dict(classname="OverTemperature", configs=[rule_config_dict])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
@@ -119,32 +119,31 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             model.enable()
 
             # The keys are based on the rule configuration
-            humidity_topics = dict(
-                high=controller5.tel_hx85a,
-                low=controller5.tel_hx85a,
-                outside=controller5.tel_hx85ba,
-                inside=controller1.tel_hx85a,
+            temperature_topics = dict(
+                upstairs=(controller1.tel_temperature, None),
+                downstairs=(controller1.tel_temperature, [0, 2, 1, 3]),
+                inside=(controller5.tel_temperature, None),
             )
 
             send_ess_data = functools.partial(
                 self.send_ess_data,
                 rule=rule,
-                humidity_topics=humidity_topics,
+                temperature_topics=temperature_topics,
                 verbose=False,
             )
 
-            # Send data indicating condensation using filter values
+            # Send data indicating high temperature using filter values
             # other than those the rule is listening to.
             # This should not affect the rule.
-            await send_ess_data(humidity=100, use_other_filter_values=True)
+            await send_ess_data(temperature=100, use_other_filter_values=True)
             assert rule.alarm.nominal
 
-            # Check a sequence of humidities
+            # Check a sequence of temperatures
             for (
-                humidity,
+                temperature,
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
-                await send_ess_data(humidity=humidity)
+                await send_ess_data(temperature=temperature)
                 await asyncio.sleep(poll_interval * 2.1)
                 assert rule.alarm.severity == expected_severity
 
@@ -153,9 +152,9 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def send_ess_data(
         self,
-        humidity,
+        temperature,
         rule,
-        humidity_topics,
+        temperature_topics,
         use_other_filter_values=False,
         verbose=False,
     ):
@@ -163,13 +162,16 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
         Parameters
         ----------
-        humidity : `float`
-            Desired humidity
-        rule : `HumidityRule`
-            Dew point depression rule.
-        humidity_topics : `dict` of ``str`: write topic
-            Dict of filter_value: controller topic
-            that writes humidity
+        temperature : `float`
+            Desired pessimistic temperature
+        rule : `rules.OverTemperature`
+            over-temperature rule.
+        dew_point_topics : `dict` of ``str`: write topic
+            Dict of filter_value: controller topic that writes dew point.
+        temperature_topics : `dict` of `str`: (write topic, indices)
+            Dict of filter_value: (controller topic, indices)
+            where the topic writes temperature, and indices indicates
+            which indices to write (None for all of them).
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
@@ -178,43 +180,49 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
         Notes
         -----
-        Write the specified humidity to one humidity topic,
-        and less pessimistic data to the remaining topics.
+        Write pessimistic data to one thermometer, and normal data
+        to the remaining thermometers.
 
-        The topic is randomly chosen.
+        The topics and channel for the pessimistic data are randomly chosen.
         This helps ensure that the rule uses the most pessimistic data
         from any sensor.
         """
         if verbose:
             print(
-                f"send_ess_data(humidity={humidity}, "
+                f"send_ess_data(temperature={temperature}, "
                 f"use_other_filter_values={use_other_filter_values}"
             )
 
-        delta_humidity = 2
-        pessimistic_humidity = humidity
-        normal_humidity = humidity - delta_humidity
+        delta_temperature = 2
+        pessimistic_temperature = temperature
+        normal_temperature = pessimistic_temperature - delta_temperature
         if verbose:
-            print(f"pessimistic_humidity={pessimistic_humidity}")
-            print(f"normal_humidity={normal_humidity}")
+            print(f"pessimistic_temperature={pessimistic_temperature}")
+            print(f"normal_temperature={normal_temperature}")
 
         rng = numpy.random.default_rng(seed=314)
-        pessimistic_humidity_filter_value = rng.choice(list(humidity_topics.keys()))
-        for filter_value, topic in humidity_topics.items():
-            if filter_value == pessimistic_humidity_filter_value:
-                data_dict = dict(
-                    relativeHumidity=pessimistic_humidity,
-                )
-            else:
-                data_dict = dict(
-                    relativeHumidity=normal_humidity,
-                )
+        pessimistic_temperature_filter_value = rng.choice(
+            list(temperature_topics.keys())
+        )
+        for filter_value, (topic, indices) in temperature_topics.items():
+            num_temperatures = len(topic.data.temperature)
+            assert self.num_valid_temperatures < num_temperatures
+            num_nans = num_temperatures - self.num_valid_temperatures
+            temperatures = [normal_temperature] * self.num_valid_temperatures + [
+                math.nan
+            ] * num_nans
+            if filter_value == pessimistic_temperature_filter_value:
+                if indices is None:
+                    pessimistic_index = rng.choice(range(self.num_valid_temperatures))
+                else:
+                    pessimistic_index = rng.choice(indices)
+                temperatures[pessimistic_index] = pessimistic_temperature
             if use_other_filter_values:
                 filter_value += " with modifications"
             if verbose:
                 print(
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, {data_dict})"
+                    f"(sensorName={filter_value!r}, temperature={temperatures})"
                 )
-            topic.set_put(sensorName=filter_value, **data_dict)
+            topic.set_put(sensorName=filter_value, temperature=temperatures)
             await asyncio.sleep(0.001)

@@ -22,16 +22,11 @@
 __all__ = ["Humidity"]
 
 import asyncio
-import functools
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
-from lsst.ts import salobj
 from lsst.ts import watcher
-
-# ESS topics are filtered by the sensorName field
-ESSFilterField = "sensorName"
 
 # Name of humidity field in ESS telemetry topics for humidity sensors.
 ESSHumidityField = "relativeHumidity"
@@ -40,10 +35,7 @@ ESSHumidityField = "relativeHumidity"
 class Humidity(watcher.BaseRule):
     """Check the humidity.
 
-    Set alarm severity WARNING if humidity is near
-    the closing limit, and SERIOUS if it is above the closing limit.
-
-    This rule only reads telemetry topics.
+    This rule only reads ESS telemetry topics.
 
     Parameters
     ----------
@@ -67,27 +59,40 @@ class Humidity(watcher.BaseRule):
         # Humidity field wrappers; computed in `setup`.
         self.humidity_field_wrappers = watcher.FieldWrapperList()
 
+        self.threshold_handler = watcher.ThresholdHandler(
+            warning_level=getattr(config, "warning_level", None),
+            serious_level=getattr(config, "serious_level", None),
+            critical_level=getattr(config, "critical_level", None),
+            hysteresis=config.hysteresis,
+            big_is_bad=True,
+            value_name="humidity",
+            units="%",
+            value_format="0.2f",
+        )
+
         # Compute dict of (sal_name, sal_index): list of topic attribute names,
         # in order to creat remote_info_list
         topic_names_dict = dict()
+        sal_name = "ESS"
         for sensor_info in config.humidity_sensors:
-            name, index = salobj.name_to_name_index(sensor_info["sal_name"])
+            sal_index = sensor_info["sal_index"]
             topic_attr_names = [
                 "tel_" + topic["topic_name"] for topic in sensor_info["topics"]
             ]
-            if (name, index) not in topic_names_dict:
-                topic_names_dict[(name, index)] = topic_attr_names
+            sal_name_index = (sal_name, sal_index)
+            if sal_name_index not in topic_names_dict:
+                topic_names_dict[sal_name_index] = topic_attr_names
             else:
-                topic_names_dict[(name, index)] += topic_attr_names
+                topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
             watcher.RemoteInfo(
                 name=name,
-                index=index,
+                index=sal_index,
                 callback_names=None,
                 poll_names=topic_attr_names,
             )
-            for (name, index), topic_attr_names in topic_names_dict.items()
+            for (name, sal_index), topic_attr_names in topic_names_dict.items()
         ]
         super().__init__(
             config=config,
@@ -99,22 +104,24 @@ class Humidity(watcher.BaseRule):
     def get_schema(cls):
         schema_yaml = """
 $schema: http://json-schema.org/draft-07/schema#
-description: Configuration for Enabled
+description: >-
+    Configuration for Humidity rule.
+    A typical warning level is 73%. It is unusual to have a closing limit.
 type: object
 properties:
   name:
-    description: 'Telescope being monitored, typically AuxTel or MainTel'
+    description: Telescope being monitored, typically AuxTel or MainTel.
     type: string
   humidity_sensors:
-    description: Humidity sensors to monitor.
+    description: ESS humidity sensors to monitor.
     type: array
     minItems: 1
     items:
       type: object
       properties:
-        sal_name:
-          description: 'SAL component name[:SAL index] e.g. ESS:1'
-          type: string
+        sal_index:
+          description: SAL index of ESS CSC.
+          type: integer
         topics:
           type: array
           minItems: 1
@@ -122,7 +129,9 @@ properties:
             type: object
             properties:
               topic_name:
-                description: name of ESS telemetry topic. It must have a relativeHumidity field.
+                description: >-
+                    Name of ESS telemetry topic.
+                    It must have a relativeHumidity field.
                 type: string
               sensor_names:
                 description: Values of sensorName field to read.
@@ -135,21 +144,24 @@ properties:
               - sensor_names
             additionalProperties: false
       required:
-        - sal_name
+        - sal_index
         - topics
       additionalProperties: false
-    required:
-      - index
-      - topics
-    additionalProperties: false
   warning_level:
-    description: The relative humidity (%) above which a warning alarm is issued.
+    description: >-
+        The relative humidity (%) above which a warning alarm is issued.
+        Omit for no such alarm.
     type: number
-    default: 73
   serious_level:
-    description: The relative humidity (%) above which a serious alarm is issued.
+    description: >-
+        The relative humidity (%) above which a serious alarm is issued.
+        Omit for no such alarm.
     type: number
-    default: 101  # no closure limit
+  critical_level:
+    description: >-
+        The relative humidity (%) above which a serious alarm is issued.
+        Omit for no serious alarm.
+    type: number
   hysteresis:
     description: >-
         The amount by which relative humidity (%) must decrease below
@@ -157,7 +169,7 @@ properties:
     type: number
     default: 0.5
   poll_interval:
-    description: Time delay between polling updates (second)
+    description: Time delay between polling updates (second).
     type: number
     default: 60
   max_data_age:
@@ -169,8 +181,6 @@ properties:
 required:
   - name
   - humidity_sensors
-  - warning_level
-  - serious_level
   - hysteresis
   - poll_interval
   - max_data_age
@@ -180,19 +190,20 @@ additionalProperties: false
 
     def setup(self, model):
         """Create filtered topic wrappers."""
+        sal_name = "ESS"
         for humidity_sensor_info in self.config.humidity_sensors:
-            name, index = salobj.name_to_name_index(humidity_sensor_info["sal_name"])
-            remote = model.remotes[(name, index)]
+            sal_index = humidity_sensor_info["sal_index"]
+            sal_name_index = (sal_name, sal_index)
+            remote = model.remotes[sal_name_index]
             for topic_info in humidity_sensor_info["topics"]:
                 topic_attr_name = "tel_" + topic_info["topic_name"]
                 topic = getattr(remote, topic_attr_name)
 
                 for sensor_name in topic_info["sensor_names"]:
-                    field_wrapper = watcher.FilteredFieldWrapper(
+                    field_wrapper = watcher.FilteredEssFieldWrapper(
                         model=model,
                         topic=topic,
-                        filter_field=ESSFilterField,
-                        filter_value=sensor_name,
+                        sensor_name=sensor_name,
                         field_name=ESSHumidityField,
                     )
                     self.humidity_field_wrappers.add_wrapper(field_wrapper)
@@ -230,82 +241,13 @@ additionalProperties: false
             else:
                 return watcher.NoneNoReason
 
-        # We got
+        # We got data; use the most pessimistic measured value.
         humidity, humidity_wrapper, humidity_index = max(
             humidity_values, key=lambda v: v[0]
         )
-
-        make_severity_reason = functools.partial(
-            self._make_severity_reason,
-            humidity=humidity,
-            humidity_wrapper=humidity_wrapper,
-            humidity_index=humidity_index,
+        source_descr = humidity_wrapper.get_value_descr(humidity_index)
+        return self.threshold_handler.get_severity_reason(
+            value=humidity,
+            current_severity=self.alarm.severity,
+            source_descr=source_descr,
         )
-
-        if humidity > self.config.serious_level:
-            return make_severity_reason(
-                severity=AlarmSeverity.SERIOUS, with_hysteresis=False
-            )
-        elif (
-            self.alarm.severity == AlarmSeverity.SERIOUS
-            and humidity > self.config.serious_level - self.config.hysteresis
-        ):
-            return make_severity_reason(
-                severity=AlarmSeverity.SERIOUS, with_hysteresis=True
-            )
-        elif humidity > self.config.warning_level:
-            return make_severity_reason(
-                severity=AlarmSeverity.WARNING, with_hysteresis=False
-            )
-        elif (
-            self.alarm.severity == AlarmSeverity.WARNING
-            and humidity > self.config.warning_level - self.config.hysteresis
-        ):
-            return make_severity_reason(
-                severity=AlarmSeverity.WARNING, with_hysteresis=True
-            )
-        return watcher.NoneNoReason
-
-    def _make_severity_reason(
-        self,
-        severity,
-        with_hysteresis,
-        humidity,
-        humidity_wrapper,
-        humidity_index,
-    ):
-        """Make (alarm severity, reason).
-
-        Parameters
-        ----------
-        severity : `AlarmSeverity`
-            Alarm severity; must be WARNING or SERIOUS.
-        with_hysteresis : `bool`
-            Should the reason include hysteresis?
-        humidity : `float`
-            Humidity (%).
-        humidity_wrapper : `BaseFilteredTopicWrapper`
-            Field wrapper for the humidity value used.
-        humidity_index : `int` or `None`
-            Array index of the humidity value used. None if a scalar.
-        """
-        if severity is AlarmSeverity.WARNING:
-            threshold = self.config.warning_level
-        elif severity is AlarmSeverity.SERIOUS:
-            threshold = self.config.serious_level
-        else:
-            raise ValueError(f"Unsupported severity {severity!r}")
-
-        if with_hysteresis:
-            value_str = (
-                f"Humidity {humidity:0.2f} - hysteresis {self.config.hysteresis:0.2f}"
-            )
-        else:
-            value_str = f"Humidity {humidity:0.2f}"
-
-        humidity_descr = self.humidity_field_wrappers.get_descr(
-            humidity_wrapper, humidity_index
-        )
-        reason = f"{value_str} < {threshold:0.2f} as reported by {humidity_descr}"
-
-        return (severity, reason)

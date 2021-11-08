@@ -60,7 +60,7 @@ class FilteredTopicWrapper:
         If filter_field does not exist in the data,
         or if it exists but is an array.
     RuntimeError
-        If this FilteredFieldWrapper already exists in the model.
+        If this `FilteredTopicWrapper` already exists in the model.
         To avoid this, construct field wrappers by calling
         `Model.make_filtered_field_wrapper`.
 

@@ -38,14 +38,14 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
 
-    async def test_scalar_field(self):
-        """Test `FilteredFieldWrapper` with a scalar field."""
+    async def test_scalar_ess_field(self):
+        """Test `FilteredEssFieldWrapper` with a scalar field."""
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
         data_field = "temperature"
 
         filter_values = ["one", "two"]
-        # Dict of filter_value: FilteredFieldWrapper
+        # Dict of sensor_name: FilteredEssFieldWrapper
         field_wrappers = dict()
 
         async with salobj.Controller(
@@ -60,15 +60,14 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             topic = remote.tel_hx85a
 
             topic_wrapper = None
-            for i, filter_value in enumerate(filter_values):
-                field_wrapper = watcher.FilteredFieldWrapper(
+            for i, sensor_name in enumerate(filter_values):
+                field_wrapper = watcher.FilteredEssFieldWrapper(
                     model=model,
                     topic=topic,
-                    filter_field=filter_field,
-                    filter_value=filter_value,
+                    sensor_name=sensor_name,
                     field_name=data_field,
                 )
-                field_wrappers[filter_value] = field_wrapper
+                field_wrappers[sensor_name] = field_wrapper
 
                 if i == 0:
                     # The first filtered field wrapper should create
@@ -85,9 +84,9 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Test field wrapper attributes
                 assert field_wrapper.topic_wrapper is topic_wrapper
-                assert field_wrapper.filter_value == filter_value
+                assert field_wrapper.filter_value == sensor_name
                 assert field_wrapper.nelts is None
-                assert str(filter_value) in field_wrapper.descr
+                assert str(sensor_name) in field_wrapper.topic_descr
                 assert field_wrapper.value is None
                 assert field_wrapper.timestamp is None
 
@@ -97,37 +96,54 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 """Return a random float32."""
                 return rng.random(1, dtype=np.float32)[0]
 
-            # Test field callback handling
+            # Write data and see if it is correctly received.
             filter_cycle = itertools.cycle(filter_values)
-            data_dict_list = [
-                {filter_field: next(filter_cycle), data_field: random_float()}
-                for i in range(5)
-            ]
-            # Dict of filter_value: expected field wrapper value
+            location_str_dict = {}
+            data_dict_list = []
+            for i in range(5):
+                sensor_name = next(filter_cycle)
+                data_dict_list.append(
+                    {
+                        filter_field: sensor_name,
+                        data_field: random_float(),
+                        "location": f"{data_field} at location of {sensor_name}",
+                    }
+                )
+            # Dict of sensor_name: expected field wrapper value
             expected_values = {value: None for value in filter_values}
             for data_dict in data_dict_list:
-                filter_value = data_dict[filter_field]
-                expected_values[filter_value] = data_dict[data_field]
+                sensor_name = data_dict[filter_field]
+                location_str_dict[sensor_name] = data_dict["location"]
+                expected_values[sensor_name] = data_dict[data_field]
                 controller.tel_hx85a.set_put(**data_dict)
                 await asyncio.sleep(0.001)
-                for filter_value in filter_values:
-                    if expected_values[filter_value] is None:
-                        assert field_wrappers[filter_value].value is None
-                        assert field_wrappers[filter_value].timestamp is None
+                for sensor_name in filter_values:
+                    field_wrapper = field_wrappers[sensor_name]
+                    if expected_values[sensor_name] is None:
+                        assert field_wrapper.value is None
+                        assert field_wrapper.timestamp is None
+                        expected_location_str = ""
                     else:
-                        assert (
-                            field_wrappers[filter_value].value
-                            == expected_values[filter_value]
-                        )
+                        assert field_wrapper.value == expected_values[sensor_name]
                         expected_timestamp = topic_wrapper.data_cache[
-                            filter_value
+                            sensor_name
                         ].private_sndStamp
-                        assert (
-                            field_wrappers[filter_value].timestamp == expected_timestamp
-                        )
+                        assert field_wrapper.timestamp == expected_timestamp
+                        expected_location_str = location_str_dict[sensor_name]
 
-    async def test_array_field(self):
-        """Test `FilteredFieldWrapper` and `IndexedFilteredFieldWrapper` with
+                    # Test the get_value_descr method.
+                    for bad_index in (-1, 0, 1):
+                        # Any non-None value should raise,
+                        # but only ints make sense.
+                        with pytest.raises(ValueError):
+                            field_wrapper.get_value_descr(index=bad_index)
+                    value_descr = field_wrapper.get_value_descr(index=None)
+                    assert field_wrapper.topic_descr in value_descr
+                    if expected_location_str:
+                        assert expected_location_str in value_descr
+
+    async def test_array_ess_field(self):
+        """Test `FilteredEssFieldWrapper` and `IndexedFilteredEssFieldWrapper` with
         an array field.
         """
         model = watcher.MockModel(enabled=True)
@@ -136,9 +152,9 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
         filter_values = ["one", "two"]
 
-        # Dict of filter_value: FilteredFieldWrapper
+        # Dict of sensor_name: FilteredEssFieldWrapper
         field_wrappers = dict()
-        # Dict of (filter_value, indices): IndexedFilteredFieldWrapper
+        # Dict of (sensor_name, indices): IndexedFilteredEssFieldWrapper
         indexed_field_wrappers = dict()
 
         async with salobj.Controller(
@@ -153,26 +169,32 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             topic = remote.tel_temperature
             temperature_len = len(topic.DataType().temperature)
 
+            # Make a location_str with fewer entries than channels, in order to
+            # test get_value_descr's handling of missing entries.
+            location_arr = [
+                f"location for thermometer {i+1}" for i in range(temperature_len // 2)
+            ]
+            location_str = ", ".join(location_arr)
+
             # Note: there is no difference between
-            # IndexedFilteredFieldWrapper instances with different indices
+            # IndexedFilteredEssFieldWrapper instances with different indices
             # beyond the value of the ``indices`` attribute.
             # These choices test whether indices at the extremes are allowed.
             indices_list = [
                 (0,),
-                (1, temperature_len - 1, 3, -2),
-                (1, -temperature_len),
+                (1, temperature_len - 1, 3, 2),
+                (1, temperature_len - 2),
             ]
 
             topic_wrapper = None
-            for i, filter_value in enumerate(filter_values):
-                field_wrapper = watcher.FilteredFieldWrapper(
+            for i, sensor_name in enumerate(filter_values):
+                field_wrapper = watcher.FilteredEssFieldWrapper(
                     model=model,
                     topic=topic,
-                    filter_field=filter_field,
-                    filter_value=filter_value,
+                    sensor_name=sensor_name,
                     field_name=data_field,
                 )
-                field_wrappers[filter_value] = field_wrapper
+                field_wrappers[sensor_name] = field_wrapper
 
                 if i == 0:
                     # The first filtered field wrapper should create
@@ -189,30 +211,29 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Test field wrapper attributes
                 assert field_wrapper.topic_wrapper is topic_wrapper
-                assert field_wrapper.filter_value == filter_value
+                assert field_wrapper.filter_value == sensor_name
                 assert field_wrapper.nelts == temperature_len
-                assert str(filter_value) in field_wrapper.descr
+                assert str(sensor_name) in field_wrapper.topic_descr
                 assert field_wrapper.value is None
 
                 for indices in indices_list:
-                    indexed_field_wrapper = watcher.IndexedFilteredFieldWrapper(
+                    indexed_field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
                         model=model,
                         topic=topic,
-                        filter_field=filter_field,
-                        filter_value=filter_value,
+                        sensor_name=sensor_name,
                         field_name=data_field,
                         indices=indices,
                     )
                     indexed_field_wrappers[
-                        (filter_value, indices)
+                        (sensor_name, indices)
                     ] = indexed_field_wrapper
 
                     # Test indexed field wrapper attributes
                     assert indexed_field_wrapper.topic_wrapper is topic_wrapper
-                    assert indexed_field_wrapper.filter_value == filter_value
+                    assert indexed_field_wrapper.filter_value == sensor_name
                     assert indexed_field_wrapper.nelts == temperature_len
                     assert indexed_field_wrapper.indices == indices
-                    assert str(filter_value) in indexed_field_wrapper.descr
+                    assert str(sensor_name) in indexed_field_wrapper.topic_descr
                     assert indexed_field_wrapper.value is None
 
             # Test field callback handling
@@ -222,48 +243,79 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 """Return a list of temerature_len random float32."""
                 return list(rng.random(temperature_len, dtype=np.float32))
 
+            # Write data and see if it is correctly received.
             filter_cycle = itertools.cycle(filter_values)
-            data_dict_list = [
-                {filter_field: next(filter_cycle), data_field: random_floats()}
-                for i in range(5)
-            ]
-            # Dict of filter_value: expected field wrapper value
+            location_str_dict = {}
+            data_dict_list = []
+            for i in range(5):
+                sensor_name = next(filter_cycle)
+                location_arr = [
+                    f"location for thermometer {i+1}"
+                    for i in range(temperature_len // 2)
+                ]
+                location_str = ", ".join(location_arr)
+                data_dict_list.append(
+                    {
+                        filter_field: next(filter_cycle),
+                        data_field: random_floats(),
+                        "location": location_str,
+                    }
+                )
+            # Dict of sensor_name: expected field wrapper value
             expected_values = {value: None for value in filter_values}
             for data_dict in data_dict_list:
-                filter_value = data_dict[filter_field]
-                expected_values[filter_value] = data_dict[data_field]
+                sensor_name = data_dict[filter_field]
+                location_str_dict[sensor_name] = data_dict["location"]
+                expected_values[sensor_name] = data_dict[data_field]
                 controller.tel_temperature.set_put(**data_dict)
                 await asyncio.sleep(0.001)
-                for filter_value in filter_values:
-                    expected_value = expected_values[filter_value]
+                for sensor_name in filter_values:
+                    expected_value = expected_values[sensor_name]
+                    field_wrapper = field_wrappers[sensor_name]
                     if expected_value is None:
-                        field_wrapper = field_wrappers[filter_value]
                         assert field_wrapper.value is None
                         assert field_wrapper.timestamp is None
                         for indices in indices_list:
                             indexed_field_wrapper = indexed_field_wrappers[
-                                (filter_value, indices)
+                                (sensor_name, indices)
                             ]
                             assert indexed_field_wrapper.value is None
                             assert indexed_field_wrapper.timestamp is None
+                        expected_location_str = ""
                     else:
                         expected_timestamp = topic_wrapper.data_cache[
-                            filter_value
+                            sensor_name
                         ].private_sndStamp
-
-                        field_wrapper = field_wrappers[filter_value]
                         assert field_wrapper.value == expected_value
                         assert field_wrapper.timestamp == expected_timestamp
                         for indices in indices_list:
                             indexed_field_wrapper = indexed_field_wrappers[
-                                (filter_value, indices)
+                                (sensor_name, indices)
                             ]
                             assert field_wrapper.value == expected_value
                             assert indexed_field_wrapper.timestamp == expected_timestamp
+                        expected_location_str = location_str_dict[sensor_name]
+
+                    # Test the get_value_descr method.
+                    for bad_index in (-1, temperature_len, None):
+                        with pytest.raises(ValueError):
+                            field_wrapper.get_value_descr(index=bad_index)
+                    # This assumes the values are separated by ", ";
+                    # they are for this test, but not necessarily in general.
+                    expected_location_arr = expected_location_str.split(", ")
+                    for index in range(temperature_len):
+                        value_descr = field_wrapper.get_value_descr(index)
+                        assert field_wrapper.topic_descr in value_descr
+                        if index < len(expected_location_arr):
+                            assert expected_location_arr[index] in value_descr
+                        else:
+                            assert f"[{index}]" in value_descr
 
     async def test_constructor_errors(self):
         model = watcher.MockModel(enabled=True)
-        filter_field = "sensorName"
+        array_field_name = "temperature"
+        array_len = 16
+        scalar_field_name = "timestamp"
 
         async with salobj.Controller(
             name="ESS", index=self.index
@@ -272,51 +324,45 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             name="ESS",
             index=self.index,
             readonly=True,
-            include=["hx85a"],
+            include=["temperature"],
         ) as remote:
-            topic = remote.tel_hx85a
+            topic = remote.tel_temperature
 
             good_indices = (0,)  # safe for any array field
 
-            # No such field_name
-            with pytest.raises(ValueError):
-                watcher.FilteredFieldWrapper(
-                    model=model,
-                    topic=topic,
-                    filter_field=filter_field,
-                    filter_value=1,
-                    field_name="no_such_field",
-                )
+            # FilteredEssFieldWrapper: no such field_name
+            for wrapper_class, indices_kwargs in (
+                (watcher.FilteredEssFieldWrapper, dict()),
+                (watcher.IndexedFilteredEssFieldWrapper, dict(indices=[0, 1, 2])),
+            ):
+                with self.subTest(wrapper_class=wrapper_class):
+                    with pytest.raises(ValueError):
+                        # Invalid field_name
+                        wrapper_class(
+                            model=model,
+                            topic=topic,
+                            sensor_name=1,
+                            field_name="no_such_field",
+                            **indices_kwargs,
+                        )
 
+            # IndexedFilteredEssFieldWrapper: scalar field not allowed
             with pytest.raises(ValueError):
-                watcher.IndexedFilteredFieldWrapper(
+                watcher.IndexedFilteredEssFieldWrapper(
                     model=model,
                     topic=topic,
-                    filter_field=filter_field,
-                    filter_value=1,
-                    field_name="no_such_field",
+                    sensor_name=1,
+                    field_name=scalar_field_name,
                     indices=good_indices,
                 )
 
-            # Scalar field
-            with pytest.raises(ValueError):
-                watcher.IndexedFilteredFieldWrapper(
-                    model=model,
-                    topic=topic,
-                    filter_field=filter_field,
-                    filter_value=1,
-                    field_name="timestamp",
-                    indices=good_indices,
-                )
-
-            # Index out of range (the "temperature" field has 16 values)
-            for bad_indices in [(16,), (0, 16, 1), (-17,)]:
+            # IndexedFilteredEssFieldWrapper: indices must be in range
+            for bad_indices in [(-1,), (0, array_len, 1)]:
                 with pytest.raises(ValueError):
-                    watcher.IndexedFilteredFieldWrapper(
+                    watcher.IndexedFilteredEssFieldWrapper(
                         model=model,
                         topic=topic,
-                        filter_field=filter_field,
-                        filter_value=1,
-                        field_name="position",
+                        sensor_name=1,
+                        field_name=array_field_name,
                         indices=bad_indices,
                     )

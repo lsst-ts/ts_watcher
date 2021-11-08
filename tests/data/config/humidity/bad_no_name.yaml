@@ -1,5 +1,5 @@
 humidity_sensors:
-  - sal_name: 'ESS:5'
+  - sal_index: 5
     topics:
       - topic_name: hx85a
         sensor_names:

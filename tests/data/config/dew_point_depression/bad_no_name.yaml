@@ -1,14 +1,15 @@
 dew_point_sensors:
-  - sal_name: 'ESS:5'
+  - sal_index: 5
     topics:
       - topic_name: hx85a
         sensor_names:
           - up
           - down
 temperature_sensors:
-  - sal_name: 'ESS:2'
+  - sal_index: 2
     topics:
       - topic_name: temperature
-        sensor_field_names:
+        sensor_names:
           - sensor_name: somewhere
-            field_name: temperature
+warning_level: 2
+serious_level: 3

@@ -86,7 +86,7 @@ class Clock(watcher.BaseRule):
                         The default index is 0.
                     type: string
                 threshold:
-                    description: Maximum allowed time error (sec)
+                    description: Maximum allowed time error (sec).
                     type: number
                     default: 1
 

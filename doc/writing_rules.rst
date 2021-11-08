@@ -74,7 +74,7 @@ Examples include:
 
 * `rules.Enabled` accepts a remote name and SAL index, formatted as ``{name}[:{index}]`` (a standard that can be parsed with `lsst.ts.salobj.name_to_name_index`).
 * `rules.Humidity` is a good example of a :ref:`rule that uses ESS data <lsst.ts.watcher.writing_rules.ess_data>`.
-  It specifies name, alarm levels, hystersis, and a list of humidity sensors.
+  It specifies name, alarm levels, hysteresis, and a list of humidity sensors.
 
 Construct a jsonschema describing the configuration and return it from the `BaseRule.get_schema` classmethod.
 
@@ -116,6 +116,10 @@ you may return `NoneNoReason` if the severity is ``NONE``.
 If your rule relies only on polling, it will still have to define this method.
 We recommend you use it as designed: to calculate the severity (but ignoring the ``topic_wrapper`` argument).
 
+If your rule compares a value to one or more severity threshold levels to determine the alarm severity, consider using `ThresholdHandler` to compute the severity and reason.
+Most rules that use `ESS data <lsst.ts.watcher.writing_rules.ess_data>` fall into this category.
+See `rules.Humidity` for a fairly simple example.
+
 start
 -----
 If your rule polls data or has other needs for background timers or events, start them in `BaseRule.start`.
@@ -132,12 +136,14 @@ Data from the ESS presents a special challenge for watcher rules,
 because an ESS CSC may write a given topic for more than one sensor (or, in the case of a multi-channel thermometer, one collection of sensors).
 For example: an ESS CSC that is connected to two multi-channel thermometers will use the same ``temperature`` telemetry topic to report data for both of them, differing only in the value of the ``sensorName`` field.
 
-In order to handle this, the rule should create a `FilteredFieldWrapper` (or similar) for each field of each ESS topic of interest, and keep track of them one or more `FieldWrapperList`\ s.
+In order to handle this, the rule should create a `FilteredEssFieldWrapper` (or similar) for each field of each ESS topic of interest, and keep track of them one or more `FieldWrapperList`\ s.
 These objects take care of caching data from the desired sensors.
 For example the `rules.Humidity` rule has one `FieldWrapperList` and the `rules.DewPointDepression` rule has two: one for dew point and one for temperature.
 
-`FilteredFieldWrapper` \ s may only be constructed after the `Model` and `lsst.ts.salobj.Remote`\ s have been constructed,
+`FilteredEssFieldWrapper` \ s may only be constructed after the `Model` and `lsst.ts.salobj.Remote`\ s have been constructed,
 so that must be done in the `BaseRule.setup` method, rather than the constructor.
+
+If your ESS-based rule can distill the measurement down to a single value then you should consider using a `ThresholdHandler` to convert the value to a severity and reason.
 
 See `rules.Humidity` for a fairly simple example.
 

@@ -91,19 +91,3 @@ class FieldWrapperList:
             data = [item for item in data if tai - item[1].timestamp < max_age]
 
         return data
-
-    def get_descr(self, field_wrapper, value_index):
-        """Get a description of a scalar value.
-
-        Useful for `Alarm.reason` text.
-
-        Parameters
-        ----------
-        field_wrapper : `BaseFilteredFieldWrapper`
-            Field wrapper.
-        value_index : `int`
-            Index of field_wrapper.value, or None if a scalar.
-        """
-        if value_index is None:
-            return field_wrapper.descr
-        return f"{field_wrapper.descr}[{value_index}]"

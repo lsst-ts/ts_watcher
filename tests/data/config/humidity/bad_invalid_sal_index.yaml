@@ -1,7 +1,8 @@
 name: Main Telescope
 humidity_sensors:
-  - sal_index: 5
+  - sal_index: "5"
     topics:
+      - topic_name: hx85a
         sensor_names:
           - up
           - down

@@ -75,7 +75,7 @@ class Heartbeat(watcher.BaseRule):
                         The default index is 0.
                     type: string
                 timeout:
-                    description: Maximum allowed time between heartbeat events (sec)
+                    description: Maximum allowed time between heartbeat events (sec).
                     type: number
                     default: 3
 

@@ -11,16 +11,20 @@ v1.6.0
 
 Changes:
 
-* Add rule `rules.DewPointDepression`.
-  This rule requires ts_xml 10.1.
-* Add rule `rules.Humidity`.
-* Add rule `rules.MTCCWFollowingRotator`: warn when the MT camera cable wrap is not following the camera rotator.
-* Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredFieldWrapper`, and `IndexedFilteredFieldWrapper`.
+* Add rules (most of which require ts_xml 10.1):
+
+    * `rules.DewPointDepression`.
+    * `rules.Humidity`.
+    * `rules.OverTemperature`.
+    * `rules.MTCCWFollowingRotator`: warn when the MT camera cable wrap is not following the camera rotator.
+
+* Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredEssFieldWrapper`, and `IndexedEssFilteredFieldWrapper`.
   These allow rules to handle data from CSCs such as the ESS, that publish the the same topic with different data for different subystems.
+* Add class `ThresholdHandler`, which computes alarm severity by comparing a value to one or more threshold levels.
 * `BaseRule` changes:
 
   * Add method `BaseRule.setup` for finishing construction and performing additional validation, after the model and topics are made.
-    This is where a rule can add filtered topic and field wrappers.
+    This is where a rule can add filtered field wrappers.
   * Add a default implementation of `BaseRule.is_usable`.
     Use this default implementation for all existing rules.
   * Add an attribute ``remote_keys``, which is used by `BaseRule.is_usable`.
@@ -42,7 +46,7 @@ Requires:
 
 * ts_utils 1
 * ts_salobj 6.3
-* ts_xml 7
+* ts_xml 10.1
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
   These may be generated using ``make_idl_files.py``
