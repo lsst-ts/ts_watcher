@@ -25,10 +25,10 @@ import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class Enabled(base.BaseRule):
+class Enabled(watcher.BaseRule):
     """Monitor the summary state of a CSC.
 
     Set alarm severity NONE if the CSC is in the ENABLED state,
@@ -47,7 +47,7 @@ class Enabled(base.BaseRule):
 
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(
+        remote_info = watcher.RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_summaryState"],
@@ -63,7 +63,6 @@ class Enabled(base.BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/Enabled.yaml
             description: Configuration for Enabled
             type: object
             properties:
@@ -78,14 +77,10 @@ class Enabled(base.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def is_usable(self, disabled_sal_components):
-        remote_info = self.remote_info_list[0]
-        return remote_info.key not in disabled_sal_components
-
     def __call__(self, topic_callback):
         state = topic_callback.get().summaryState
         if state == salobj.State.ENABLED:
-            return base.NoneNoReason
+            return watcher.NoneNoReason
         elif state == salobj.State.FAULT:
             return AlarmSeverity.SERIOUS, "FAULT state"
         else:

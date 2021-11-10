@@ -24,11 +24,11 @@ __all__ = ["ConfiguredSeverities"]
 import asyncio
 import yaml
 
-from lsst.ts import salobj
-from lsst.ts.watcher import base
+from lsst.ts import utils
+from lsst.ts import watcher
 
 
-class ConfiguredSeverities(base.BaseRule):
+class ConfiguredSeverities(watcher.BaseRule):
     """A test rule that transitions through a specified list of severities,
     repeatedly.
 
@@ -55,13 +55,12 @@ class ConfiguredSeverities(base.BaseRule):
             name=f"test.ConfiguredSeverities.{config.name}",
             remote_info_list=[],
         )
-        self.run_timer = salobj.make_done_future()
+        self.run_timer = utils.make_done_future()
 
     @classmethod
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/ConfiguredSeverities.yaml
             description: Configuration for ConfiguredSeverities
             type: object
             properties:
@@ -88,9 +87,6 @@ class ConfiguredSeverities(base.BaseRule):
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
-
-    def is_usable(self, disabled_sal_components):
-        return True
 
     def start(self):
         self.run_timer.cancel()

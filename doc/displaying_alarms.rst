@@ -14,9 +14,9 @@ The primary fields needed for display are:
 
 * ``name``: the name of the alarm.
   Each alarm has a unique name.
-* ``severity``: the current severity of the alarm.
+* ``severity``: the current :ref:`severity <lsst.ts.watcher.severity_levels>` of the alarm.
   One of ``NONE``, ``WARNING``, ``SERIOUS`` and ``CRITICAL``.
-* ``maxSeverity``: the maximum severity seen for this alarm since it was last reset.
+* ``maxSeverity``: the maximum :ref:`severity <lsst.ts.watcher.severity_levels>` seen for this alarm since it was last reset.
   Reset to ``NONE`` if alarm is aknowledged while the severity is ``NONE``.
   Thus ``maxSeverity`` should always be >= ``severity``.
 * ``acknowledged``: has this alarm been acknowledged?

@@ -1,4 +1,5 @@
 setupRequired(sconsUtils)
+setupRequired(ts_utils)
 setupRequired(ts_salobj)
 setupRequired(ts_idl)  # IDL files and the quality of service file
 setupOptional(ts_config_ocs)  # Watcher configuration files

@@ -51,18 +51,31 @@ class BaseRule(abc.ABC):
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
 
+    Attributes
+    ----------
+    alarm : `Alarm`
+        The alarm associated with this rule.
+    remote_keys : `frozenset` [`tuple` [`str`, `int`]]
+        Set of remote keys. Each element is a tuple of:
+
+        * SAL component name (e.g. "ATPtg")
+        * SAL index
+
     Notes
     -----
-    `Model.add_rule` adds an attribute ``lowerremotename_index`` to the rule
-    for each remote in `remote_info_list`. The value of the attribute
-    is the appropriate ``RemoteWrapper``.
-    ``lowerremotename`` is the name of the remote converted to lowercase
-    and the index is the integer index of the remote, e.g. "atptg_0".
+    `Model.add_rule` adds an attribute
+    ``{lowerremotename}_{index} = `` `RemoteWrapper`
+    to the rule for each remote in `remote_info_list`, where
+    ``lowerremotename`` is the name of the SAL component cast to lowercase,
+    and ``index`` is the SAL index (0 if not an indexed component).
+    For example: ``atdome_0`` for ATDome (which is not indexed).
+    This gives each rule ready access to its remote wrappers.
     """
 
     def __init__(self, config, name, remote_info_list):
         self.config = config
         self.remote_info_list = remote_info_list
+        self.remote_keys = frozenset(info.key for info in remote_info_list)
         # The model sets the callback and auto delays
         self.alarm = alarm.Alarm(name=name)
 
@@ -83,7 +96,6 @@ class BaseRule(abc.ABC):
 
             schema_yaml = \"\"\"
                 $schema: http://json-schema.org/draft-07/schema#
-                $id: https://github.com/lsst-ts/ts_watcher/MyRule.yaml
                 description: Configuration for MyRule
                 type: object
                 properties:
@@ -101,22 +113,49 @@ class BaseRule(abc.ABC):
         """Get the rule name."""
         return self.alarm.name
 
-    @abc.abstractmethod
     def is_usable(self, disabled_sal_components):
         """Return True if rule can be used, despite disabled SAL components.
 
+        The default implementation returns true if all remotes used by this
+        rule are enabled. Override if you need something more complicated.
         The attributes ``config``, ``name`` and ``remote_info_list``
-        will all be available when this is called:
+        are all available when this method is called.
 
         Parameters
         ----------
-        disabled_sal_components : `list` [`tuple` [`str`, `int`]]
-            List of disabled SAL components. Each element is a tuple of:
+        disabled_sal_components : `set` [`tuple` [`str`, `int`]]
+            Set of disabled SAL components. Each element is a tuple of:
 
             * SAL component name (e.g. "ATPtg")
             * SAL index
         """
-        raise NotImplementedError("Subclasses must override")
+        return self.remote_keys.isdisjoint(disabled_sal_components)
+
+    def setup(self, model):
+        """Perform post-constructor setup.
+
+        Called after the remotes are constructed and populated with topics,
+        but before the remotes have started.
+
+        Parameters
+        ----------
+        model : `Model`
+            The watcher model.
+
+        Notes
+        -----
+        Possible uses:
+
+        * Rules in which topics and/or fields are specified in configuration
+          should check that the topics and/or fields exist. They may also
+          set variables pointing to the appropriate topics.
+        * Rules that start a background process may start the process here
+          rather than in the constructor; this is especially helpful
+          if the process needs access to topics or fields.
+
+        Few rules require `setup`, so the default implemention is a no-op.
+        """
+        pass
 
     def start(self):
         """Start any background tasks, such as a polling loop.

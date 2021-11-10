@@ -1,0 +1,7 @@
+temperature_sensors:
+  - sal_index: 1
+    topics:
+      - topic_name: temperature
+        sensor_names:
+          - sensor_name: upstairs
+warning_level: 19

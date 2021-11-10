@@ -6,6 +6,51 @@
 Version History
 ###############
 
+v1.6.0
+======
+
+Changes:
+
+* Add rules (most of which require ts_xml 10.1):
+
+    * `rules.DewPointDepression`.
+    * `rules.Humidity`.
+    * `rules.OverTemperature`.
+    * `rules.MTCCWFollowingRotator`: warn when the MT camera cable wrap is not following the camera rotator.
+
+* Add classes  `FieldWrapperList`, `BaseFilteredFieldWrapper`, `FilteredEssFieldWrapper`, and `IndexedEssFilteredFieldWrapper`.
+  These allow rules to handle data from CSCs such as the ESS, that publish the the same topic with different data for different subystems.
+* Add class `ThresholdHandler`, which computes alarm severity by comparing a value to one or more threshold levels.
+* `BaseRule` changes:
+
+  * Add method `BaseRule.setup` for finishing construction and performing additional validation, after the model and topics are made.
+    This is where a rule can add filtered field wrappers.
+  * Add a default implementation of `BaseRule.is_usable`.
+    Use this default implementation for all existing rules.
+  * Add an attribute ``remote_keys``, which is used by `BaseRule.is_usable`.
+
+* `Model` changes:
+
+    * Change the type of ``disabled_sal_components`` from ``list`` to ``frozenset``.
+    * Call `BaseRule.setup` after creating all topics.
+
+* `TopicCallback`: add support for wrapper callbacks.
+* Add function `get_topic_key`.
+* Use package ``ts_utils``.
+* Remove the ``base`` subpackage and move the contents up one level.
+* Modernize unit tests to use bare assert.
+* Make ``test_auto_acknowledge_unacknowledge`` in ``test_csc.py`` more robust by allowing a bit of clock jitter.
+* Add ``Jenkinsfile``.
+
+Requires:
+
+* ts_utils 1
+* ts_salobj 6.3
+* ts_xml 10.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.5.3
 ======
 

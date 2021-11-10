@@ -21,10 +21,10 @@
 
 __all__ = ["NoConfig"]
 
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class NoConfig(base.BaseRule):
+class NoConfig(watcher.BaseRule):
     """A minimal test rule that has no configuration and no remotes.
 
     Set alarm severity to NONE. This alarm basically does nothing
@@ -53,9 +53,6 @@ class NoConfig(base.BaseRule):
     @classmethod
     def get_schema(cls):
         return None
-
-    def is_usable(self, disabled_sal_components):
-        return True
 
     def __call__(self, topic_callback):
         raise RuntimeError("This should never be called")

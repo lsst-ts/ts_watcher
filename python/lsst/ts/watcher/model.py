@@ -26,8 +26,11 @@ import fnmatch
 import re
 import types
 
+from lsst.ts import utils
 from lsst.ts import salobj
-from . import base
+from .remote_wrapper import RemoteWrapper
+from .topic_callback import get_topic_key, TopicCallback
+from .filtered_topic_wrapper import get_filtered_topic_wrapper_key, FilteredTopicWrapper
 from . import rules
 
 
@@ -71,19 +74,23 @@ class Model:
         self.alarm_callback = alarm_callback
 
         self._enabled = False
-        self.enable_task = salobj.make_done_future()
+        self.enable_task = utils.make_done_future()
 
         # Dict of (sal_component_name, sal_index): lsst.ts.salobj.Remote
         self.remotes = dict()
 
+        # Dict of topic_key: FilteredTopicWrapper
+        self.filtered_topic_wrappers = dict()
+
         # Dict of rule_name: Rule
         self.rules = dict()
 
-        # Convert the name of each disabled sal component from a string
-        # in the form ``name`` or ``name:index`` to a tuple ``(name, index)``.
-        config.disabled_sal_components = [
+        # Convert disabled_sal_components
+        # from a list of names in the form ``name`` or ``name:index``
+        # to frozenset of keys in the form ``(name, index)``.
+        config.disabled_sal_components = frozenset(
             salobj.name_to_name_index(name) for name in config.disabled_sal_components
-        ]
+        )
         self.config = config
 
         # Make the rules.
@@ -143,6 +150,10 @@ class Model:
                     alarm = self.rules[name].alarm
                     alarm.escalate_to = escalation_item["to"]
                     alarm.escalate_delay = escalation_item["delay"]
+
+        # Finish setup
+        for rule in self.rules.values():
+            rule.setup(self)
 
         self.start_task = asyncio.ensure_future(self.start())
 
@@ -238,9 +249,7 @@ class Model:
                     start=False,
                 )
                 self.remotes[remote_info.key] = remote
-            wrapper = base.RemoteWrapper(
-                remote=remote, topic_names=remote_info.topic_names
-            )
+            wrapper = RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
             setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
                 topic = getattr(remote, topic_name, None)
@@ -250,13 +259,33 @@ class Model:
                         "after constructing the remote wrapper"
                     )
                 if topic.callback is None:
-                    topic.callback = base.TopicCallback(
-                        topic=topic, rule=rule, model=self
-                    )
+                    topic.callback = TopicCallback(topic=topic, rule=rule, model=self)
                 else:
                     topic.callback.add_rule(rule)
         # Add the rule.
         self.rules[rule.name] = rule
+
+    def get_filtered_topic_wrapper(self, topic, filter_field):
+        """Get an existing `TopicWrapper`.
+
+        Parameters
+        ----------
+        topic : `lsst.ts.salobj.ReadTopic`
+            Topic to read.
+        filter_field : `str`
+            Field to filter on. The field must be a scalar.
+            It should also have a smallish number of expected values,
+            in order to avoid caching too much data.
+
+        Raises
+        ------
+        KeyError
+            If the wrapper is not in the registry.
+        """
+        key = get_filtered_topic_wrapper_key(
+            topic_key=get_topic_key(topic), filter_field=filter_field
+        )
+        return self.filtered_topic_wrappers[key]
 
     def get_rules(self, name_regex):
         """Get all rules whose name matches the specified regular expression.
@@ -277,6 +306,39 @@ class Model:
             for name, rule in self.rules.items()
             if compiled_re.match(name) is not None
         )
+
+    def make_filtered_topic_wrapper(self, topic, filter_field):
+        """Make a FilteredTopicWrapper, or return an existing one, if found.
+
+        Call this, instead of constructing a `FilteredTopicWrapper` directly.
+        That makes sure cached value is returned, if it exists (avoiding
+        an exception in the class constructor).
+
+        Parameters
+        ----------
+        topic : `lsst.ts.salobj.ReadTopic`
+            Topic to read.
+        filter_field : `str`
+            Field to filter on. The field must be a scalar.
+            It should also have a smallish number of expected values,
+            in order to avoid caching too much data.
+
+        Notes
+        -----
+        Watcher rules typically do not use `FilteredTopicWrapper` directly.
+        Instead they use subclasses of `BaseFilteredFieldWrapper`.
+        Each filtered field wrapper creates a `FilteredTopicWrapper`
+        for internal use.
+        """
+        key = get_filtered_topic_wrapper_key(
+            topic_key=get_topic_key(topic), filter_field=filter_field
+        )
+        wrapper = self.filtered_topic_wrappers.get(key, None)
+        if wrapper is None:
+            wrapper = FilteredTopicWrapper(
+                model=self, topic=topic, filter_field=filter_field
+            )
+        return wrapper
 
     def mute_alarm(self, name, duration, severity, user):
         """Mute one or more alarms for a specified duration.

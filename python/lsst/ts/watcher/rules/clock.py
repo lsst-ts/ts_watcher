@@ -27,10 +27,10 @@ import numpy as np
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
-from lsst.ts.watcher import base
+from lsst.ts import watcher
 
 
-class Clock(base.BaseRule):
+class Clock(watcher.BaseRule):
     """Monitor the system clock of a SAL component using the ``heartbeat``
     event.
 
@@ -55,7 +55,7 @@ class Clock(base.BaseRule):
 
     def __init__(self, config):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = base.RemoteInfo(
+        remote_info = watcher.RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_heartbeat"],
@@ -77,7 +77,6 @@ class Clock(base.BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            $id: https://github.com/lsst-ts/ts_watcher/Clock.yaml
             description: Configuration for Clock
             type: object
             properties:
@@ -87,7 +86,7 @@ class Clock(base.BaseRule):
                         The default index is 0.
                     type: string
                 threshold:
-                    description: Maximum allowed time error (sec)
+                    description: Maximum allowed time error (sec).
                     type: number
                     default: 1
 
@@ -95,10 +94,6 @@ class Clock(base.BaseRule):
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
-
-    def is_usable(self, disabled_sal_components):
-        remote_info = self.remote_info_list[0]
-        return remote_info.key not in disabled_sal_components
 
     def __call__(self, topic_callback):
         data = topic_callback.get()
@@ -117,4 +112,4 @@ class Clock(base.BaseRule):
                 AlarmSeverity.WARNING,
                 f"Mininum |error|={min_abs_error:0.2f}; mean error={mean_error:0.2f} sec",
             )
-        return base.NoneNoReason
+        return watcher.NoneNoReason

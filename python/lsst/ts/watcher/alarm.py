@@ -24,7 +24,7 @@ __all__ = ["Alarm"]
 import asyncio
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
+from lsst.ts import utils
 
 
 class Alarm:
@@ -55,10 +55,10 @@ class Alarm:
         self.auto_unacknowledge_delay = 0
         self.escalate_to = ""
         self.escalate_delay = 0
-        self.auto_acknowledge_task = salobj.make_done_future()
-        self.auto_unacknowledge_task = salobj.make_done_future()
-        self.escalate_task = salobj.make_done_future()
-        self.unmute_task = salobj.make_done_future()
+        self.auto_acknowledge_task = utils.make_done_future()
+        self.auto_unacknowledge_task = utils.make_done_future()
+        self.escalate_task = utils.make_done_future()
+        self.unmute_task = utils.make_done_future()
         self.reset()
 
     @property
@@ -181,7 +181,7 @@ class Alarm:
             else:
                 return False
 
-        curr_tai = salobj.current_tai()
+        curr_tai = utils.current_tai()
 
         severity = AlarmSeverity(severity)
         if severity < self.max_severity:
@@ -234,7 +234,7 @@ class Alarm:
         self._cancel_unmute()
         self.muted_by = user
         self.muted_severity = severity
-        self.timestamp_unmute = salobj.current_tai() + duration
+        self.timestamp_unmute = utils.current_tai() + duration
         self.unmute_task = asyncio.create_task(self._unmute_timer(duration=duration))
         self._run_callback()
 
@@ -292,7 +292,7 @@ class Alarm:
             # (meaning severity and max_severity are both NONE).
             return False
 
-        curr_tai = salobj.current_tai()
+        curr_tai = utils.current_tai()
         if self.severity != severity:
             self.timestamp_severity_oldest = curr_tai
             self.severity = severity
@@ -320,7 +320,7 @@ class Alarm:
                     # Set the timestamp here, rather than the timer method,
                     # so it is set before the callback runs.
                     self.timestamp_auto_acknowledge = (
-                        salobj.current_tai() + self.auto_acknowledge_delay
+                        utils.current_tai() + self.auto_acknowledge_delay
                     )
                     self.auto_acknowledge_task = asyncio.create_task(
                         self._auto_acknowledge_timer()
@@ -345,7 +345,7 @@ class Alarm:
                     self._cancel_escalate()
                     # Set the timestamp here, rather than the timer method,
                     # so it is set before the callback runs.
-                    self.timestamp_escalate = salobj.current_tai() + self.escalate_delay
+                    self.timestamp_escalate = utils.current_tai() + self.escalate_delay
                     self.escalate_task = asyncio.create_task(self._escalate_timer())
 
         self._run_callback()
@@ -369,7 +369,7 @@ class Alarm:
         if self.nominal or not self.acknowledged:
             return False
 
-        curr_tai = salobj.current_tai()
+        curr_tai = utils.current_tai()
         self.acknowledged = False
         self.acknowledged_by = ""
         self.timestamp_acknowledged = curr_tai
@@ -497,7 +497,7 @@ class Alarm:
         # Set the timestamp here, rather than the timer method,
         # so it is set before the background task starts.
         self.timestamp_auto_unacknowledge = (
-            salobj.current_tai() + self.auto_unacknowledge_delay
+            utils.current_tai() + self.auto_unacknowledge_delay
         )
         self.auto_unacknowledge_task = asyncio.create_task(
             self._auto_unacknowledge_timer()

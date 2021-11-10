@@ -21,6 +21,7 @@
 
 import glob
 import pathlib
+import pytest
 import types
 import unittest
 
@@ -48,56 +49,49 @@ class WatcherSchemaTestCase(unittest.TestCase):
         paths = glob.glob(str(self.configpath / "invalid_*.yaml"))
         for path in paths:
             config_dict = self.read_dict(path)
-            with self.assertRaises(jsonschema.exceptions.ValidationError):
+            with pytest.raises(jsonschema.exceptions.ValidationError):
                 self.validator.validate(config_dict)
 
     def test_basic_file(self):
         config_dict = self.read_dict(self.configpath / "basic.yaml")
         validated_dict = self.validator.validate(config_dict)
         config = types.SimpleNamespace(**validated_dict)
-        self.assertEqual(config.disabled_sal_components, [])
-        self.assertEqual(config.auto_acknowledge_delay, 3600)
-        self.assertEqual(config.auto_unacknowledge_delay, 3600)
-        self.assertEqual(len(config.rules), 2)
+        assert config.disabled_sal_components == []
+        assert config.auto_acknowledge_delay == 3600
+        assert config.auto_unacknowledge_delay == 3600
+        assert len(config.rules) == 2
         rule0_dict = config.rules[0]
-        self.assertEqual(rule0_dict["classname"], "test.ConfiguredSeverities")
-        self.assertEqual(
-            rule0_dict["configs"],
-            [dict(severities=[2, 3, 1], interval=1, name="aname")],
-        )
+        assert rule0_dict["classname"] == "test.ConfiguredSeverities"
+        assert rule0_dict["configs"] == [
+            dict(severities=[2, 3, 1], interval=1, name="aname")
+        ]
         rule1_dict = config.rules[1]
-        self.assertEqual(rule1_dict["classname"], "test.NoConfig")
-        self.assertEqual(rule1_dict["configs"], [{}])
-        self.assertEqual(config.escalation, [])
+        assert rule1_dict["classname"] == "test.NoConfig"
+        assert rule1_dict["configs"] == [{}]
+        assert config.escalation == []
 
     def test_enabled_file(self):
         config_dict = self.read_dict(self.configpath / "enabled.yaml")
         validated_dict = self.validator.validate(config_dict)
         config = types.SimpleNamespace(**validated_dict)
-        self.assertEqual(config.disabled_sal_components, ["ATCamera"])
-        self.assertEqual(config.auto_acknowledge_delay, 1001)
-        self.assertEqual(config.auto_unacknowledge_delay, 1002)
-        self.assertEqual(len(config.rules), 1)
+        assert config.disabled_sal_components == ["ATCamera"]
+        assert config.auto_acknowledge_delay == 1001
+        assert config.auto_unacknowledge_delay == 1002
+        assert len(config.rules) == 1
         rule0_dict = config.rules[0]
-        self.assertEqual(rule0_dict["classname"], "Enabled")
-        self.assertEqual(
-            rule0_dict["configs"],
-            [dict(name="ATDome"), dict(name="ATCamera"), dict(name="ScriptQueue:2")],
+        assert rule0_dict["classname"] == "Enabled"
+        assert rule0_dict["configs"] == [
+            dict(name="ATDome"),
+            dict(name="ATCamera"),
+            dict(name="ScriptQueue:2"),
+        ]
+        assert len(config.escalation) == 3
+        assert config.escalation[0] == dict(
+            alarms=["Enabled.AT*"], to="stella", delay=0.11
         )
-        self.assertEqual(len(config.escalation), 3)
-        self.assertEqual(
-            config.escalation[0],
-            dict(alarms=["Enabled.AT*"], to="stella", delay=0.11),
+        assert config.escalation[1] == dict(
+            alarms=["Enabled.ATCamera"], to="otho", delay=0.12
         )
-        self.assertEqual(
-            config.escalation[1],
-            dict(alarms=["Enabled.ATCamera"], to="otho", delay=0.12),
+        assert config.escalation[2] == dict(
+            alarms=["Enabled.ScriptQueue:*"], to="", delay=0
         )
-        self.assertEqual(
-            config.escalation[2],
-            dict(alarms=["Enabled.ScriptQueue:*"], to="", delay=0),
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
