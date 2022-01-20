@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from . import test
+from .atcamera_dewar import *
 from .clock import *
 from .enabled import *
 from .heartbeat import *
