@@ -24,9 +24,10 @@ import pytest
 import unittest
 
 from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
-index_gen = salobj.index_generator()
+index_gen = utils.index_generator()
 
 
 class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
