@@ -42,16 +42,16 @@ class MeasurementInfo:
 
     Attributes
     ----------
-    descr : str
+    descr : `str`
         Description of measurement.
-    field_name : str
+    field_name : `str`
         Field name in AuxTel vacuum telemetry topic.
-    is_temperature : bool, optional
+    is_temperature : `bool`, optional
         True (default) if temperature, false if vacuum.
     big_is_bad_list : List[bool], optional
         List of things to measure: too big (True) or too small (False)
         Defaults to [True]
-    units : str, computed
+    units : `str`, computed
         Units for the field: C or Torr. Computed from is_temperature.
     """
 
@@ -160,10 +160,6 @@ class ATCameraDewar(watcher.BaseRule):
                     )
                 )
 
-        # Support for start_call_counter
-        self.calls_remaining = 0
-        self.call_counter_task = utils.make_done_future()
-
         # Task used to run and cancel no_data_timer.
         self.no_data_timer_task = asyncio.Future()
 
@@ -174,12 +170,12 @@ class ATCameraDewar(watcher.BaseRule):
 
         Parameters
         ----------
-        config : types.SimpleNamespace
+        config : `types.SimpleNamespace`
             Rule configuration.
-        name : str
+        name : `str`
             Item is being measured. One of:
             "ccd_temp", "cold_plate_temp", "cryo_head_temp", "vacuum".
-        big_is_bad : bool
+        big_is_bad : `bool`
             True if measured values larger than the specified levels are bad.
             False if measured values smaller than the specified levels are bad.
         """
@@ -356,79 +352,63 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def start_call_counter(self, n):
-        """Start self.call_counter_task, which waits for n calls.
-
-        Intended for unit tests.
-        """
-        if not self.call_counter_task.done():
-            raise RuntimeError("Already running")
-        self.calls_remaining = n
-        self.call_counter_task = asyncio.Future()
-
     def __call__(self, topic_callback: watcher.TopicCallback) -> AlarmSeverity:
-        try:
-            self.restart_no_data_timer()
-            self.data_queue.append(topic_callback.get())
-            curr_tai = utils.current_tai()
+        self.restart_no_data_timer()
+        self.data_queue.append(topic_callback.get())
+        curr_tai = utils.current_tai()
 
-            oldest_temp_tai = curr_tai - self.config.temperature_window
-            oldest_vacuum_tai = curr_tai - self.config.vacuum_window
-            oldest_tai = min(oldest_temp_tai, oldest_vacuum_tai)
+        oldest_temp_tai = curr_tai - self.config.temperature_window
+        oldest_vacuum_tai = curr_tai - self.config.vacuum_window
+        oldest_tai = min(oldest_temp_tai, oldest_vacuum_tai)
 
-            while self.data_queue:
-                if self.data_queue[0].private_sndStamp >= oldest_tai:
-                    break
-                self.data_queue.popleft()
-            nelts = len(self.data_queue)
-            if nelts < self.min_values:
-                # Complain about not enough data, if we have been running
-                if self.had_enough_data:
-                    return (
-                        AlarmSeverity.WARNING,
-                        f"We don't have enough data; {nelts} < {self.min_values}",
-                    )
-                else:
-                    return watcher.NoneNoReason
-
-            self.had_enough_data = True
-
-            data_lists = {name: [] for name in self.name_meas_info}
-            temperature_name_fields = {
-                name: meas_info.field_name
-                for name, meas_info in self.name_meas_info.items()
-                if meas_info.is_temperature
-            }
-            for data in self.data_queue:
-                if data.private_sndStamp > oldest_vacuum_tai:
-                    data_lists["vacuum"].append(data.vacuum)
-                if data.private_sndStamp > oldest_temp_tai:
-                    for name, fieldname in temperature_name_fields.items():
-                        data_lists[name].append(getattr(data, fieldname))
-
-            severity_reasons = []
-            worst_severity = AlarmSeverity.NONE
-            for name, data in data_lists.items():
-                severity, reason = self._get_severity_reason_for_one_item(
-                    data=data, name=name
+        while self.data_queue:
+            if self.data_queue[0].private_sndStamp >= oldest_tai:
+                break
+            self.data_queue.popleft()
+        nelts = len(self.data_queue)
+        if nelts < self.min_values:
+            # Complain about not enough data, if we have been running
+            if self.had_enough_data:
+                return (
+                    AlarmSeverity.WARNING,
+                    f"We don't have enough data; {nelts} < {self.min_values}",
                 )
-                severity_reasons.append((severity, reason))
-                worst_severity = max(severity, worst_severity)
-
-            if worst_severity == AlarmSeverity.NONE:
+            else:
                 return watcher.NoneNoReason
 
-            reasons = []
-            for severity, reason in severity_reasons:
-                if severity == worst_severity:
-                    reasons.append(reason)
+        self.had_enough_data = True
 
-            return worst_severity, "; ".join(reasons)
-        finally:
-            if not self.call_counter_task.done():
-                self.calls_remaining -= 1
-                if self.calls_remaining <= 0:
-                    self.call_counter_task.set_result(None)
+        data_lists = {name: [] for name in self.name_meas_info}
+        temperature_name_fields = {
+            name: meas_info.field_name
+            for name, meas_info in self.name_meas_info.items()
+            if meas_info.is_temperature
+        }
+        for data in self.data_queue:
+            if data.private_sndStamp > oldest_vacuum_tai:
+                data_lists["vacuum"].append(data.vacuum)
+            if data.private_sndStamp > oldest_temp_tai:
+                for name, fieldname in temperature_name_fields.items():
+                    data_lists[name].append(getattr(data, fieldname))
+
+        severity_reasons = []
+        worst_severity = AlarmSeverity.NONE
+        for name, data in data_lists.items():
+            severity, reason = self._get_severity_reason_for_one_item(
+                data=data, name=name
+            )
+            severity_reasons.append((severity, reason))
+            worst_severity = max(severity, worst_severity)
+
+        if worst_severity == AlarmSeverity.NONE:
+            return watcher.NoneNoReason
+
+        reasons = []
+        for severity, reason in severity_reasons:
+            if severity == worst_severity:
+                reasons.append(reason)
+
+        return worst_severity, "; ".join(reasons)
 
     def _get_severity_reason_for_one_item(self, data, name):
         """Get the severity and reason for a single item.
@@ -437,7 +417,7 @@ class ATCameraDewar(watcher.BaseRule):
         ----------
         data : List [float]
             Measurements of item
-        name : str
+        name : `str`
             Name of item.
         """
         current_severity = self.name_severity[name]
