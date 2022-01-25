@@ -33,6 +33,9 @@ from lsst.ts import watcher
 
 index_gen = utils.index_generator()
 
+# Timeout for basic operations (seconds)
+STD_TIMEOUT = 5
+
 
 class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -116,8 +119,11 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 sensor_name = data_dict[filter_field]
                 location_str_dict[sensor_name] = data_dict["location"]
                 expected_values[sensor_name] = data_dict[data_field]
+                topic_wrapper.call_event.clear()
                 controller.tel_hx85a.set_put(**data_dict)
-                await asyncio.sleep(0.001)
+                await asyncio.wait_for(
+                    topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
+                )
                 for sensor_name in filter_values:
                     field_wrapper = field_wrappers[sensor_name]
                     if expected_values[sensor_name] is None:
@@ -268,8 +274,11 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 sensor_name = data_dict[filter_field]
                 location_str_dict[sensor_name] = data_dict["location"]
                 expected_values[sensor_name] = data_dict[data_field]
+                topic_wrapper.call_event.clear()
                 controller.tel_temperature.set_put(**data_dict)
-                await asyncio.sleep(0.001)
+                await asyncio.wait_for(
+                    topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
+                )
                 for sensor_name in filter_values:
                     expected_value = expected_values[sensor_name]
                     field_wrapper = field_wrappers[sensor_name]

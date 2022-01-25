@@ -29,7 +29,7 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
-LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
+STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
@@ -101,16 +101,8 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                 assert len(model.rules) == 1
                 rule_name = f"Enabled.{name}:{index}"
                 rule = model.rules[rule_name]
+                rule.alarm.init_severity_queue()
 
-                read_severities = []
-
-                def alarm_callback(alarm):
-                    nonlocal read_severities
-                    read_severities.append(alarm.severity)
-
-                rule.alarm.callback = alarm_callback
-
-                expected_severities = []
                 for state in (
                     salobj.State.STANDBY,
                     salobj.State.DISABLED,
@@ -124,16 +116,17 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                     salobj.State.ENABLED,
                 ):
                     if state == salobj.State.ENABLED:
-                        expected_severities.append(AlarmSeverity.NONE)
+                        expected_severity = AlarmSeverity.NONE
                     elif state == salobj.State.FAULT:
-                        expected_severities.append(AlarmSeverity.SERIOUS)
+                        expected_severity = AlarmSeverity.SERIOUS
                     else:
-                        expected_severities.append(AlarmSeverity.WARNING)
+                        expected_severity = AlarmSeverity.WARNING
 
                     controller.evt_summaryState.set_put(
                         summaryState=state, force_output=True
                     )
-                    # give the remote a chance to read the data
-                    await asyncio.sleep(0.001)
-
-                assert read_severities == expected_severities
+                    severity = await asyncio.wait_for(
+                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                    )
+                    assert severity == expected_severity
+                    assert rule.alarm.severity_queue.empty()

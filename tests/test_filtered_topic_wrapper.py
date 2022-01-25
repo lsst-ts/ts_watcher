@@ -29,6 +29,9 @@ from lsst.ts import watcher
 
 index_gen = utils.index_generator()
 
+# Timeout for basic operations (seconds)
+STD_TIMEOUT = 5
+
 
 class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -85,8 +88,9 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             for i, data_dict in enumerate(data_dict_list):
                 filter_value = data_dict[filter_field]
                 expected_doubles[filter_value] = data_dict[data_field]
+                wrapper.call_event.clear()
                 controller.tel_scalars.set_put(**data_dict)
-                await asyncio.sleep(0.001)
+                await asyncio.wait_for(wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 wrapper_data = wrapper.get_data(filter_value)
                 assert wrapper_data is not None
                 assert wrapper_data.double0 == data_dict[data_field]

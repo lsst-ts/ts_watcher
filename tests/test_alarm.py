@@ -67,7 +67,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     def ncalls(self):
         return self.callback_queue.qsize()
 
-    def alarm_iter(
+    async def alarm_iter(
         self,
         callback,
         name="test.alarm",
@@ -78,6 +78,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     ):
         """An iterator over alarms with all allowed values of
         severity and max_severity.
+
+        All of the returned alarms have a severity queue,
+        so you can call alarm.assert_next_severity.
 
         Parameters
         ----------
@@ -105,7 +108,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         so this iterator does not change `self.ncalls`.
         """
 
-        def _alarm_iter_impl():
+        async def _alarm_iter_impl():
             """An iterator over alarms with all allowed values of
             severity and max_severity and no callback function.
 
@@ -120,25 +123,38 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             )
 
             severities = list(AlarmSeverity)
-            yield self.make_alarm(**alarm_kwargs)
+            alarm = self.make_alarm(**alarm_kwargs)
+            alarm.init_severity_queue()
+            yield alarm
             for i, severity in enumerate(severities[1:]):
                 alarm = self.make_alarm(**alarm_kwargs)
+                alarm.init_severity_queue()
                 reason = f"alarm_iter set severity={severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
+                await asyncio.wait_for(
+                    alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
+                )
                 assert updated
                 yield alarm
 
             for i, max_severity in enumerate(severities[1:]):
                 for severity in severities[0 : i + 1]:
                     alarm = self.make_alarm(**alarm_kwargs)
+                    alarm.init_severity_queue()
                     updated = alarm.set_severity(severity=max_severity, reason=reason)
+                    await asyncio.wait_for(
+                        alarm.assert_next_severity(max_severity), timeout=STD_TIMEOUT
+                    )
                     assert updated
                     reason = f"alarm_iter set severity to {severity} after setting it to {max_severity}"
                     updated = alarm.set_severity(severity=severity, reason=reason)
+                    await asyncio.wait_for(
+                        alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
+                    )
                     assert updated
                     yield alarm
 
-        for alarm in _alarm_iter_impl():
+        async for alarm in _alarm_iter_impl():
             alarm.callback = callback
             yield alarm
 
@@ -409,7 +425,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             severity_set = set()
             nitems = 0
             predicted_nitems = nseverities * (nseverities + 1) // 2
-            for alarm in self.alarm_iter(callback=callback, **kwargs):
+            async for alarm in self.alarm_iter(callback=callback, **kwargs):
                 nitems += 1
                 assert self.ncalls == 0
                 assert alarm.callback == callback
@@ -476,6 +492,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         for fieldname, value in vars(alarm).items():
             if fieldname.endswith("_task"):
                 continue
+            if fieldname == "severity_queue":
+                continue
             with self.subTest(fieldname=fieldname):
                 alarm = self.copy_alarm(alarm0)
                 setattr(alarm, fieldname, 5)
@@ -532,7 +550,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_decreasing_severity(self):
         """Test that decreasing severity does not decrease max_severity."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter(callback=self.callback):
+        async for alarm in self.alarm_iter(callback=self.callback):
             alarm0 = self.copy_alarm(alarm)
             for severity in reversed(list(AlarmSeverity)):
                 if severity >= alarm.severity:
@@ -540,8 +558,11 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
-                desired_ncalls += 1
+                await asyncio.wait_for(
+                    alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
+                )
                 assert updated
+                desired_ncalls += 1
                 assert alarm.severity == severity
                 assert alarm.max_severity == alarm0.max_severity
                 assert not alarm.acknowledged
@@ -558,15 +579,18 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_increasing_severity(self):
         """Test that max_severity tracks increasing severity."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter(callback=self.callback):
+        async for alarm in self.alarm_iter(callback=self.callback):
             for severity in AlarmSeverity:
                 if severity <= alarm.max_severity:
                     continue
                 curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
                 updated = alarm.set_severity(severity=severity, reason=reason)
-                desired_ncalls += 1
+                await asyncio.wait_for(
+                    alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
+                )
                 assert updated
+                desired_ncalls += 1
                 assert alarm.severity == severity
                 assert alarm.max_severity == severity
                 assert alarm.reason == reason
@@ -583,13 +607,17 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_repeating_severity(self):
         """Test setting the same severity multiple times."""
         desired_ncalls = 0
-        for alarm in self.alarm_iter(callback=self.callback):
+        async for alarm in self.alarm_iter(callback=self.callback):
             alarm0 = self.copy_alarm(alarm)
 
             curr_tai = utils.current_tai()
             reason = f"set again to {alarm.severity}"
             assert alarm.reason != reason
-            updated = alarm.set_severity(severity=alarm.severity, reason=reason)
+            severity = alarm.severity
+            updated = alarm.set_severity(severity=severity, reason=reason)
+            await asyncio.wait_for(
+                alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
+            )
             if alarm0.nominal:
                 assert not updated
                 assert alarm == alarm0
@@ -618,7 +646,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         user = "skipper"
         desired_ncalls = 0
         for auto_unacknowledge_delay in (0, 1):
-            for alarm0 in self.alarm_iter(
+            async for alarm0 in self.alarm_iter(
                 callback=self.callback,
                 auto_unacknowledge_delay=auto_unacknowledge_delay,
             ):
@@ -639,8 +667,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     else:
                         tai1 = utils.current_tai()
                         updated = alarm.acknowledge(severity=ack_severity, user=user)
-                        desired_ncalls += 1
                         assert updated
+                        desired_ncalls += 1
                         assert alarm.severity == alarm0.severity
                         assert alarm.acknowledged
                         assert alarm.acknowledged_by == user
@@ -708,7 +736,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_unacknowledge(self):
         user = "skipper"
         desired_ncalls = 0
-        for alarm0 in self.alarm_iter(callback=self.callback):
+        async for alarm0 in self.alarm_iter(callback=self.callback):
             if alarm0.nominal:
                 continue
             assert not alarm0.acknowledged
@@ -726,8 +754,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 if ack_severity < alarm.max_severity:
                     continue
                 updated = alarm.acknowledge(severity=ack_severity, user=user)
-                desired_ncalls += 1
                 assert updated
+                desired_ncalls += 1
                 assert alarm.acknowledged
                 if alarm0.severity == AlarmSeverity.NONE:
                     assert alarm.nominal
@@ -742,8 +770,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     assert not updated
                     alarm.assert_equal(acked_alarm)
                 else:
-                    desired_ncalls += 1
                     assert updated
+                    desired_ncalls += 1
                     assert not alarm.nominal
                     assert not alarm.acknowledged
                     assert alarm.timestamp_acknowledged >= tai0
@@ -766,7 +794,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         escalate_delay = 0.1
         escalate_to = "chaos"
 
-        for alarm in self.alarm_iter(
+        async for alarm in self.alarm_iter(
             name="user",
             callback=self.callback,
             escalate_delay=escalate_delay,
@@ -789,7 +817,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         blank_alarm = self.make_alarm(name=name, callback=None)
         blank_alarm.callback = self.callback
         assert blank_alarm.nominal
-        for alarm in self.alarm_iter(name=name, callback=self.callback):
+        async for alarm in self.alarm_iter(name=name, callback=self.callback):
             if not alarm.nominal:
                 assert alarm != blank_alarm
             alarm.reset()
@@ -801,7 +829,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         for severity in AlarmSeverity:
             if severity == AlarmSeverity.NONE:
                 continue  # invalid value
-            for alarm in self.alarm_iter(name=user, callback=self.callback):
+            async for alarm in self.alarm_iter(name=user, callback=self.callback):
                 t0 = utils.current_tai()
                 alarm.mute(duration=duration, severity=severity, user=user)
                 curr_tai = utils.current_tai()
@@ -830,7 +858,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         failed_user = "user associated with invalid mute command"
         good_delay = 5
         good_severity = AlarmSeverity.WARNING
-        for alarm in self.alarm_iter(name=good_user, callback=None):
+        async for alarm in self.alarm_iter(name=good_user, callback=None):
             for bad_delay, bad_severity in itertools.product(
                 (0, -0.01), (AlarmSeverity.NONE, -53)
             ):
@@ -884,7 +912,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         for severity in AlarmSeverity:
             if severity == AlarmSeverity.NONE:
                 continue  # invalid value
-            for alarm in self.alarm_iter(name=user, callback=self.callback):
+            async for alarm in self.alarm_iter(name=user, callback=self.callback):
                 ncalls0 = self.ncalls
                 # check that unmute on unmuted alarm is a no-op
                 original_alarm = self.copy_alarm(alarm)
@@ -923,7 +951,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_set_severity_when_acknowledged(self):
         user = "skipper"
         desired_ncalls = 0
-        for alarm0 in self.alarm_iter(callback=self.callback):
+        async for alarm0 in self.alarm_iter(callback=self.callback):
             if alarm0.nominal:
                 continue
             assert not alarm0.acknowledged
