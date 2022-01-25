@@ -49,8 +49,10 @@ class ThresholdHandler:
     hysteresis : `float`
         Hysteresis.
     big_is_bad : `bool`
-        True if large values are bad (e.g. temperature and humidity).
-        False if small values are bad (e.g. dew point depression).
+        True if measured values larger than the specified levels are bad;
+        examples include most humidity, temperature, and vacuum measurements.
+        False if measured values smaller than the levels are bad;
+        the classic example is dew point depression.
     value_name : `str`
         Name of the value, e.g. "humidity" or "dew point depression".
     units : `str`
