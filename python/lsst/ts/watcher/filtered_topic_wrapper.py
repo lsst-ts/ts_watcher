@@ -24,6 +24,7 @@ __all__ = [
     "FilteredTopicWrapper",
 ]
 
+import asyncio
 import collections
 
 from .topic_callback import get_topic_key, TopicCallback
@@ -76,6 +77,9 @@ class FilteredTopicWrapper:
         Dict of value of filter_field: most recent data seen for that value.
     default_data
         Default-constructed data. Use for validation of field wrappers.
+    call_event : `asyncio.Event`
+        An event that `__call__` sets when it finishes.
+        This is intended for use by unit tests.
 
     Notes
     -----
@@ -118,29 +122,49 @@ class FilteredTopicWrapper:
         # Data cache: a dict of filter_value: data
         self.data_cache = dict()
 
-        # dict of filter_value: list of field wrappers
+        # Field wrapper cache:
+        # a dict of filter_value: list of FilteredFieldWrapper
         self.field_wrappers = collections.defaultdict(list)
+
+        self.call_event = asyncio.Event()
 
         self.topic.callback.add_topic_wrapper(self)
 
         model.filtered_topic_wrappers[key] = self
 
     def add_field_wrapper(self, field_wrapper):
-        """Add a field wrapper to the internal cache.
+        """Add a filtered field wrapper to the internal cache.
 
-        Call field_wrapper.update_value when update_data is called
-        with the appropriate filter_value.
+        Parameter
+        ---------
+        field_wrapper : `BaseFilteredFieldWrapper`
+            The filtered field wrapper to add.
         """
         self.field_wrappers[field_wrapper.filter_value].append(field_wrapper)
 
     def get_data(self, filter_value):
         """Get the most recently seen data for the given filter_value,
         or None if no data seen.
+
+        Parameters
+        ----------
+        filter_value : scalar
+            Value of ``filter_field`` for which to return data.
         """
         return self.data_cache.get(filter_value, None)
 
     def __call__(self, topic_callback):
-        """Update the cached data."""
+        """Update the cached data.
+
+        Set data_cache[filter_value] to the new data, and call update_value
+        for each filtered field wrapper with the matching filter value.
+
+        Parameters
+        ----------
+        topic_callback : `TopicCallback`
+            The topic callback that triggered this call.
+        """
+        self.call_event.set()
         data = topic_callback.get()
         timestamp = data.private_sndStamp
         filter_value = getattr(data, self.filter_field)
@@ -151,3 +175,6 @@ class FilteredTopicWrapper:
 
     def __str__(self):
         return self.descr
+
+    def __repr__(self):
+        return f"FilteredTopicWrapper(topic={self.topic}, filter_field={self.filter_field})"
