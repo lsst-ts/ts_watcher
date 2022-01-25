@@ -33,10 +33,11 @@ import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 from lsst.ts.watcher.rules import OverTemperature
 
-index_gen = salobj.index_generator()
+index_gen = utils.index_generator()
 
 
 class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):

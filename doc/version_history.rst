@@ -6,8 +6,26 @@
 Version History
 ###############
 
+v1.7.0
+------
+
+Changes:
+
+* Use index_generator from ts_idl.
+  This requires ts_idl 1.1 or later.
+* Add `ATCameraDewar` rule.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 6.3
+* ts_xml 10.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py``
+
 v1.6.0
-======
+------
 
 Changes:
 
@@ -52,7 +70,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.5.3
-======
+------
 
 Changes:
 
@@ -68,7 +86,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.5.2
-======
+------
 
 Changes:
 
@@ -83,7 +101,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.5.1
-======
+------
 
 Changes:
 
@@ -98,7 +116,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.5.0
-======
+------
 
 Changes:
 
@@ -114,7 +132,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.4.3
-======
+------
 
 Changes:
 
@@ -131,7 +149,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.4.2
-======
+------
 
 Changes:
 
@@ -147,7 +165,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.4.1
-======
+------
 
 Changes:
 
@@ -163,7 +181,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.4.0
-======
+------
 
 Changes:
 
@@ -182,7 +200,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.3.3
-======
+------
 
 Changes:
 
@@ -198,7 +216,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.3.2
-======
+------
 
 Changes:
 
@@ -213,7 +231,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.3.1
-======
+------
 
 Changes:
 
@@ -228,7 +246,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.3.0
-======
+------
 
 Changes:
 
@@ -248,7 +266,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.2.0
-======
+------
 
 Changes:
 
@@ -266,7 +284,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.1.0
-======
+------
 
 Changes:
 
@@ -281,7 +299,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.0.3
-======
+------
 
 Changes:
 
@@ -296,7 +314,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.0.2
-======
+------
 
 Changes:
 
@@ -315,14 +333,14 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v1.0.1
-======
+------
 
 Major changes:
 
 * Code formatted by ``black``, with a pre-commit hook to enforce this. See the README file for configuration instructions.
 
 v1.0.0
-======
+------
 
 Added the unacknowledge command.
 Added automatic unacknowledgement of active alarms and automatic acknowledgement of stale alarms, after configurable durations.
@@ -336,7 +354,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v0.4.0
-======
+------
 
 Update for ts_salobj 5.2: rename initial_simulation_mode to simulation_mode.
 
@@ -349,7 +367,7 @@ Requires:
   These may be generated using ``make_idl_files.py``
 
 v0.3.0
-======
+------
 
 Add the ``showAlarms`` command.
 Make the ``rules.test.ConfiguredSeverities`` rule cycle forever.
@@ -363,7 +381,7 @@ Requires:
   These may be generated using ``make_idl_files.py``.
 
 v0.2.2
-======
+------
 
 Add ts_salobj to the ups table file.
 
@@ -376,7 +394,7 @@ Requires:
   These may be generated using ``make_idl_files.py``.
 
 v0.2.1
-======
+------
 
 Fixed an incompatibility with ts_salobj 4.5 (use of a function only available in ts_salobj v5).
 
@@ -389,7 +407,7 @@ Requires:
   These may be generated using ``make_idl_files.py``.
 
 v0.2.0
-======
+------
 
 Add ``mute`` and ``unmute`` commands.
 Add a `rules.Clock` rule to watch clock error.
@@ -410,7 +428,7 @@ Requires:
   These may be generated using ``make_idl_files.py``.
 
 v0.1.0
-======
+------
 
 First preliminary release.
 

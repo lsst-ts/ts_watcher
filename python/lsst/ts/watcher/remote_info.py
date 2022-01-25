@@ -67,6 +67,19 @@ class RemoteInfo:
         Each name must include prefix ``evt_`` or ``tel_``
         for event or telemetry.
 
+    Attributes
+    ----------
+    name : `str`
+        Name of SAL component.
+    index : `int`
+        SAL component index; use 0 if the component is not indexed.
+    callback_names : `tuple` [`str`]
+        The ``callback_names`` argument converted to a tuple;
+        an empty tuple if the argument is None.
+    poll_names : `tuple` [`str`]
+        The ``poll_names`` argument converted to a tuple;
+        an empty tuple if the argument is None.
+
     Raises
     ------
     ValueError

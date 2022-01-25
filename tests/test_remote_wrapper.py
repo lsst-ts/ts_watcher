@@ -24,12 +24,13 @@ import pytest
 import unittest
 
 from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 LONG_TIMEOUT = 60  # Max Remote startup time (seconds)
 
-index_gen = salobj.index_generator()
+index_gen = utils.index_generator()
 
 
 class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
