@@ -14,6 +14,12 @@ Changes:
 * Use index_generator from ts_idl.
   This requires ts_idl 1.1 or later.
 * Add `ATCameraDewar` rule.
+* `Alarm`:
+
+    * Add ``init_severity_queue`` and ``assert_next_severity`` methods, for unit testing.
+    * Fix ``unacknowledge`` to only restart the escalation timer if the alarm is configured with escalation information.
+
+* Overhaul the unit tests to wait for events instead of sleeping for an arbitrary time, where practical.
 
 Requires:
 
