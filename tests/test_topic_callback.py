@@ -26,31 +26,48 @@ import unittest
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
+from lsst.ts import utils
 from lsst.ts import watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
-LONG_TIMEOUT = 60  # Max Remote startup time (seconds)
 
-index_gen = salobj.index_generator()
+index_gen = utils.index_generator()
 
 
 class BadEnabledRule(watcher.rules.Enabled):
-    """A variant of the Enabled rule that raises in the callback.
+    """A variant of the Enabled rule that raises in `__call__`.
+
+    Do not try to use the alarm's severity_queue attribute, because
+    the exception in `__call__` prevents severities from being added to it.
 
     Attributes
     ----------
     num_callbacks : `int`
         The number of times the rule has been called.
+    num_callbacks_queue : `asyncio.Queue`
+        A queue of the number of callbacks.
     """
 
     def __init__(self, **kwargs):
         self.num_callbacks = 0
+        self.num_callbacks_queue = asyncio.Queue()
         super().__init__(**kwargs)
         self.alarm.name = "Bad" + self.alarm.name
 
     def __call__(self, topic_callback):
         self.num_callbacks += 1
+        self.num_callbacks_queue.put_nowait(self.num_callbacks)
         raise RuntimeError("BadEnabledRule.__call__ intentionally raises")
+
+    async def assert_next_num_callbacks(
+        self, expected_num_callbacks, timeout=STD_TIMEOUT
+    ):
+        """Wait for the functor to be called and check num_callbacks."""
+        num_callbacks = await asyncio.wait_for(
+            self.num_callbacks_queue.get(), timeout=timeout
+        )
+        assert num_callbacks == expected_num_callbacks
+        assert self.num_callbacks_queue.empty()
 
 
 class BadTopicWrapper(watcher.FilteredTopicWrapper):
@@ -60,15 +77,29 @@ class BadTopicWrapper(watcher.FilteredTopicWrapper):
     ----------
     num_callbacks : `int`
         The number of times the wrapper has been called.
+    num_callbacks_queue : `asyncio.Queue`
+        A queue of the number of callbacks.
     """
 
     def __init__(self, **kwargs):
         self.num_callbacks = 0
+        self.num_callbacks_queue = asyncio.Queue()
         super().__init__(**kwargs)
 
     def __call__(self, topic_callback):
         self.num_callbacks += 1
+        self.num_callbacks_queue.put_nowait(self.num_callbacks)
         raise RuntimeError("BadTopicWrapper.__call__ intentionally raises")
+
+    async def assert_next_num_callbacks(
+        self, expected_num_callbacks, timeout=STD_TIMEOUT
+    ):
+        """Wait for the functor to be called and check num_callbacks."""
+        num_callbacks = await asyncio.wait_for(
+            self.num_callbacks_queue.get(), timeout=timeout
+        )
+        assert num_callbacks == expected_num_callbacks
+        assert self.num_callbacks_queue.empty()
 
 
 class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
@@ -77,33 +108,22 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
         self.index = next(index_gen)
 
     def make_enabled_rule(self):
-        """Make an Enabled rule and callback.
+        """Make an Enabled rule and init the alarm's severity queue.
 
         Returns
         -------
-        A tuple of:
-
-        * rule: the constructed EnabledRule
-        * read_severities: a list of severities read from the rule.
-            This will be updated as the rule is called.
+        rule : `rules.EnabledRule`
+            The constructed EnabledRule
         """
         config = types.SimpleNamespace(name=f"Test:{self.index}")
         rule = watcher.rules.Enabled(config=config)
-
-        read_severities = []
-
-        def alarm_callback(alarm):
-            nonlocal read_severities
-            read_severities.append(alarm.severity)
-
-        rule.alarm.callback = alarm_callback
-
-        return rule, read_severities
+        rule.alarm.init_severity_queue()
+        return rule
 
     async def test_basics(self):
         model = watcher.MockModel(enabled=True)
 
-        rule, read_severities = self.make_enabled_rule()
+        rule = self.make_enabled_rule()
 
         async with salobj.Controller(
             name="Test", index=self.index
@@ -121,13 +141,11 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             assert topic_callback.remote_name == "Test"
             assert topic_callback.remote_index == self.index
             assert topic_callback.get() is None
-            assert read_severities == []
 
             controller.evt_summaryState.set_put(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
-            await asyncio.sleep(0.001)
-            assert read_severities == [AlarmSeverity.WARNING]
+            await rule.alarm.assert_next_severity(AlarmSeverity.WARNING)
 
     async def test_add_rule(self):
         model = watcher.MockModel(enabled=True)
@@ -136,8 +154,8 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
         # test that TopicCallback continues to call additional rules.
         config = types.SimpleNamespace(name=f"Test:{self.index}")
         bad_rule = BadEnabledRule(config=config)
-        rule, read_severities = self.make_enabled_rule()
-        rule2, read_severities2 = self.make_enabled_rule()
+        rule2 = self.make_enabled_rule()
+        rule3 = self.make_enabled_rule()
 
         async with salobj.Controller(
             name="Test", index=self.index
@@ -151,34 +169,28 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             topic_callback = watcher.TopicCallback(
                 topic=remote.evt_summaryState, rule=bad_rule, model=model
             )
-            topic_callback.add_rule(rule)
-
-            assert read_severities == []
-            assert read_severities2 == []
+            topic_callback.add_rule(rule2)
 
             controller.evt_summaryState.set_put(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
-            await asyncio.sleep(0.001)
-            assert bad_rule.num_callbacks == 1
-            assert read_severities == [AlarmSeverity.WARNING]
-            # rule2 has not been added so read_severities2 should be empty
-            assert read_severities2 == []
+            await bad_rule.assert_next_num_callbacks(1)
+            await rule2.alarm.assert_next_severity(AlarmSeverity.WARNING)
+            assert rule3.alarm.severity_queue.empty()
 
-            # cannot add a rule with the same name as an existing rule
+            # Cannot add rule3 because it has the same name as rule2.
             with pytest.raises(ValueError):
-                topic_callback.add_rule(rule2)
+                topic_callback.add_rule(rule3)
 
-            # modify the rule and try again
-            rule2.alarm.name = rule2.alarm.name + "modified"
-            topic_callback.add_rule(rule2)
+            # Modify the name of rule3 and try again. This should work.
+            rule3.alarm.name = rule3.alarm.name + "modified"
+            topic_callback.add_rule(rule3)
             controller.evt_summaryState.set_put(
                 summaryState=salobj.State.FAULT, force_output=True
             )
-            await asyncio.sleep(0.001)
-            assert bad_rule.num_callbacks == 2
-            assert read_severities == [AlarmSeverity.WARNING, AlarmSeverity.SERIOUS]
-            assert read_severities2 == [AlarmSeverity.SERIOUS]
+            await bad_rule.assert_next_num_callbacks(2)
+            await rule2.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
+            await rule3.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
 
     async def test_add_wrapper(self):
         filter_field = "int0"
@@ -243,8 +255,7 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
                 for i, data_dict in enumerate(data_dict_list):
                     filter_value = data_dict[filter_field]
                     controller.tel_scalars.set_put(**data_dict)
-                    await asyncio.sleep(0.001)
-                    assert bad_wrapper.num_callbacks == i + 1
+                    await bad_wrapper.assert_next_num_callbacks(i + 1)
                     wrapper_data = wrapper.get_data(filter_value)
                     assert wrapper_data is not None
                     assert wrapper_data.double0 == data_dict[data_field]

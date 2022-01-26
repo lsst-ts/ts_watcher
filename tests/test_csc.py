@@ -33,7 +33,6 @@ from lsst.ts import watcher
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
-LONG_TIMEOUT = 20  # timeout for starting SAL components (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config"
 
 # Time delta to compensate for clock jitter on Docker on macOS (sec).

@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
 import types
 import unittest
 
@@ -29,8 +28,6 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import utils
 from lsst.ts import watcher
-
-LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
 
 
 class HeartbeatWriter(salobj.topics.ControllerEvent):
@@ -46,7 +43,6 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         self.data.private_origin = self.salinfo.domain.origin
         setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)
         self._writer.write(self.data)
-        await asyncio.sleep(0.001)
 
     def put(self):
         raise NotImplementedError()
@@ -101,7 +97,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
         assert name in repr(rule)
         assert "Clock" in repr(rule)
 
-    async def test_call(self):
+    async def test_operation(self):
         name = "ScriptQueue"
         index = 5
         threshold = 0.5
@@ -131,6 +127,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 rule_name = f"Clock.{name}:{index}"
                 rule = model.rules[rule_name]
                 alarm = rule.alarm
+                alarm.init_severity_queue()
 
                 # Sending fewer than Clock.min_errors heartbeat events
                 # with excessive error should leave the alarm in its
@@ -140,27 +137,28 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 good_dt = threshold * 0.9
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
+                    await alarm.assert_next_severity(AlarmSeverity.NONE)
                     assert alarm.nominal
 
                 # The next heartbeat event with bad dt should set
                 # alarm severity to WARNING. The sign of the clock
                 # error should not matter, so try a negative error.
                 await heartbeat_writer.aput(dt=-bad_dt)
+                await alarm.assert_next_severity(AlarmSeverity.WARNING)
                 assert not alarm.nominal
                 assert alarm.severity == AlarmSeverity.WARNING
                 assert "mean" in alarm.reason
 
                 # A valid value should return alarm severity to NONE.
                 await heartbeat_writer.aput(dt=good_dt)
-                assert alarm.severity == AlarmSeverity.NONE
+                await alarm.assert_next_severity(AlarmSeverity.NONE)
 
                 # Sending fewer than Clock.min_errors heartbeat events
                 # with excessive error should leave the alarm severity
                 # at NONE
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.aput(dt=bad_dt)
-                    assert alarm.severity == AlarmSeverity.NONE
+                    await alarm.assert_next_severity(AlarmSeverity.NONE)
 
                 await heartbeat_writer.aput(dt=bad_dt)
-                assert not alarm.nominal
-                assert alarm.severity == AlarmSeverity.WARNING
+                await alarm.assert_next_severity(AlarmSeverity.WARNING)

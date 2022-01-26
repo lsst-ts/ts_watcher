@@ -1,0 +1,5 @@
+# This should pass validation but fail in the constructor
+# because there are no threshold levels for the quantity.
+min_warning_ccd_temp: null
+min_serious_ccd_temp: null
+min_critical_ccd_temp: null

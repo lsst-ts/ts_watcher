@@ -29,8 +29,6 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
-LONG_TIMEOUT = 60  # timeout for starting all watcher remotes (sec)
-
 
 class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -77,7 +75,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         assert name in repr(rule)
         assert "Heartbeat" in repr(rule)
 
-    async def test_call(self):
+    async def test_operation(self):
         name = "ScriptQueue"
         index = 5
         timeout = 0.2
@@ -107,21 +105,21 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 rule_name = f"Heartbeat.{name}:{index}"
                 rule = model.rules[rule_name]
                 alarm = rule.alarm
+                alarm.init_severity_queue()
 
                 controller.evt_heartbeat.put()
-                await asyncio.sleep(0.001)
+                await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
                 await asyncio.sleep(timeout / 2)
                 controller.evt_heartbeat.put()
-                await asyncio.sleep(0.001)
+                await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
-                await asyncio.sleep(timeout * 2)
+                await asyncio.sleep(timeout * 2.5)
+                await alarm.assert_next_severity(AlarmSeverity.SERIOUS)
                 assert not alarm.nominal
-                assert alarm.severity == AlarmSeverity.SERIOUS
                 controller.evt_heartbeat.put()
-                await asyncio.sleep(0.001)
+                await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert not alarm.nominal
-                assert alarm.severity == AlarmSeverity.NONE
                 assert alarm.max_severity == AlarmSeverity.SERIOUS
