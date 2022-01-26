@@ -11,8 +11,8 @@ v1.7.0
 
 Changes:
 
-* Use index_generator from ts_idl.
-  This requires ts_idl 1.1 or later.
+* Use index_generator from ts_utils.
+  This requires ts_utils 1.1 or later.
 * Add `ATCameraDewar` rule.
 * `Alarm`:
 
