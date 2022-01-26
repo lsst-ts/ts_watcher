@@ -337,16 +337,8 @@ class Alarm:
 
                 # If alarm is newly critical and escalation wanted,
                 # start the escalation timer.
-                if (
-                    self.severity == AlarmSeverity.CRITICAL
-                    and self.escalate_delay > 0
-                    and self.escalate_to != ""
-                ):
-                    self._cancel_escalate()
-                    # Set the timestamp here, rather than the timer method,
-                    # so it is set before the callback runs.
-                    self.timestamp_escalate = utils.current_tai() + self.escalate_delay
-                    self.escalate_task = asyncio.create_task(self._escalate_timer())
+                if self.severity == AlarmSeverity.CRITICAL:
+                    self._start_escalation_timer()
 
         self._run_callback()
         return True
@@ -374,7 +366,7 @@ class Alarm:
         self.acknowledged_by = ""
         self.timestamp_acknowledged = curr_tai
         if escalate and self.max_severity == AlarmSeverity.CRITICAL:
-            self.escalate_task = asyncio.create_task(self._escalate_timer())
+            self._start_escalation_timer()
 
         self._run_callback()
         return True
@@ -492,7 +484,7 @@ class Alarm:
             self.callback(self)
 
     def _start_auto_acknowledge_timer(self):
-        """Start the auto_acknowledge timer."""
+        """Start or restart the auto_acknowledge timer."""
         self.auto_unacknowledge_task.cancel()
         # Set the timestamp here, rather than the timer method,
         # so it is set before the background task starts.
@@ -502,3 +494,17 @@ class Alarm:
         self.auto_unacknowledge_task = asyncio.create_task(
             self._auto_unacknowledge_timer()
         )
+
+    def _start_escalation_timer(self):
+        """Start or restart the escalation timer, if escalation configured.
+
+        A no-op if escalation is not configured.
+        """
+        if self.escalate_delay <= 0 or self.escalate_to == "":
+            # Escalation not configured
+            return
+        self._cancel_escalate()
+        # Set the timestamp here, rather than the timer method,
+        # so it is set before the callback runs.
+        self.timestamp_escalate = utils.current_tai() + self.escalate_delay
+        self.escalate_task = asyncio.create_task(self._escalate_timer())
