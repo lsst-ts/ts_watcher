@@ -104,6 +104,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
+            rule.alarm.init_severity_queue()
 
             model.enable()
 
@@ -130,26 +131,15 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
                     ) in threshold_handler.get_test_value_severities():
                         rule.reset_all()
                         data_dict[field_name] = value
-                        rule.start_call_counter(num_message - 1)
-                        t0 = utils.current_tai()
                         for i in range(num_message - 1):
                             controller.tel_vacuum.set_put(**data_dict)
-                        await asyncio.wait_for(
-                            rule.call_counter_task, timeout=STD_TIMEOUT
-                        )
-                        dt = utils.current_tai() - t0
-                        print(f"Write {num_message - 1} messages in {dt:0.2f} seconds")
+                            await rule.alarm.assert_next_severity(AlarmSeverity.NONE)
                         assert not rule.had_enough_data
                         assert rule.alarm.nominal
-                        assert rule.alarm.severity == AlarmSeverity.NONE
 
-                        rule.start_call_counter(1)
                         controller.tel_vacuum.set_put(**data_dict)
-                        await asyncio.wait_for(
-                            rule.call_counter_task, timeout=STD_TIMEOUT
-                        )
+                        await rule.alarm.assert_next_severity(expected_severity)
                         assert rule.had_enough_data
-                        assert rule.alarm.severity == expected_severity
 
             # Test that seeing no data for max_data_age
             # triggers a SERIOUS alarm.
@@ -158,11 +148,10 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             rule.reset_all()
             assert rule.alarm.nominal
             assert rule.alarm.severity == AlarmSeverity.NONE
-            await asyncio.wait_for(
-                rule.no_data_timer_task, timeout=5 * short_max_data_age
-            )
+            await asyncio.sleep(short_max_data_age)
+            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
+            assert not rule.had_enough_data
             assert not rule.alarm.nominal
-            assert rule.alarm.severity == AlarmSeverity.SERIOUS
 
     async def test_windowing(self):
         """Test that only data within the specified time window is used.
@@ -201,6 +190,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
         ) as model:
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
+            rule.alarm.init_severity_queue()
             assert rule.alarm.nominal
 
             model.enable()
@@ -229,11 +219,17 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             num_bad_message = min_values * 2
             num_good_message = min_values
 
-            rule.start_call_counter(num_bad_message)
             for i in range(num_bad_message):
+                num_values = i + 1
                 controller.tel_vacuum.set_put(**seriously_bad_data_dict)
+                should_have_enough_data = num_values >= min_values
+                if should_have_enough_data:
+                    expected_severity = AlarmSeverity.SERIOUS
+                else:
+                    expected_severity = AlarmSeverity.NONE
+                await rule.alarm.assert_next_severity(expected_severity)
+                assert rule.had_enough_data == should_have_enough_data
             bad_end_timestamp = controller.tel_vacuum.data.private_sndStamp
-            await asyncio.wait_for(rule.call_counter_task, timeout=STD_TIMEOUT)
 
             assert rule.had_enough_data
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
@@ -255,10 +251,9 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # so all measurements should be reporting serious alarms
             # (despite the mix of bad data and nominal data, because
             # the rule uses median and there is more bad data).
-            rule.start_call_counter(num_good_message)
             for i in range(num_good_message):
                 controller.tel_vacuum.set_put(**nominal_data_dict)
-            await asyncio.wait_for(rule.call_counter_task, timeout=STD_TIMEOUT)
+                await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
             temperature_expiry_duration = (
                 bad_temperature_expiry_tai + 0.1 - utils.current_tai()
             )
@@ -277,9 +272,8 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # At this point the temperature data should have expired
             # but the vacuum data should not.
             # We have to put data to see the effects of that expiration.
-            rule.start_call_counter(1)
             controller.tel_vacuum.set_put(**nominal_data_dict)
-            await asyncio.wait_for(rule.call_counter_task, timeout=STD_TIMEOUT)
+            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
 
             vacuum_expiry_duration = bad_vacuum_expiry_tai > utils.current_tai()
             print(f"vacuum_expiry_duration={vacuum_expiry_duration:0.2f}; must be >0")
@@ -300,8 +294,5 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
 
             # At this point all bad data should have expired
             # We have to put data to see the effects of that expiration.
-            rule.start_call_counter(1)
             controller.tel_vacuum.set_put(**nominal_data_dict)
-            await asyncio.wait_for(rule.call_counter_task, timeout=STD_TIMEOUT)
-            assert rule.had_enough_data
-            assert rule.alarm.severity == AlarmSeverity.NONE
+            await rule.alarm.assert_next_severity(AlarmSeverity.NONE)

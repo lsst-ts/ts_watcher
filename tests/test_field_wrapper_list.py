@@ -32,6 +32,9 @@ from lsst.ts import watcher
 
 index_gen = utils.index_generator()
 
+# Timeout for basic operations (seconds)
+STD_TIMEOUT = 5
+
 
 class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -86,24 +89,30 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 """Return a random list of valid_array_len float32."""
                 return list(rng.random(valid_array_len, dtype=np.float32))
 
-            async def write_scalar(filter_value):
+            async def write_scalar(filter_value, scalar_topic_wrapper):
                 """Write random data for the scalar_data_field of the
                 scalar topic and return that data.
                 """
                 scalar_data = random_scalar()
                 data_dict = {filter_field: filter_value, scalar_data_field: scalar_data}
+                scalar_topic_wrapper.call_event.clear()
                 controller_scalar_topic.set_put(**data_dict)
-                await asyncio.sleep(0.001)
+                await asyncio.wait_for(
+                    scalar_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
+                )
                 return scalar_data
 
-            async def write_array(filter_value):
+            async def write_array(filter_value, array_topic_wrapper):
                 """Write random data for the array_data_field of the
                 array topic and return that data.
                 """
                 array_data = random_array() + [math.nan] * nan_array_len
                 data_dict = {filter_field: filter_value, array_data_field: array_data}
+                array_topic_wrapper.call_event.clear()
                 controller_array_topic.set_put(**data_dict)
-                await asyncio.sleep(0.001)
+                await asyncio.wait_for(
+                    array_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
+                )
                 return array_data
 
             wrapper_list = watcher.FieldWrapperList()
@@ -116,6 +125,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 field_name=scalar_data_field,
             )
             wrapper_list.add_wrapper(scalar_field_wrapper)
+            scalar_topic_wrapper = scalar_field_wrapper.topic_wrapper
 
             # Array field wrapper; all elements
             array_field_wrapper = watcher.FilteredEssFieldWrapper(
@@ -125,6 +135,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 field_name=array_data_field,
             )
             wrapper_list.add_wrapper(array_field_wrapper)
+            array_topic_wrapper = array_field_wrapper.topic_wrapper
 
             # Array field wrapper; a subset of elements
             indexed_field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
@@ -141,23 +152,21 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Write scalar and array data for the other value of filter_field;
             # the field wrapper list should ignore it.
-            await write_scalar(other_filter_value)
-            await write_array(other_filter_value)
-
+            await write_scalar(other_filter_value, scalar_topic_wrapper)
+            await write_array(other_filter_value, array_topic_wrapper)
             data = wrapper_list.get_data()
             assert data == []
 
             # Write scalar data for this value of filter_field;
             # that data should appear in the output.
-            scalar_data = await write_scalar(this_filter_value)
-
+            scalar_data = await write_scalar(this_filter_value, scalar_topic_wrapper)
             data = wrapper_list.get_data()
             assert len(data) == 1
             assert data[0] == (scalar_data, scalar_field_wrapper, None)
 
             # Send data for the array;
             # Now all values should be present
-            array_data = await write_array(this_filter_value)
+            array_data = await write_array(this_filter_value, array_topic_wrapper)
             assert len(array_data) == array_len  # paranoia
             data = wrapper_list.get_data()
             # We expect the following data (in order):

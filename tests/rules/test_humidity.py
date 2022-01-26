@@ -115,6 +115,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         ) as model:
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
+            rule.alarm.init_severity_queue()
             assert rule.alarm.nominal
 
             model.enable()
@@ -138,6 +139,9 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             # other than those the rule is listening to.
             # This should not affect the rule.
             await send_ess_data(humidity=100, use_other_filter_values=True)
+            # Give the rule time to deal with all of the new data.
+            await asyncio.sleep(poll_interval)
+            await rule.alarm.assert_next_severity(AlarmSeverity.NONE, flush=True)
             assert rule.alarm.nominal
 
             # Check a sequence of humidities
@@ -146,11 +150,14 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(humidity=humidity)
-                await asyncio.sleep(poll_interval * 2.1)
-                assert rule.alarm.severity == expected_severity
+                # Give the rule time to deal with all of the new data.
+                await asyncio.sleep(poll_interval)
+                await rule.alarm.assert_next_severity(expected_severity, flush=True)
 
-            await asyncio.sleep(max_data_age + poll_interval * 2.1)
-            assert rule.alarm.severity == AlarmSeverity.SERIOUS
+            # Check that no data for max_data_age triggers severity=SERIOUS.
+            assert rule.alarm.severity != AlarmSeverity.SERIOUS
+            await asyncio.sleep(max_data_age + poll_interval * 2)
+            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
 
     async def send_ess_data(
         self,
@@ -218,4 +225,3 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                     f"(sensorName={filter_value!r}, {data_dict})"
                 )
             topic.set_put(sensorName=filter_value, **data_dict)
-            await asyncio.sleep(0.001)

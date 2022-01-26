@@ -29,6 +29,9 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
+# Timeout for normal operations (seconds)
+STD_TIMEOUT = 5
+
 
 class GetRuleClassTestCase(unittest.TestCase):
     """Test `lsst.ts.watcher.get_rule_class`."""
@@ -101,7 +104,8 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             alarm_callback=self.alarm_callback,
         )
 
-        for name in self.model.rules:
+        for name, rule in self.model.rules.items():
+            rule.alarm.init_severity_queue()
             self.read_severities[name] = []
             self.read_max_severities[name] = []
 
@@ -146,10 +150,20 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
     async def write_states(self, index, states):
         """Write a sequence of summary states to a specified controller."""
         controller = self.controllers[index]
+        controller_name_index = f"{controller.salinfo.name}:{controller.salinfo.index}"
+        rule_name = f"Enabled.{controller_name_index}"
+        rule = self.model.rules[rule_name]
         for state in states:
             controller.evt_summaryState.set_put(summaryState=state, force_output=True)
-            # give the remote a chance to read the data
-            await asyncio.sleep(0.01)
+            if self.model.enabled:
+                await asyncio.wait_for(
+                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                )
+                assert rule.alarm.severity_queue.empty()
+            else:
+                # We don't have any event we can wait for, so sleep a bit
+                # to give the model time to react to the data.
+                await asyncio.sleep(0.1)
 
     def assert_muted(self, alarm, muted_severity, muted_by):
         """Assert that the specified alarm is muted.
@@ -273,6 +287,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 await self.write_states(
                     index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
                 )
+
             for name, rule in self.model.rules.items():
                 assert rule.alarm.nominal
                 assert self.read_severities[name] == []
@@ -285,6 +300,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             self.model.enable()
             await self.model.enable_task
             for name, rule in self.model.rules.items():
+                await rule.alarm.assert_next_severity(AlarmSeverity.WARNING)
                 assert not rule.alarm.nominal
                 assert rule.alarm.severity == AlarmSeverity.WARNING
                 assert rule.alarm.max_severity == AlarmSeverity.WARNING
@@ -296,6 +312,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 await self.write_states(
                     index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
                 )
+
             for name, rule in self.model.rules.items():
                 assert not rule.alarm.nominal
                 assert rule.alarm.severity == AlarmSeverity.WARNING

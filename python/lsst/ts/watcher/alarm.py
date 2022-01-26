@@ -26,6 +26,9 @@ import asyncio
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
 
+# Default timeout for Alarm.assert_next_severity
+DEFAULT_NEXT_SEVERITY_TIMEOUT = 10
+
 
 class Alarm:
     """A Watcher alarm.
@@ -36,6 +39,32 @@ class Alarm:
         Name of alarm. This must be unique among all alarms
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
+
+    Attributes
+    ----------
+    name : `str`
+        Name of alarm.
+    callback : callable, optional
+        A function to call when the alarm state changes.
+        The function receives one argument: this alarm.
+        None (the default) means no callback.
+    auto_acknowledge_delay : `float`
+        The delay (seconds) after which an alarm will be automatically
+        acknowledged. Never if 0 (the default).
+    auto_unacknowledge_delay : `float`
+        The delay (seconds) after which an alarm will be automatically
+        unacknowleddged. Never if 0 (the default).
+    escalate_to : `str`
+        Who to escalate this alarm to. Do not escalate if blank (the default).
+    escalate_delay : `float`
+        If an alarm goes to critical state and remains unacknowledged
+        for this period of time (seconds), the alarm should be escalated.
+        Do not escalate if 0 (the default).
+    severity_queue : `asyncio.Queue` or `None`
+        Intended only for unit tests.
+        Defaults to None. If a unit test sets this
+        to an asyncio.Queue then `__call__` will
+        queue a severity every time it runs successfully.
     """
 
     # Field to ignore when testing for equality.
@@ -45,6 +74,7 @@ class Alarm:
             "auto_unacknowledge_task",
             "escalate_task",
             "unmute_task",
+            "severity_queue",
         )
     )
 
@@ -59,6 +89,7 @@ class Alarm:
         self.auto_unacknowledge_task = utils.make_done_future()
         self.escalate_task = utils.make_done_future()
         self.unmute_task = utils.make_done_future()
+        self.severity_queue = None
         self.reset()
 
     @property
@@ -272,6 +303,11 @@ class Alarm:
     def set_severity(self, severity, reason):
         """Set the severity.
 
+        Call the callback function unless the alarm was nominal
+        and remains nominal.
+        Put the new severity on the severity queue (if it exists),
+        regardless of whether the alarm was nominal.
+
         Parameters
         ----------
         severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
@@ -290,6 +326,8 @@ class Alarm:
         if severity == AlarmSeverity.NONE and self.nominal:
             # Ignore NONE severity when the alarm is already nominal
             # (meaning severity and max_severity are both NONE).
+            if self.severity_queue is not None:
+                self.severity_queue.put_nowait(severity)
             return False
 
         curr_tai = utils.current_tai()
@@ -337,17 +375,11 @@ class Alarm:
 
                 # If alarm is newly critical and escalation wanted,
                 # start the escalation timer.
-                if (
-                    self.severity == AlarmSeverity.CRITICAL
-                    and self.escalate_delay > 0
-                    and self.escalate_to != ""
-                ):
-                    self._cancel_escalate()
-                    # Set the timestamp here, rather than the timer method,
-                    # so it is set before the callback runs.
-                    self.timestamp_escalate = utils.current_tai() + self.escalate_delay
-                    self.escalate_task = asyncio.create_task(self._escalate_timer())
+                if self.severity == AlarmSeverity.CRITICAL:
+                    self._start_escalation_timer()
 
+        if self.severity_queue is not None:
+            self.severity_queue.put_nowait(severity)
         self._run_callback()
         return True
 
@@ -374,7 +406,7 @@ class Alarm:
         self.acknowledged_by = ""
         self.timestamp_acknowledged = curr_tai
         if escalate and self.max_severity == AlarmSeverity.CRITICAL:
-            self.escalate_task = asyncio.create_task(self._escalate_timer())
+            self._start_escalation_timer()
 
         self._run_callback()
         return True
@@ -405,10 +437,93 @@ class Alarm:
             error_str = ", ".join(diffs)
             raise AssertionError(error_str)
 
+    async def assert_next_severity(
+        self,
+        expected_severity,
+        check_empty=True,
+        flush=False,
+        timeout=DEFAULT_NEXT_SEVERITY_TIMEOUT,
+    ):
+        """Wait for and check the next severity.
+
+        Only intended for tests.
+        In order to call this you must first call `init_severity_queue`
+        (once) to set up a severity queue.
+
+        Parameters
+        ----------
+        expected_severity : `AlarmSeverity`
+            The expected severity.
+        check_empty : `bool`, optional
+            If true (the default): check that the severity queue is empty,
+            after getting the severity.
+        flush : `bool`, optional
+            If true (not the default): flush all existing values
+            from the queue, then wait for the next severity.
+            This is useful for polling alarms.
+        timeout : `float`, optional
+            Maximum time to wait (seconds)
+
+        Raises
+        ------
+        AssertionError
+            If the severity is not as expected, or if ``check_empty`` true
+            and there are additional queued severities.
+        asyncio.TimeoutError
+            If no new severity is seen in time.
+        RuntimeError
+            If you never called `init_severity_queue`.
+
+        Notes
+        -----
+        Here is the typical way to use this method:
+        * Create a rule
+        * Call `rule.alarm.init_severity_queue()`
+        * Write SAL messages that are expected to change the alarm severity.
+        * After writing each such message, call::
+
+            await rule.alarm.assert_next_severity(expected_severity)
+        """
+        if self.severity_queue is None:
+            raise RuntimeError(
+                "No severity queue; you must call init_severity_queue "
+                "(once) before calling assert_next_severity"
+            )
+        if flush:
+            while not self.severity_queue.empty():
+                self.severity_queue.get_nowait()
+        severity = await asyncio.wait_for(self.severity_queue.get(), timeout=timeout)
+        if check_empty:
+            extra_severities = [
+                self.severity_queue.get_nowait()
+                for i in range(self.severity_queue.qsize())
+            ]
+            if extra_severities:
+                raise AssertionError(
+                    f"severity_queue was not empty; it contained {extra_severities}"
+                )
+        if severity != expected_severity:
+            raise AssertionError(
+                f"severity={severity!r} != expected_severity{expected_severity!r}"
+            )
+
+    def init_severity_queue(self):
+        """Initialize the severity queue.
+
+        You must call this once before calling `assert_next_severity`.
+        You may call it again to reset the queue, but that is uncommon.
+
+        Warnings
+        --------
+        Only tests should call this method.
+        Calling this in production code will cause a memory leak.
+        """
+        self.severity_queue = asyncio.Queue()
+
     def __eq__(self, other):
         """Return True if two alarms are the same, including state.
 
-        All fields are compared except task fields.
+        All fields are compared except task fields and the severity queue.
 
         Primarily intended for unit testing, though `assert_equal`
         gives more useful output.
@@ -492,7 +607,7 @@ class Alarm:
             self.callback(self)
 
     def _start_auto_acknowledge_timer(self):
-        """Start the auto_acknowledge timer."""
+        """Start or restart the auto_acknowledge timer."""
         self.auto_unacknowledge_task.cancel()
         # Set the timestamp here, rather than the timer method,
         # so it is set before the background task starts.
@@ -502,3 +617,17 @@ class Alarm:
         self.auto_unacknowledge_task = asyncio.create_task(
             self._auto_unacknowledge_timer()
         )
+
+    def _start_escalation_timer(self):
+        """Start or restart the escalation timer, if escalation configured.
+
+        A no-op if escalation is not configured.
+        """
+        if self.escalate_delay <= 0 or self.escalate_to == "":
+            # Escalation not configured
+            return
+        self._cancel_escalate()
+        # Set the timestamp here, rather than the timer method,
+        # so it is set before the callback runs.
+        self.timestamp_escalate = utils.current_tai() + self.escalate_delay
+        self.escalate_task = asyncio.create_task(self._escalate_timer())

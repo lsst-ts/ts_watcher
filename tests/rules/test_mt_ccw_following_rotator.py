@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
 import types
 import unittest
 
@@ -48,7 +47,7 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
         assert remote_info.name == "MTMount"
         assert remote_info.index == 0
 
-    async def test_call(self):
+    async def test_operation(self):
         watcher_config_dict = yaml.safe_load(
             """
             disabled_sal_components: []
@@ -71,26 +70,15 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
 
                 assert len(model.rules) == 1
                 rule = model.rules["MTCCWFollowingRotator"]
+                rule.alarm.init_severity_queue()
 
-                read_severities = []
-
-                def alarm_callback(alarm):
-                    nonlocal read_severities
-                    read_severities.append(alarm.severity)
-
-                rule.alarm.callback = alarm_callback
-
-                expected_severities = []
                 for following_enabled in (False, True, False, True, False):
                     if following_enabled:
-                        expected_severities.append(AlarmSeverity.NONE)
+                        expected_severity = AlarmSeverity.NONE
                     else:
-                        expected_severities.append(AlarmSeverity.WARNING)
+                        expected_severity = AlarmSeverity.WARNING
 
                     controller.evt_cameraCableWrapFollowing.set_put(
                         enabled=following_enabled, force_output=True
                     )
-                    # give the remote a chance to read the data
-                    await asyncio.sleep(0.001)
-
-                assert read_severities == expected_severities
+                    await rule.alarm.assert_next_severity(expected_severity)
