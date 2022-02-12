@@ -26,12 +26,15 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v1
+title: Watcher v2
 description: Configuration for the Watcher
 type: object
-# Do not require disabled_sal_components and other properties with defaults
-# to avoid failed validation.
-required: [rules]
+required:
+  - disabled_sal_components
+  - auto_acknowledge_delay
+  - auto_unacknowledge_delay
+  - rules
+  - escalation
 additionalProperties: false
 properties:
   disabled_sal_components:
