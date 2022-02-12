@@ -45,6 +45,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "atcamera_dewar"
         )
 

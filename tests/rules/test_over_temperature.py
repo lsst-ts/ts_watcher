@@ -48,6 +48,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "over_temperature"
         )
         # Number of values to set to real temperatures; the rest are NaN.

@@ -47,6 +47,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "humidity"
         )
         # Number of values to set to real temperatures; the rest are NaN.
