@@ -43,10 +43,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         The initial state of the CSC. This is provided for unit testing,
         as real CSCs should start up in `lsst.ts.salobj.StateSTANDBY`,
         the default.
-    settings_to_apply : `str`, optional
-        Settings to apply if ``initial_state`` is `State.DISABLED`
-        or `State.ENABLED` (in which case a non-empty value is required
-        for this CSC).
+    override : `str`, optional
+        Configuration override to use if ``initial_state`` is `State.DISABLED`
+        or `State.ENABLED`.
 
     Raises
     ------
@@ -60,7 +59,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     version = __version__
 
     def __init__(
-        self, config_dir=None, initial_state=salobj.State.STANDBY, settings_to_apply=""
+        self, config_dir=None, initial_state=salobj.State.STANDBY, override=""
     ):
         # the Watcher model is created when the CSC is configured
         self.model = None
@@ -70,7 +69,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             config_schema=CONFIG_SCHEMA,
             config_dir=config_dir,
             initial_state=initial_state,
-            settings_to_apply=settings_to_apply,
+            override=override,
         )
 
     @staticmethod

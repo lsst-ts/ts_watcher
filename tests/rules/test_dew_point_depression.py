@@ -48,6 +48,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "dew_point_depression"
         )
         # Number of values to set to real temperatures; the rest are NaN.

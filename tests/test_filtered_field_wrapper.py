@@ -150,8 +150,8 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         assert expected_location_str in value_descr
 
     async def test_array_ess_field(self):
-        """Test `FilteredEssFieldWrapper` and `IndexedFilteredEssFieldWrapper` with
-        an array field.
+        """Test `FilteredEssFieldWrapper` and `IndexedFilteredEssFieldWrapper`
+        with an array field.
         """
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"

@@ -1,0 +1,5 @@
+escalation:
+- alarms: [Enabled.AT*]
+  to: stella
+  delay: 1
+  extra_escalation_field: arbitrary_data
