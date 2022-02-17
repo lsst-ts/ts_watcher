@@ -122,7 +122,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                     else:
                         expected_severity = AlarmSeverity.WARNING
 
-                    controller.evt_summaryState.set_put(
+                    await controller.evt_summaryState.set_write(
                         summaryState=state, force_output=True
                     )
                     severity = await asyncio.wait_for(

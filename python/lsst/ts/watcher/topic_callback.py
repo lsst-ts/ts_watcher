@@ -125,7 +125,7 @@ class TopicCallback:
         """
         return self._topic.get()
 
-    def __call__(self, value):
+    async def __call__(self, value):
         if not self.model.enabled:
             return
         for wrapper in self.topic_wrappers:
@@ -139,7 +139,7 @@ class TopicCallback:
         for rule in self.rules.values():
             try:
                 severity, reason = rule(self)
-                rule.alarm.set_severity(severity=severity, reason=reason)
+                await rule.alarm.set_severity(severity=severity, reason=reason)
             except Exception:
                 self._topic.log.exception(
                     f"Error calling rule {rule} with value {value!s}"

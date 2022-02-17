@@ -133,12 +133,12 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
                         rule.reset_all()
                         data_dict[field_name] = value
                         for i in range(num_message - 1):
-                            controller.tel_vacuum.set_put(**data_dict)
+                            await controller.tel_vacuum.set_write(**data_dict)
                             await rule.alarm.assert_next_severity(AlarmSeverity.NONE)
                         assert not rule.had_enough_data
                         assert rule.alarm.nominal
 
-                        controller.tel_vacuum.set_put(**data_dict)
+                        await controller.tel_vacuum.set_write(**data_dict)
                         await rule.alarm.assert_next_severity(expected_severity)
                         assert rule.had_enough_data
 
@@ -222,7 +222,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
 
             for i in range(num_bad_message):
                 num_values = i + 1
-                controller.tel_vacuum.set_put(**seriously_bad_data_dict)
+                await controller.tel_vacuum.set_write(**seriously_bad_data_dict)
                 should_have_enough_data = num_values >= min_values
                 if should_have_enough_data:
                     expected_severity = AlarmSeverity.SERIOUS
@@ -253,7 +253,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # (despite the mix of bad data and nominal data, because
             # the rule uses median and there is more bad data).
             for i in range(num_good_message):
-                controller.tel_vacuum.set_put(**nominal_data_dict)
+                await controller.tel_vacuum.set_write(**nominal_data_dict)
                 await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
             temperature_expiry_duration = (
                 bad_temperature_expiry_tai + 0.1 - utils.current_tai()
@@ -273,7 +273,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # At this point the temperature data should have expired
             # but the vacuum data should not.
             # We have to put data to see the effects of that expiration.
-            controller.tel_vacuum.set_put(**nominal_data_dict)
+            await controller.tel_vacuum.set_write(**nominal_data_dict)
             await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
 
             vacuum_expiry_duration = bad_vacuum_expiry_tai > utils.current_tai()
@@ -295,5 +295,5 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
 
             # At this point all bad data should have expired
             # We have to put data to see the effects of that expiration.
-            controller.tel_vacuum.set_put(**nominal_data_dict)
+            await controller.tel_vacuum.set_write(**nominal_data_dict)
             await rule.alarm.assert_next_severity(AlarmSeverity.NONE)

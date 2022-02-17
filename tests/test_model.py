@@ -62,7 +62,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_random_lsst_dds_partition_prefix()
 
     @contextlib.asynccontextmanager
-    async def make_model(self, names, enable, escalation=()):
+    async def make_model(self, names, enable, escalation=(), use_bad_callback=False):
         """Make a Model as self.model, with one or more Enabled rules.
 
         Parameters
@@ -76,6 +76,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         escalation : `list` of `dict`, optional
             Escalation information.
             See `CONFIG_SCHEMA` for the format of entries.
+        use_bad_callback : `bool`
+            If True then specify an invalid callback function:
+            one that is synchronous. This should raise TypeError.
         """
         if not names:
             raise ValueError("Must specify one or more CSCs")
@@ -98,10 +101,20 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         for name_index in names:
             name, index = salobj.name_to_name_index(name_index)
             self.controllers.append(salobj.Controller(name=name, index=index))
+
+        if use_bad_callback:
+
+            def bad_callback():
+                pass
+
+            alarm_callback = bad_callback
+        else:
+            alarm_callback = self.alarm_callback
+
         self.model = watcher.Model(
             domain=self.controllers[0].domain,
             config=watcher_config,
-            alarm_callback=self.alarm_callback,
+            alarm_callback=alarm_callback,
         )
 
         for name, rule in self.model.rules.items():
@@ -133,7 +146,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             ]
             await asyncio.gather(*controller_close_tasks)
 
-    def alarm_callback(self, alarm):
+    async def alarm_callback(self, alarm):
         """Callback function for each alarm.
 
         Updates self.read_severities and self.read_max_severities,
@@ -154,7 +167,9 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         rule_name = f"Enabled.{controller_name_index}"
         rule = self.model.rules[rule_name]
         for state in states:
-            controller.evt_summaryState.set_put(summaryState=state, force_output=True)
+            await controller.evt_summaryState.set_write(
+                summaryState=state, force_output=True
+            )
             if self.model.enabled:
                 await asyncio.wait_for(
                     rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
@@ -193,6 +208,14 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         assert alarm.muted_severity == AlarmSeverity.NONE
         assert alarm.muted_by == ""
 
+    async def test_constructor_bad_callback(self):
+        remote_names = ["ScriptQueue:5", "Test:7"]
+        with pytest.raises(TypeError):
+            async with self.make_model(
+                names=remote_names, enable=False, use_bad_callback=True
+            ):
+                pass
+
     async def test_acknowledge_full_name(self):
         user = "test_ack_alarm"
         remote_names = ["ScriptQueue:5", "Test:7"]
@@ -212,7 +235,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 assert rule.alarm.max_severity == AlarmSeverity.WARNING
 
             # Acknowledge one rule by full name but not the other.
-            self.model.acknowledge_alarm(
+            await self.model.acknowledge_alarm(
                 name=full_rule_name, severity=AlarmSeverity.WARNING, user=user
             )
             for name, rule in self.model.rules.items():
@@ -241,7 +264,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 assert rule.alarm.max_severity == AlarmSeverity.WARNING
 
             # Acknowledge the ScriptQueue alarms but not Test.
-            self.model.acknowledge_alarm(
+            await self.model.acknowledge_alarm(
                 name="Enabled.ScriptQueue:*", severity=AlarmSeverity.WARNING, user=user
             )
             for name, rule in self.model.rules.items():
@@ -391,7 +414,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             assert full_rule_name in self.model.rules
 
             # Mute one rule by full name.
-            self.model.mute_alarm(
+            await self.model.mute_alarm(
                 name=full_rule_name,
                 duration=5,
                 severity=AlarmSeverity.WARNING,
@@ -406,7 +429,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                     self.assert_not_muted(rule.alarm)
 
             # Nnmute one rule by full name.
-            self.model.unmute_alarm(name=full_rule_name)
+            await self.model.unmute_alarm(name=full_rule_name)
             for rule in self.model.rules.values():
                 self.assert_not_muted(rule.alarm)
 
@@ -420,7 +443,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             assert len(self.model.rules) == nrules
 
             # Mute the ScriptQueue alarms but not Test.
-            self.model.mute_alarm(
+            await self.model.mute_alarm(
                 name="Enabled.ScriptQueue.*",
                 duration=5,
                 severity=AlarmSeverity.WARNING,
@@ -435,6 +458,6 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                     self.assert_not_muted(rule.alarm)
 
             # Unmute the ScriptQueue alarms but not Test.
-            self.model.unmute_alarm(name="Enabled.ScriptQueue.*")
+            await self.model.unmute_alarm(name="Enabled.ScriptQueue.*")
             for rule in self.model.rules.values():
                 self.assert_not_muted(rule.alarm)

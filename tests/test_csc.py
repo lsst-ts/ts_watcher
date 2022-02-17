@@ -146,7 +146,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Check that the CSC can still be configured.
             # This also exercises specifying a rule with no configuration.
             await self.remote.cmd_start.set_start(
-                override="basic.yaml", timeout=STD_TIMEOUT
+                configurationOverride="basic.yaml", timeout=STD_TIMEOUT
             )
 
     async def test_standard_state_transitions(self):
@@ -262,7 +262,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 salinfo=atdome_salinfo, name="summaryState"
             )
 
-            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -271,7 +273,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            atdome_state.set_put(summaryState=salobj.State.FAULT, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.FAULT, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.SERIOUS,
@@ -295,7 +299,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set the state to ENABLED; this should reset the alarm.
-            atdome_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -336,7 +342,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Make the ATDome alarm stale.
-            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -345,7 +353,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            atdome_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -368,7 +378,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert dt0 >= expected_auto_acknowledge_delay - TIME_EPSILON
 
             # Make the ATDome alarm acknowledged and not stale
-            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -438,7 +450,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Fire the ATDome alarm.
-            atdome_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -448,7 +462,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Fire the ScriptQueue:2 alarm.
-            scriptqueue_state.set_put(
+            await scriptqueue_state.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -496,7 +510,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set ATDome state to ENABLED; this should reset the alarm.
-            atdome_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await atdome_state.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -626,7 +642,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Send alarm 1 to severity warning.
-            sq1_state.set_put(summaryState=salobj.State.DISABLED, force_output=True)
+            await sq1_state.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=alarm_name1,
                 severity=AlarmSeverity.WARNING,
@@ -666,7 +684,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Unacknowledge a reset alarm;
             # this should not trigger an alarm event.
-            sq1_state.set_put(summaryState=salobj.State.ENABLED, force_output=True)
+            await sq1_state.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
             await self.assert_next_alarm(
                 name=alarm_name1,
                 severity=AlarmSeverity.NONE,

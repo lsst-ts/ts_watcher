@@ -103,14 +103,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         elif self.model is not None:
             self.model.disable()
 
-    def output_alarm(self, alarm):
+    async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
         if self.summary_state != salobj.State.ENABLED:
             return
         # Do not set timestampSeverityNewest because it causes
         # too many unwanted messages. In the long run remove
         # that field from ts_xml.
-        self.evt_alarm.set_put(
+        await self.evt_alarm.set_write(
             name=alarm.name,
             severity=alarm.severity,
             reason=alarm.reason,
@@ -134,16 +134,16 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def handle_summary_state(self):
         self._enable_or_disable_model()
 
-    def do_acknowledge(self, data):
+    async def do_acknowledge(self, data):
         self.assert_enabled()
-        self.model.acknowledge_alarm(
+        await self.model.acknowledge_alarm(
             name=data.name, severity=data.severity, user=data.acknowledgedBy
         )
 
-    def do_mute(self, data):
+    async def do_mute(self, data):
         """Mute one or more alarms."""
         self.assert_enabled()
-        self.model.mute_alarm(
+        await self.model.mute_alarm(
             name=data.name,
             duration=data.duration,
             severity=data.severity,
@@ -170,15 +170,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
             if alarm.nominal:
                 # The alarm became inactive while this command was running.
                 continue
-            self.output_alarm(alarm)
+            await self.output_alarm(alarm)
             await asyncio.sleep(0.001)
 
-    def do_unacknowledge(self, data):
+    async def do_unacknowledge(self, data):
         """Unacknowledge one or more alarms."""
         self.assert_enabled()
-        self.model.unacknowledge_alarm(name=data.name)
+        await self.model.unacknowledge_alarm(name=data.name)
 
-    def do_unmute(self, data):
+    async def do_unmute(self, data):
         """Unmute one or more alarms."""
         self.assert_enabled()
-        self.model.unmute_alarm(name=data.name)
+        await self.model.unmute_alarm(name=data.name)

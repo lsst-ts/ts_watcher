@@ -225,4 +225,4 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, {data_dict})"
                 )
-            topic.set_put(sensorName=filter_value, **data_dict)
+            await topic.set_write(sensorName=filter_value, **data_dict)
