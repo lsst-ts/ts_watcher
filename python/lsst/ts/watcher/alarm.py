@@ -22,6 +22,7 @@
 __all__ = ["Alarm"]
 
 import asyncio
+import inspect
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
@@ -44,10 +45,6 @@ class Alarm:
     ----------
     name : `str`
         Name of alarm.
-    callback : callable, optional
-        A function to call when the alarm state changes.
-        The function receives one argument: this alarm.
-        None (the default) means no callback.
     auto_acknowledge_delay : `float`
         The delay (seconds) after which an alarm will be automatically
         acknowledged. Never if 0 (the default).
@@ -80,7 +77,7 @@ class Alarm:
 
     def __init__(self, name):
         self.name = name
-        self.callback = None
+        self._callback = None
         self.auto_acknowledge_delay = 0
         self.auto_unacknowledge_delay = 0
         self.escalate_to = ""
@@ -163,7 +160,7 @@ class Alarm:
         self._cancel_escalate()
         self._cancel_unmute()
 
-    def acknowledge(self, severity, user):
+    async def acknowledge(self, severity, user):
         """Acknowledge the alarm.
 
         Almost a no-op if nominal or acknowledged.
@@ -229,10 +226,10 @@ class Alarm:
         self.timestamp_acknowledged = curr_tai
         self.timestamp_max_severity = curr_tai
 
-        self._run_callback()
+        await self._run_callback()
         return True
 
-    def mute(self, duration, severity, user):
+    async def mute(self, duration, severity, user):
         """Mute this alarm for a specified duration and severity.
 
         Parameters
@@ -267,12 +264,12 @@ class Alarm:
         self.muted_severity = severity
         self.timestamp_unmute = utils.current_tai() + duration
         self.unmute_task = asyncio.create_task(self._unmute_timer(duration=duration))
-        self._run_callback()
+        await self._run_callback()
 
-    def unmute(self):
+    async def unmute(self):
         """Unmute this alarm."""
         self._cancel_unmute()
-        self._run_callback()
+        await self._run_callback()
 
     def reset(self):
         """Reset the alarm to nominal state.
@@ -300,7 +297,7 @@ class Alarm:
         self._cancel_escalate()
         self._cancel_unmute()
 
-    def set_severity(self, severity, reason):
+    async def set_severity(self, severity, reason):
         """Set the severity.
 
         Call the callback function unless the alarm was nominal
@@ -380,10 +377,10 @@ class Alarm:
 
         if self.severity_queue is not None:
             self.severity_queue.put_nowait(severity)
-        self._run_callback()
+        await self._run_callback()
         return True
 
-    def unacknowledge(self, escalate=True):
+    async def unacknowledge(self, escalate=True):
         """Unacknowledge the alarm. Basically a no-op if nominal
         or not acknowledged.
 
@@ -408,7 +405,7 @@ class Alarm:
         if escalate and self.max_severity == AlarmSeverity.CRITICAL:
             self._start_escalation_timer()
 
-        self._run_callback()
+        await self._run_callback()
         return True
 
     def assert_equal(self, other, ignore_attrs=()):
@@ -546,10 +543,35 @@ class Alarm:
     def __repr__(self):
         return f"Alarm(name={self.name})"
 
+    @property
+    def callback(self):
+        """Get the callback function."""
+        return self._callback
+
+    @callback.setter
+    def callback(self, callback):
+        """Set or clear the callback function.
+
+        Parameters
+        ----------
+        callback : callable, optional
+            Coroutine (async function) to call whenever the alarm
+            changes state, or None if no callback wanted.
+            The coroutine receives one argument: this alarm.
+
+        Raises
+        ------
+        TypeError
+            If callback is not None and not a coroutine.
+        """
+        if callback is not None and not inspect.iscoroutinefunction(callback):
+            raise TypeError(f"callback={callback} must be async")
+        self._callback = callback
+
     async def _auto_acknowledge_timer(self):
         """Wait, then automatically acknowledge the alarm."""
         await asyncio.sleep(self.auto_acknowledge_delay)
-        self.acknowledge(severity=self.max_severity, user="automatic")
+        await self.acknowledge(severity=self.max_severity, user="automatic")
 
     async def _auto_unacknowledge_timer(self):
         """Wait, then automatically unacknowledge the alarm.
@@ -558,13 +580,13 @@ class Alarm:
         (unlike manual unacknowledgement).
         """
         await asyncio.sleep(self.auto_unacknowledge_delay)
-        self.unacknowledge(escalate=False)
+        await self.unacknowledge(escalate=False)
 
     async def _escalate_timer(self):
         """Wait, then escalate this alarm."""
         await asyncio.sleep(self.escalate_delay)
         self.escalated = True
-        self._run_callback()
+        await self._run_callback()
 
     async def _unmute_timer(self, duration):
         """Unmute this alarm after a specified duration.
@@ -577,7 +599,7 @@ class Alarm:
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")
         await asyncio.sleep(duration)
-        self.unmute()
+        await self.unmute()
 
     def _cancel_auto_acknowledge(self):
         """Cancel the auto acknowledge timer, if pending."""
@@ -601,10 +623,10 @@ class Alarm:
         self.timestamp_unmute = 0
         self.unmute_task.cancel()
 
-    def _run_callback(self):
+    async def _run_callback(self):
         """Run the callback function, if present."""
-        if self.callback:
-            self.callback(self)
+        if self._callback:
+            await self._callback(self)
 
     def _start_auto_acknowledge_timer(self):
         """Start or restart the auto_acknowledge timer."""

@@ -102,7 +102,9 @@ class ConfiguredSeverities(watcher.BaseRule):
         while True:
             for severity in self.config.severities:
                 await asyncio.sleep(self.config.interval)
-                self.alarm.set_severity(severity=severity, reason="Commanded severity")
+                await self.alarm.set_severity(
+                    severity=severity, reason="Commanded severity"
+                )
             repeat += 1
             if self.config.repeats > 0 and repeat >= self.config.repeats:
                 break

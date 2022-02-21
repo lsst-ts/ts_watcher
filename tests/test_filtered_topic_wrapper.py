@@ -89,7 +89,7 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 filter_value = data_dict[filter_field]
                 expected_doubles[filter_value] = data_dict[data_field]
                 wrapper.call_event.clear()
-                controller.tel_scalars.set_put(**data_dict)
+                await controller.tel_scalars.set_write(**data_dict)
                 await asyncio.wait_for(wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 wrapper_data = wrapper.get_data(filter_value)
                 assert wrapper_data is not None

@@ -91,7 +91,7 @@ class Heartbeat(watcher.BaseRule):
     async def heartbeat_timer(self):
         """Heartbeat timer."""
         await asyncio.sleep(self.config.timeout)
-        self.alarm.set_severity(
+        await self.alarm.set_severity(
             severity=AlarmSeverity.SERIOUS,
             reason=f"Heartbeat event not seen in {self.config.timeout} seconds",
         )

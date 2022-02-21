@@ -266,7 +266,7 @@ additionalProperties: false
         self.poll_start_tai = utils.current_tai()
         while True:
             severity, reason = self()
-            self.alarm.set_severity(severity=severity, reason=reason)
+            await self.alarm.set_severity(severity=severity, reason=reason)
             await asyncio.sleep(self.config.poll_interval)
 
     def __call__(self, topic_callback=None):

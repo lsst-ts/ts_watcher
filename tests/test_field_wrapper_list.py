@@ -96,7 +96,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 scalar_data = random_scalar()
                 data_dict = {filter_field: filter_value, scalar_data_field: scalar_data}
                 scalar_topic_wrapper.call_event.clear()
-                controller_scalar_topic.set_put(**data_dict)
+                await controller_scalar_topic.set_write(**data_dict)
                 await asyncio.wait_for(
                     scalar_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
                 )
@@ -109,7 +109,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 array_data = random_array() + [math.nan] * nan_array_len
                 data_dict = {filter_field: filter_value, array_data_field: array_data}
                 array_topic_wrapper.call_event.clear()
-                controller_array_topic.set_put(**data_dict)
+                await controller_array_topic.set_write(**data_dict)
                 await asyncio.wait_for(
                     array_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
                 )

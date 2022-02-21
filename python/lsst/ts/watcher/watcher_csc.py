@@ -43,10 +43,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         The initial state of the CSC. This is provided for unit testing,
         as real CSCs should start up in `lsst.ts.salobj.StateSTANDBY`,
         the default.
-    settings_to_apply : `str`, optional
-        Settings to apply if ``initial_state`` is `State.DISABLED`
-        or `State.ENABLED` (in which case a non-empty value is required
-        for this CSC).
+    override : `str`, optional
+        Configuration override to use if ``initial_state`` is `State.DISABLED`
+        or `State.ENABLED`.
 
     Raises
     ------
@@ -60,7 +59,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     version = __version__
 
     def __init__(
-        self, config_dir=None, initial_state=salobj.State.STANDBY, settings_to_apply=""
+        self, config_dir=None, initial_state=salobj.State.STANDBY, override=""
     ):
         # the Watcher model is created when the CSC is configured
         self.model = None
@@ -70,7 +69,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             config_schema=CONFIG_SCHEMA,
             config_dir=config_dir,
             initial_state=initial_state,
-            settings_to_apply=settings_to_apply,
+            override=override,
         )
 
     @staticmethod
@@ -104,14 +103,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         elif self.model is not None:
             self.model.disable()
 
-    def output_alarm(self, alarm):
+    async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
         if self.summary_state != salobj.State.ENABLED:
             return
         # Do not set timestampSeverityNewest because it causes
         # too many unwanted messages. In the long run remove
         # that field from ts_xml.
-        self.evt_alarm.set_put(
+        await self.evt_alarm.set_write(
             name=alarm.name,
             severity=alarm.severity,
             reason=alarm.reason,
@@ -135,16 +134,16 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def handle_summary_state(self):
         self._enable_or_disable_model()
 
-    def do_acknowledge(self, data):
+    async def do_acknowledge(self, data):
         self.assert_enabled()
-        self.model.acknowledge_alarm(
+        await self.model.acknowledge_alarm(
             name=data.name, severity=data.severity, user=data.acknowledgedBy
         )
 
-    def do_mute(self, data):
+    async def do_mute(self, data):
         """Mute one or more alarms."""
         self.assert_enabled()
-        self.model.mute_alarm(
+        await self.model.mute_alarm(
             name=data.name,
             duration=data.duration,
             severity=data.severity,
@@ -171,15 +170,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
             if alarm.nominal:
                 # The alarm became inactive while this command was running.
                 continue
-            self.output_alarm(alarm)
+            await self.output_alarm(alarm)
             await asyncio.sleep(0.001)
 
-    def do_unacknowledge(self, data):
+    async def do_unacknowledge(self, data):
         """Unacknowledge one or more alarms."""
         self.assert_enabled()
-        self.model.unacknowledge_alarm(name=data.name)
+        await self.model.unacknowledge_alarm(name=data.name)
 
-    def do_unmute(self, data):
+    async def do_unmute(self, data):
         """Unmute one or more alarms."""
         self.assert_enabled()
-        self.model.unmute_alarm(name=data.name)
+        await self.model.unmute_alarm(name=data.name)

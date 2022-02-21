@@ -48,6 +48,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "over_temperature"
         )
         # Number of values to set to real temperatures; the rest are NaN.
@@ -232,4 +233,4 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, temperature={temperatures})"
                 )
-            topic.set_put(sensorName=filter_value, temperature=temperatures)
+            await topic.set_write(sensorName=filter_value, temperature=temperatures)

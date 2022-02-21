@@ -1,0 +1,9 @@
+rules:
+- classname: Enabled
+  configs:
+  - name: "ScriptQueue:1"
+  - name: "ScriptQueue:2"
+escalation:
+- alarms: ["Enabled.ScriptQueue:2"]
+  to: stella
+  delay: 0.11
