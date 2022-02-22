@@ -37,7 +37,7 @@ class WatcherSchemaTestCase(unittest.TestCase):
 
     def setUp(self):
         self.schema = watcher.CONFIG_SCHEMA
-        self.validator = salobj.DefaultingValidator(schema=self.schema)
+        self.validator = salobj.StandardValidator(schema=self.schema)
         self.configpath = (
             pathlib.Path(__file__).resolve().parent / "data" / "config" / "csc"
         )
@@ -57,8 +57,8 @@ class WatcherSchemaTestCase(unittest.TestCase):
     def test_basic_file(self):
         config_dict = self.read_dict(self.configpath / "_init.yaml")
         config_dict.update(self.read_dict(self.configpath / "basic.yaml"))
-        validated_dict = self.validator.validate(config_dict)
-        config = types.SimpleNamespace(**validated_dict)
+        self.validator.validate(config_dict)
+        config = types.SimpleNamespace(**config_dict)
         assert config.disabled_sal_components == []
         assert config.auto_acknowledge_delay == 3600
         assert config.auto_unacknowledge_delay == 3600
@@ -76,8 +76,8 @@ class WatcherSchemaTestCase(unittest.TestCase):
     def test_enabled_file(self):
         config_dict = self.read_dict(self.configpath / "_init.yaml")
         config_dict.update(self.read_dict(self.configpath / "enabled.yaml"))
-        validated_dict = self.validator.validate(config_dict)
-        config = types.SimpleNamespace(**validated_dict)
+        self.validator.validate(config_dict)
+        config = types.SimpleNamespace(**config_dict)
         assert config.disabled_sal_components == ["ATCamera"]
         assert config.auto_acknowledge_delay == 1001
         assert config.auto_unacknowledge_delay == 1002
