@@ -44,8 +44,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
         as real CSCs should start up in `lsst.ts.salobj.StateSTANDBY`,
         the default.
     override : `str`, optional
-        Configuration override to use if ``initial_state`` is `State.DISABLED`
-        or `State.ENABLED`.
+        Configuration override file to apply if ``initial_state`` is
+        `State.DISABLED` or `State.ENABLED`.
 
     Raises
     ------
