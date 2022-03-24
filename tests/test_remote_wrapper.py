@@ -83,8 +83,8 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             )
             evtint = -3
             telint = 47
-            evt_scalars_writer.set_put(int0=evtint)
-            tel_scalars_writer.set_put(int0=telint)
+            await evt_scalars_writer.set_write(int0=evtint)
+            await tel_scalars_writer.set_write(int0=telint)
 
             # Wait for the read topics to read the data.
             await remote.evt_scalars.next(flush=False, timeout=STD_TIMEOUT)

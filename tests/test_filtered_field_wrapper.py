@@ -120,7 +120,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 location_str_dict[sensor_name] = data_dict["location"]
                 expected_values[sensor_name] = data_dict[data_field]
                 topic_wrapper.call_event.clear()
-                controller.tel_hx85a.set_put(**data_dict)
+                await controller.tel_hx85a.set_write(**data_dict)
                 await asyncio.wait_for(
                     topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
                 )
@@ -150,8 +150,8 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         assert expected_location_str in value_descr
 
     async def test_array_ess_field(self):
-        """Test `FilteredEssFieldWrapper` and `IndexedFilteredEssFieldWrapper` with
-        an array field.
+        """Test `FilteredEssFieldWrapper` and `IndexedFilteredEssFieldWrapper`
+        with an array field.
         """
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
@@ -275,7 +275,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 location_str_dict[sensor_name] = data_dict["location"]
                 expected_values[sensor_name] = data_dict[data_field]
                 topic_wrapper.call_event.clear()
-                controller.tel_temperature.set_put(**data_dict)
+                await controller.tel_temperature.set_write(**data_dict)
                 await asyncio.wait_for(
                     topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
                 )
