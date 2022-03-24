@@ -48,6 +48,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             pathlib.Path(__file__).resolve().parent.parent
             / "data"
             / "config"
+            / "rules"
             / "dew_point_depression"
         )
         # Number of values to set to real temperatures; the rest are NaN.
@@ -250,7 +251,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, dewPoint={dew_point})"
                 )
-            topic.set_put(sensorName=filter_value, dewPoint=dew_point)
+            await topic.set_write(sensorName=filter_value, dewPoint=dew_point)
 
         pessimistic_temperature = pessimistic_dew_point + dew_point_depression
         normal_temperature = pessimistic_temperature + delta_temperature
@@ -281,4 +282,4 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, temperature={temperatures})"
                 )
-            topic.set_put(sensorName=filter_value, temperature=temperatures)
+            await topic.set_write(sensorName=filter_value, temperature=temperatures)

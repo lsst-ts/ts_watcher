@@ -107,19 +107,19 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = rule.alarm
                 alarm.init_severity_queue()
 
-                controller.evt_heartbeat.put()
+                await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
                 await asyncio.sleep(timeout / 2)
-                controller.evt_heartbeat.put()
+                await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
                 await asyncio.sleep(timeout * 2.5)
                 await alarm.assert_next_severity(AlarmSeverity.SERIOUS)
                 assert not alarm.nominal
-                controller.evt_heartbeat.put()
+                await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert not alarm.nominal
                 assert alarm.max_severity == AlarmSeverity.SERIOUS

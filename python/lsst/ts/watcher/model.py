@@ -23,6 +23,7 @@ __all__ = ["get_rule_class", "Model"]
 
 import asyncio
 import fnmatch
+import inspect
 import re
 import types
 
@@ -64,12 +65,22 @@ class Model:
     config : `types.SimpleNamespace`
         Watcher configuration validated against the Watcher schema.
     alarm_callback : callable, optional
-        Function to call when an alarm changes state.
-        It receives one argument: the alarm.
-        If None then no callback occurs.
+        Coroutine (async function) to call whenever an alarm changes state,
+        or None if no callback wanted.
+        The coroutine receives one argument: this alarm.
+
+    Raises
+    ------
+    TypeError
+        If alarm_callback is not None and not a coroutine.
     """
 
     def __init__(self, domain, config, alarm_callback=None):
+        if alarm_callback is not None and not inspect.iscoroutinefunction(
+            alarm_callback
+        ):
+            raise TypeError(f"alarm_callback={alarm_callback} must be async")
+
         self.domain = domain
         self.alarm_callback = alarm_callback
 
@@ -195,7 +206,7 @@ class Model:
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
 
-    def acknowledge_alarm(self, name, severity, user):
+    async def acknowledge_alarm(self, name, severity, user):
         """Acknowledge one or more alarms.
 
         Parameters
@@ -209,7 +220,7 @@ class Model:
             Name of user; used to set acknowledged_by.
         """
         for rule in self.get_rules(name):
-            rule.alarm.acknowledge(severity=severity, user=user)
+            await rule.alarm.acknowledge(severity=severity, user=user)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -340,7 +351,7 @@ class Model:
             )
         return wrapper
 
-    def mute_alarm(self, name, duration, severity, user):
+    async def mute_alarm(self, name, duration, severity, user):
         """Mute one or more alarms for a specified duration.
 
         Parameters
@@ -356,9 +367,9 @@ class Model:
             Name of user; used to set acknowledged_by.
         """
         for rule in self.get_rules(name):
-            rule.alarm.mute(duration=duration, severity=severity, user=user)
+            await rule.alarm.mute(duration=duration, severity=severity, user=user)
 
-    def unacknowledge_alarm(self, name):
+    async def unacknowledge_alarm(self, name):
         """Unacknowledge one or more alarms.
 
         Parameters
@@ -367,9 +378,9 @@ class Model:
             Regular expression for alarm name(s) to unacknowledge.
         """
         for rule in self.get_rules(name):
-            rule.alarm.unacknowledge()
+            await rule.alarm.unacknowledge()
 
-    def unmute_alarm(self, name):
+    async def unmute_alarm(self, name):
         """Unmute one or more alarms.
 
         Parameters
@@ -378,7 +389,7 @@ class Model:
             Regular expression for alarm name(s) to unmute.
         """
         for rule in self.get_rules(name):
-            rule.alarm.unmute()
+            await rule.alarm.unmute()
 
     async def __aenter__(self):
         await self.start_task

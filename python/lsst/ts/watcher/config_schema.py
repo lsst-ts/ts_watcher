@@ -26,12 +26,15 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v1
+title: Watcher v2
 description: Configuration for the Watcher
 type: object
-# Do not require disabled_sal_components and other properties with defaults
-# to avoid failed validation.
-required: [rules]
+required:
+  - disabled_sal_components
+  - auto_acknowledge_delay
+  - auto_unacknowledge_delay
+  - rules
+  - escalation
 additionalProperties: false
 properties:
   disabled_sal_components:
@@ -39,7 +42,6 @@ properties:
       Names of SAL components that the Watcher will ignored.
       The format is component_name:index where :index is optional if the index is 0.
     type: array
-    default: []
     items:
       type: string
   auto_acknowledge_delay:
@@ -49,7 +51,6 @@ properties:
       A stale alarm is one that has not yet been acknowledged, but its
       severity has gone to NONE.
     type: number
-    default: 3600
   auto_unacknowledge_delay:
     description: >-
       Delay (in seconds) before an acknowledged alarm is automatically
@@ -57,7 +58,6 @@ properties:
       Automatic unacknowledgement only occurs if the alarm persists,
       because an acknowledged alarm is reset if the severity goes to NONE.
     type: number
-    default: 3600
   rules:
     description: Rules and rule configuration.
     type: array
@@ -88,7 +88,6 @@ properties:
       Note that they are escalated even if they are stale.
       Each alarm matches at most one entry in this list: the first match is used.
     type: array
-    default: []
     items:
       type: object
       required: [alarms, to, delay]

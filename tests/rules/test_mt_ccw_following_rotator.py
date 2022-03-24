@@ -78,7 +78,7 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
                     else:
                         expected_severity = AlarmSeverity.WARNING
 
-                    controller.evt_cameraCableWrapFollowing.set_put(
+                    await controller.evt_cameraCableWrapFollowing.set_write(
                         enabled=following_enabled, force_output=True
                     )
                     await rule.alarm.assert_next_severity(expected_severity)

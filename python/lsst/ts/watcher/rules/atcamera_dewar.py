@@ -326,7 +326,7 @@ class ATCameraDewar(watcher.BaseRule):
     async def no_data_timer(self):
         """Timer for no data received."""
         await asyncio.sleep(self.config.max_data_age)
-        self.alarm.set_severity(
+        await self.alarm.set_severity(
             severity=AlarmSeverity.SERIOUS,
             reason=f"No data seen in {self.config.max_data_age} seconds",
         )

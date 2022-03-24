@@ -44,7 +44,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         for alarm in self._alarms:
             alarm.close()
 
-    def callback(self, alarm):
+    async def callback(self, alarm):
         self.callback_queue.put_nowait(alarm)
 
     async def next_queued_alarm(self, expected_alarm=None, timeout=STD_TIMEOUT):
@@ -130,7 +130,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = self.make_alarm(**alarm_kwargs)
                 alarm.init_severity_queue()
                 reason = f"alarm_iter set severity={severity}"
-                updated = alarm.set_severity(severity=severity, reason=reason)
+                updated = await alarm.set_severity(severity=severity, reason=reason)
                 await asyncio.wait_for(
                     alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
                 )
@@ -141,13 +141,15 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 for severity in severities[0 : i + 1]:
                     alarm = self.make_alarm(**alarm_kwargs)
                     alarm.init_severity_queue()
-                    updated = alarm.set_severity(severity=max_severity, reason=reason)
+                    updated = await alarm.set_severity(
+                        severity=max_severity, reason=reason
+                    )
                     await asyncio.wait_for(
                         alarm.assert_next_severity(max_severity), timeout=STD_TIMEOUT
                     )
                     assert updated
                     reason = f"alarm_iter set severity to {severity} after setting it to {max_severity}"
-                    updated = alarm.set_severity(severity=severity, reason=reason)
+                    updated = await alarm.set_severity(severity=severity, reason=reason)
                     await asyncio.wait_for(
                         alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
                     )
@@ -225,19 +227,19 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         assert alarm.timestamp_auto_acknowledge == 0
         assert alarm.auto_acknowledge_task.done()
 
-        alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
+        await alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         assert alarm.nominal
         assert alarm.timestamp_auto_acknowledge == 0
         assert alarm.auto_acknowledge_task.done()
 
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
         assert not alarm.nominal
         assert alarm.timestamp_auto_acknowledge == 0
         assert alarm.auto_acknowledge_task.done()
 
         # Now set severity None, making the alarm stale
         t0 = utils.current_tai()
-        alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
+        await alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         # Give the auto acknowledgement task time to start
         curr_tai = utils.current_tai()
         dt = curr_tai - t0
@@ -258,14 +260,14 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Set alarm severity > NONE and check that the automatic
         # acknowledgement task has been canceled.
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
         assert not alarm.nominal
         assert alarm.timestamp_auto_acknowledge == 0
         await asyncio.sleep(0)
         assert alarm.auto_acknowledge_task.done()
 
         # Make the alarm stale again and wait for automatic acknowledgement
-        alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
+        await alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         assert not alarm.nominal
         await asyncio.sleep(0)
         assert not alarm.auto_acknowledge_task.done()
@@ -292,7 +294,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Make an alarm condition and check that the auto-unack task
         # is not running yet.
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
         assert not alarm.acknowledged
         assert alarm.timestamp_auto_unacknowledge == 0
         await asyncio.sleep(0)
@@ -300,7 +302,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Acknowledge the alarm; the auto-unack task should now be running
         t0 = utils.current_tai()
-        alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
+        await alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
         curr_tai = utils.current_tai()
         dt = curr_tai - t0
         predicted_auto_unack_tai = curr_tai + auto_unacknowledge_delay
@@ -315,14 +317,14 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         # this should cancel the auto unack task.
         await asyncio.sleep(auto_unacknowledge_delay / 2)
         assert alarm.acknowledged
-        alarm.unacknowledge()
+        await alarm.unacknowledge()
         assert not alarm.acknowledged
         assert alarm.timestamp_auto_unacknowledge == 0
         await asyncio.sleep(0)
         assert alarm.auto_unacknowledge_task.done()
 
         # Acknowledge the alarm again
-        alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
+        await alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
         assert alarm.acknowledged
         assert alarm.timestamp_auto_unacknowledge > 0
         await asyncio.sleep(0)
@@ -331,7 +333,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         # Wait less time than auto unack and set severity NONE;
         # this should make the alarm nominal and cancel the auto unack
         await asyncio.sleep(auto_unacknowledge_delay / 2)
-        alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
+        await alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         assert alarm.nominal
         assert alarm.timestamp_auto_unacknowledge == 0
         await asyncio.sleep(0)
@@ -339,8 +341,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Set severity > NONE again, acknowledge,
         # and wait the full time for auto unack
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
-        alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="test")
+        await alarm.acknowledge(severity=AlarmSeverity.WARNING, user=user)
         assert alarm.acknowledged
         assert alarm.timestamp_auto_unacknowledge > 0
         await asyncio.sleep(0)
@@ -361,8 +363,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         assert alarm.auto_acknowledge_task.done()
 
         # Make alarm stale by setting severity > NONE then to NONE
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="why not?")
-        alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="why not?")
+        await alarm.set_severity(severity=AlarmSeverity.NONE, reason="")
         assert not alarm.nominal
         assert not alarm.acknowledged
 
@@ -381,8 +383,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         assert alarm.auto_unacknowledge_task.done()
 
         # Make an acknowledged alarm.
-        alarm.set_severity(severity=AlarmSeverity.WARNING, reason="why not?")
-        alarm.acknowledge(severity=alarm.severity, user="chaos")
+        await alarm.set_severity(severity=AlarmSeverity.WARNING, reason="why not?")
+        await alarm.acknowledge(severity=alarm.severity, user="chaos")
         assert not alarm.nominal
         assert alarm.acknowledged
 
@@ -515,6 +517,14 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         assert alarm.muted_severity == AlarmSeverity.NONE
         assert alarm.nominal
 
+        # Specifying a non-coroutine (synchronous function) as a callback
+        # should raise TypeError
+        def bad_callback():
+            pass
+
+        with pytest.raises(TypeError):
+            alarm.callback = bad_callback
+
     async def test_config_errors(self):
         alarm = self.make_alarm(name="test")
         with pytest.raises(ValueError):
@@ -532,7 +542,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         prev_timestamp_acknowledged = alarm.timestamp_acknowledged
 
         reason = "this reason will be ignored"
-        updated = alarm.set_severity(severity=AlarmSeverity.NONE, reason=reason)
+        updated = await alarm.set_severity(severity=AlarmSeverity.NONE, reason=reason)
         assert not updated
         assert alarm.severity == AlarmSeverity.NONE
         assert alarm.max_severity == AlarmSeverity.NONE
@@ -557,7 +567,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     continue
                 curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
-                updated = alarm.set_severity(severity=severity, reason=reason)
+                updated = await alarm.set_severity(severity=severity, reason=reason)
                 await asyncio.wait_for(
                     alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
                 )
@@ -585,7 +595,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     continue
                 curr_tai = utils.current_tai()
                 reason = f"set to {severity}"
-                updated = alarm.set_severity(severity=severity, reason=reason)
+                updated = await alarm.set_severity(severity=severity, reason=reason)
                 await asyncio.wait_for(
                     alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
                 )
@@ -614,7 +624,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             reason = f"set again to {alarm.severity}"
             assert alarm.reason != reason
             severity = alarm.severity
-            updated = alarm.set_severity(severity=severity, reason=reason)
+            updated = await alarm.set_severity(severity=severity, reason=reason)
             await asyncio.wait_for(
                 alarm.assert_next_severity(severity), timeout=STD_TIMEOUT
             )
@@ -657,16 +667,20 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     assert alarm.auto_unacknowledge_delay == auto_unacknowledge_delay
                     if alarm0.nominal:
                         # ack has no effect
-                        updated = alarm.acknowledge(severity=ack_severity, user=user)
+                        updated = await alarm.acknowledge(
+                            severity=ack_severity, user=user
+                        )
                         assert not updated
                         assert alarm == alarm0
                     elif ack_severity < alarm.max_severity:
                         # ack severity too small
                         with pytest.raises(ValueError):
-                            alarm.acknowledge(severity=ack_severity, user=user)
+                            await alarm.acknowledge(severity=ack_severity, user=user)
                     else:
                         tai1 = utils.current_tai()
-                        updated = alarm.acknowledge(severity=ack_severity, user=user)
+                        updated = await alarm.acknowledge(
+                            severity=ack_severity, user=user
+                        )
                         assert updated
                         desired_ncalls += 1
                         assert alarm.severity == alarm0.severity
@@ -694,8 +708,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                         assert alarm.timestamp_acknowledged >= tai1
                         await asyncio.sleep(0)
 
-                        # Check task state; sleep first to let task cancellation
-                        # happen.
+                        # Check task state; sleep first
+                        # to let task cancellation happen.
                         assert alarm.auto_acknowledge_task.done()
                         assert alarm.escalate_task.done()
                         if (
@@ -716,7 +730,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                         )
                         acked_alarm = self.copy_alarm(alarm)
                         user2 = "a different user"
-                        updated = alarm.acknowledge(severity=ack_severity, user=user2)
+                        updated = await alarm.acknowledge(
+                            severity=ack_severity, user=user2
+                        )
                         if restart_unack_timer:
                             assert updated
                             alarm.assert_equal(
@@ -744,7 +760,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             # unacknowledge should have no effect initially
             # because alarm is not acknowledged
             alarm = self.copy_alarm(alarm0)
-            updated = alarm.unacknowledge()
+            updated = await alarm.unacknowledge()
             assert not updated
             alarm.assert_equal(alarm0)
 
@@ -753,7 +769,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = self.copy_alarm(alarm0)
                 if ack_severity < alarm.max_severity:
                     continue
-                updated = alarm.acknowledge(severity=ack_severity, user=user)
+                updated = await alarm.acknowledge(severity=ack_severity, user=user)
                 assert updated
                 desired_ncalls += 1
                 assert alarm.acknowledged
@@ -765,7 +781,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 # unacknowledge the alarm
                 acked_alarm = self.copy_alarm(alarm)
                 tai0 = utils.current_tai()
-                updated = alarm.unacknowledge()
+                updated = await alarm.unacknowledge()
                 if acked_alarm.nominal:
                     assert not updated
                     alarm.assert_equal(acked_alarm)
@@ -831,7 +847,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 continue  # invalid value
             async for alarm in self.alarm_iter(name=user, callback=self.callback):
                 t0 = utils.current_tai()
-                alarm.mute(duration=duration, severity=severity, user=user)
+                await alarm.mute(duration=duration, severity=severity, user=user)
                 curr_tai = utils.current_tai()
                 dt = curr_tai - t0
                 await self.next_queued_alarm(expected_alarm=alarm)
@@ -866,45 +882,47 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 # and leaves the alarm state unchanged
                 initial_alarm = self.copy_alarm(alarm)
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=bad_delay, severity=good_severity, user=failed_user
                     )
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=good_delay, severity=bad_severity, user=failed_user
                     )
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=bad_delay, severity=bad_severity, user=failed_user
                     )
                 alarm.assert_equal(initial_alarm)
 
                 # make sure failures also leave muted alarm state unchanged
-                alarm.mute(duration=good_delay, severity=good_severity, user=good_user)
+                await alarm.mute(
+                    duration=good_delay, severity=good_severity, user=good_user
+                )
                 assert alarm.muted
                 assert alarm.muted_by == good_user
                 assert alarm.muted_severity == good_severity
                 muted_alarm = self.copy_alarm(alarm)
 
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=bad_delay, severity=good_severity, user=failed_user
                     )
                 alarm.assert_equal(muted_alarm)
 
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=good_delay, severity=bad_severity, user=failed_user
                     )
                 alarm.assert_equal(muted_alarm)
 
                 with pytest.raises(ValueError):
-                    alarm.mute(
+                    await alarm.mute(
                         duration=bad_delay, severity=bad_severity, user=failed_user
                     )
                 alarm.assert_equal(muted_alarm)
 
-                alarm.unmute()  # kill unmute timer
+                await alarm.unmute()  # kill unmute timer
 
     async def test_unmute(self):
         user = "otho"
@@ -916,13 +934,13 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 ncalls0 = self.ncalls
                 # check that unmute on unmuted alarm is a no-op
                 original_alarm = self.copy_alarm(alarm)
-                alarm.unmute()
+                await alarm.unmute()
                 alarm.assert_equal(original_alarm)
                 assert self.ncalls == ncalls0 + 1
 
                 # mute alarm and unmute it again before it unmutes itself
                 t0 = utils.current_tai()
-                alarm.mute(duration=duration, severity=severity, user=user)
+                await alarm.mute(duration=duration, severity=severity, user=user)
                 curr_tai = utils.current_tai()
                 dt = curr_tai - t0
                 assert self.ncalls == ncalls0 + 2
@@ -934,7 +952,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     curr_tai + duration, abs=dt
                 )
 
-                alarm.unmute()
+                await alarm.unmute()
                 assert self.ncalls == ncalls0 + 3
                 # Give asyncio a chance to cancel the mute task.
                 await asyncio.sleep(0)
@@ -961,7 +979,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = self.copy_alarm(alarm0)
                 if ack_severity < alarm.max_severity:
                     continue
-                updated = alarm.acknowledge(severity=ack_severity, user=user)
+                updated = await alarm.acknowledge(severity=ack_severity, user=user)
                 desired_ncalls += 1
                 assert updated
                 assert alarm.acknowledged
@@ -975,7 +993,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     alarm = self.copy_alarm(acked_alarm)
                     tai0 = utils.current_tai()
                     reason = f"set severity to {severity} after ack"
-                    updated = alarm.set_severity(severity, reason=reason)
+                    updated = await alarm.set_severity(severity, reason=reason)
                     if updated:
                         desired_ncalls += 1
                         assert alarm.severity == severity
