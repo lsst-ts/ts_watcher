@@ -75,12 +75,18 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 assert getattr(wrapper, name) is None
 
             # Write one event and one telemetry topic
+            write_salinfo = salobj.SalInfo(
+                domain=domain,
+                name="Test",
+                index=self.index,
+            )
             evt_scalars_writer = salobj.topics.ControllerEvent(
-                salinfo=remote.salinfo, name="scalars"
+                salinfo=write_salinfo, name="scalars"
             )
             tel_scalars_writer = salobj.topics.ControllerTelemetry(
-                salinfo=remote.salinfo, name="scalars"
+                salinfo=write_salinfo, name="scalars"
             )
+            await write_salinfo.start()
             evtint = -3
             telint = 47
             await evt_scalars_writer.set_write(int0=evtint)

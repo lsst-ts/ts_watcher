@@ -120,6 +120,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
         async with salobj.Domain() as domain:
             salinfo = salobj.SalInfo(domain=domain, name=name, index=index)
             heartbeat_writer = HeartbeatWriter(salinfo=salinfo)
+            await salinfo.start()
             async with watcher.Model(domain=domain, config=watcher_config) as model:
                 model.enable()
 
