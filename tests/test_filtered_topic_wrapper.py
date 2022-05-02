@@ -64,7 +64,7 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             assert topic.salinfo.name_index in wrapper.descr
             assert topic.attr_name in wrapper.descr
             assert wrapper.data_cache == dict()
-            assert wrapper.default_data.get_vars() == topic.DataType().get_vars()
+            assert vars(wrapper.default_data) == vars(topic.DataType())
 
             # Test that a TopicCallback was created and the wrapper added.
             assert isinstance(topic.callback, watcher.TopicCallback)
