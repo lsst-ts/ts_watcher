@@ -36,18 +36,24 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
     def __init__(self, salinfo):
         super().__init__(salinfo=salinfo, name="heartbeat")
 
-    async def aput(self, dt):
-        """Write a sample with ``private_sndStamp = current time + dt``."""
+    async def alt_write(self, dt):
+        """Write the current data with private_sndStamp offset by dt"""
         self.data.private_sndStamp = utils.current_tai() + dt
-        self.data.private_revCode = self.rev_code
         self.data.private_origin = self.salinfo.domain.origin
-        setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)
+        self.data.private_identity = self.salinfo.identity
+        if self._seq_num_generator is not None:
+            self.data.private_seqNum = next(self._seq_num_generator)
+        # when index is 0 use the default of 0 and give senders a chance
+        # to override it.
+        if self.salinfo.index != 0:
+            setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)
+
         self._writer.write(self.data)
 
-    def put(self):
+    async def write(self):
         raise NotImplementedError()
 
-    def set_put(self, *args, **kwargs):
+    async def set_write(self, **kwargs):
         raise NotImplementedError()
 
 
@@ -120,6 +126,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
         async with salobj.Domain() as domain:
             salinfo = salobj.SalInfo(domain=domain, name=name, index=index)
             heartbeat_writer = HeartbeatWriter(salinfo=salinfo)
+            await salinfo.start()
             async with watcher.Model(domain=domain, config=watcher_config) as model:
                 model.enable()
 
@@ -136,29 +143,29 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 bad_dt = threshold + 0.1
                 good_dt = threshold * 0.9
                 for i in range(rule.min_errors - 1):
-                    await heartbeat_writer.aput(dt=bad_dt)
+                    await heartbeat_writer.alt_write(dt=bad_dt)
                     await alarm.assert_next_severity(AlarmSeverity.NONE)
                     assert alarm.nominal
 
                 # The next heartbeat event with bad dt should set
                 # alarm severity to WARNING. The sign of the clock
                 # error should not matter, so try a negative error.
-                await heartbeat_writer.aput(dt=-bad_dt)
+                await heartbeat_writer.alt_write(dt=-bad_dt)
                 await alarm.assert_next_severity(AlarmSeverity.WARNING)
                 assert not alarm.nominal
                 assert alarm.severity == AlarmSeverity.WARNING
                 assert "mean" in alarm.reason
 
                 # A valid value should return alarm severity to NONE.
-                await heartbeat_writer.aput(dt=good_dt)
+                await heartbeat_writer.alt_write(dt=good_dt)
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
 
                 # Sending fewer than Clock.min_errors heartbeat events
                 # with excessive error should leave the alarm severity
                 # at NONE
                 for i in range(rule.min_errors - 1):
-                    await heartbeat_writer.aput(dt=bad_dt)
+                    await heartbeat_writer.alt_write(dt=bad_dt)
                     await alarm.assert_next_severity(AlarmSeverity.NONE)
 
-                await heartbeat_writer.aput(dt=bad_dt)
+                await heartbeat_writer.alt_write(dt=bad_dt)
                 await alarm.assert_next_severity(AlarmSeverity.WARNING)

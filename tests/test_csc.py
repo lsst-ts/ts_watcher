@@ -261,6 +261,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             atdome_state = salobj.topics.ControllerEvent(
                 salinfo=atdome_salinfo, name="summaryState"
             )
+            await atdome_salinfo.start()
 
             await atdome_state.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
@@ -340,6 +341,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             atdome_state = salobj.topics.ControllerEvent(
                 salinfo=atdome_salinfo, name="summaryState"
             )
+            await atdome_salinfo.start()
 
             # Make the ATDome alarm stale.
             await atdome_state.set_write(
@@ -442,12 +444,15 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             atdome_state = salobj.topics.ControllerEvent(
                 salinfo=atdome_salinfo, name="summaryState"
             )
+            await atdome_salinfo.start()
+
             scriptqueue_salinfo = salobj.SalInfo(
                 domain=self.csc.domain, name="ScriptQueue", index=2
             )
             scriptqueue_state = salobj.topics.ControllerEvent(
                 salinfo=scriptqueue_salinfo, name="summaryState"
             )
+            await scriptqueue_salinfo.start()
 
             # Fire the ATDome alarm.
             await atdome_state.set_write(
@@ -640,6 +645,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             sq1_state = salobj.topics.ControllerEvent(
                 salinfo=sq1_salinfo, name="summaryState"
             )
+            await sq1_salinfo.start()
 
             # Send alarm 1 to severity warning.
             await sq1_state.set_write(
