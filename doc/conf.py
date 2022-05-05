@@ -3,7 +3,7 @@
 This configuration only affects single-package Sphinx documentation builds.
 """
 
-from documenteer.conf.pipelinespkg import *  # type: ignore # noqa
+from documenteer.conf.pipelinespkg import *  # noqa
 import lsst.ts.watcher  # noqa
 
 project = "ts_watcher"
