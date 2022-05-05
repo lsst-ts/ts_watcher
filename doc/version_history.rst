@@ -13,6 +13,8 @@ Changes:
 
 * Wait for SalInfo instances to start in unit tests.
 * Modernize HeartbeatWriter, a subclass of WriteTopic, in a unit test.
+* Simplify some tests by using a write-only controller.
+  This requires ts_salobj 7.1.
 * Modernize ``Jenkinsfile``.
 * Use ``vars(message)`` instead of ``message.get_vars()`` in a unit test.
 * ``setup.cfg``: set asyncio_mode = auto.
@@ -21,7 +23,7 @@ Changes:
 Requires:
 
 * ts_utils 1.1
-* ts_salobj 7
+* ts_salobj 7.1
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
   These may be generated using ``make_idl_files.py`` built with ts_xml 11
