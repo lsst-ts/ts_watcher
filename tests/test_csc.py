@@ -239,7 +239,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         """Run the watcher with a few rules and one disabled SAL component."""
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )
@@ -255,15 +255,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             ]
 
             # Make summary state writers for CSCs in `enabled.yaml`.
-            atdome_salinfo = salobj.SalInfo(
-                domain=self.csc.domain, name="ATDome", index=0
-            )
-            atdome_state = salobj.topics.ControllerEvent(
-                salinfo=atdome_salinfo, name="summaryState"
-            )
-            await atdome_salinfo.start()
-
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -274,7 +266,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.FAULT, force_output=True
             )
             await self.assert_next_alarm(
@@ -300,7 +292,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set the state to ENABLED; this should reset the alarm.
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.ENABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -315,7 +307,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         user = "chaos"
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -334,17 +326,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             atdome_alarm_name = "Enabled.ATDome:0"
 
-            # Make a summary state writer for ATDome
-            atdome_salinfo = salobj.SalInfo(
-                domain=self.csc.domain, name="ATDome", index=0
-            )
-            atdome_state = salobj.topics.ControllerEvent(
-                salinfo=atdome_salinfo, name="summaryState"
-            )
-            await atdome_salinfo.start()
-
             # Make the ATDome alarm stale.
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -355,7 +338,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.ENABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -380,7 +363,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert dt0 >= expected_auto_acknowledge_delay - TIME_EPSILON
 
             # Make the ATDome alarm acknowledged and not stale
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -421,7 +404,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         """Test the showAlarms command."""
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        ), salobj.Controller(
+            name="ATDome", write_only=True
+        ) as atdome, salobj.Controller(
+            name="ScriptQueue", index=2, write_only=True
+        ) as script_queue2:
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )
@@ -437,25 +424,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
-            # Make summary state writers for CSCs in `enabled.yaml`.
-            atdome_salinfo = salobj.SalInfo(
-                domain=self.csc.domain, name="ATDome", index=0
-            )
-            atdome_state = salobj.topics.ControllerEvent(
-                salinfo=atdome_salinfo, name="summaryState"
-            )
-            await atdome_salinfo.start()
-
-            scriptqueue_salinfo = salobj.SalInfo(
-                domain=self.csc.domain, name="ScriptQueue", index=2
-            )
-            scriptqueue_state = salobj.topics.ControllerEvent(
-                salinfo=scriptqueue_salinfo, name="summaryState"
-            )
-            await scriptqueue_salinfo.start()
-
             # Fire the ATDome alarm.
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -467,7 +437,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Fire the ScriptQueue:2 alarm.
-            await scriptqueue_state.set_write(
+            await script_queue2.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -515,7 +485,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set ATDome state to ENABLED; this should reset the alarm.
-            await atdome_state.set_write(
+            await atdome.evt_summaryState.set_write(
                 summaryState=salobj.State.ENABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -626,7 +596,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         user = "test_unacknowledge"
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        ), salobj.Controller(
+            name="ScriptQueue", index=1, write_only=True
+        ) as script_queue1:
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -638,17 +610,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert len(self.csc.model.rules) == 2
             assert list(self.csc.model.rules), [alarm_name1 == alarm_name2]
 
-            # Make a summary state writer for alarm 1.
-            sq1_salinfo = salobj.SalInfo(
-                domain=self.csc.domain, name="ScriptQueue", index=1
-            )
-            sq1_state = salobj.topics.ControllerEvent(
-                salinfo=sq1_salinfo, name="summaryState"
-            )
-            await sq1_salinfo.start()
-
             # Send alarm 1 to severity warning.
-            await sq1_state.set_write(
+            await script_queue1.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True
             )
             await self.assert_next_alarm(
@@ -690,7 +653,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Unacknowledge a reset alarm;
             # this should not trigger an alarm event.
-            await sq1_state.set_write(
+            await script_queue1.evt_summaryState.set_write(
                 summaryState=salobj.State.ENABLED, force_output=True
             )
             await self.assert_next_alarm(

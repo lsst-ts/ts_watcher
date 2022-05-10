@@ -39,9 +39,11 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         self.index = next(index_gen)
 
     async def test_all_names(self):
-        async with salobj.Domain() as domain:
+        async with salobj.Controller(
+            name="Test", index=self.index, write_only=True
+        ) as controller:
             remote = salobj.Remote(
-                domain=domain,
+                domain=controller.salinfo.domain,
                 name="Test",
                 index=self.index,
                 readonly=True,
@@ -70,27 +72,18 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.wait_for(remote.start(), timeout=LONG_TIMEOUT)
 
-            # Check that the initial value for each topic is None.
+            # Check that the initial value for each topic is None
+            # (except a few topics that Controller writes).
             for name in topic_names:
+                if name in {"evt_authList", "evt_logLevel", "evt_logMessage"}:
+                    continue
                 assert getattr(wrapper, name) is None
 
             # Write one event and one telemetry topic
-            write_salinfo = salobj.SalInfo(
-                domain=domain,
-                name="Test",
-                index=self.index,
-            )
-            evt_scalars_writer = salobj.topics.ControllerEvent(
-                salinfo=write_salinfo, name="scalars"
-            )
-            tel_scalars_writer = salobj.topics.ControllerTelemetry(
-                salinfo=write_salinfo, name="scalars"
-            )
-            await write_salinfo.start()
             evtint = -3
             telint = 47
-            await evt_scalars_writer.set_write(int0=evtint)
-            await tel_scalars_writer.set_write(int0=telint)
+            await controller.evt_scalars.set_write(int0=evtint)
+            await controller.tel_scalars.set_write(int0=telint)
 
             # Wait for the read topics to read the data.
             await remote.evt_scalars.next(flush=False, timeout=STD_TIMEOUT)
