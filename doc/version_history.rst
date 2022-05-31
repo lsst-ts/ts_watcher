@@ -6,19 +6,21 @@
 Version History
 ###############
 
-v1.8.1
+v1.9.0
 ------
 
 Changes:
 
-* Wait for SalInfo instances to start in unit tests.
-* Modernize HeartbeatWriter, a subclass of WriteTopic, in a unit test.
+* Delete the command_watcher.py command-line script.
+* Rename command-line scripts to remove ".py" suffix.
+* Update HeartbeatWriter, a subclass of WriteTopic, in a unit test, to be compatible with ts_sal 7.
+  ts_sal 7 is required for unit test test_clock.py to pass.
 * Simplify some tests by using a write-only controller.
   This requires ts_salobj 7.1.
+* Wait for SalInfo instances to start in unit tests.
 * Modernize ``Jenkinsfile``.
 * Use ``vars(message)`` instead of ``message.get_vars()`` in a unit test.
-* ``setup.cfg``: set asyncio_mode = auto.
-* git ignore .hypothesis.
+* Build with pyproject.toml.
 
 Requires:
 
@@ -26,7 +28,7 @@ Requires:
 * ts_salobj 7.1
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
-  These may be generated using ``make_idl_files.py`` built with ts_xml 11
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 and ts_sal 7
 
 v1.8.0
 ------
