@@ -46,7 +46,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         # when index is 0 use the default of 0 and give senders a chance
         # to override it.
         if self.salinfo.index != 0:
-            setattr(self.data, f"{self.salinfo.name}ID", self.salinfo.index)
+            self.data.salIndex = self.salinfo.index
 
         self._writer.write(self.data)
 
