@@ -26,7 +26,7 @@ pipeline {
         // Python module name.
         MODULE_NAME = "lsst.ts.watcher"
         // Space-separated list of SAL component names for all IDL files required.
-        IDL_NAMES = "Watcher ATDome ESS ScriptQueue Test"
+        IDL_NAMES = "Watcher ATCamera ATDome ESS MTMount ScriptQueue Test"
         // Product name for documentation upload; the associated
         // documentation site is `https://{DOC_PRODUCT_NAME}.lsst.io`.
         DOC_PRODUCT_NAME = "ts-watcher"
