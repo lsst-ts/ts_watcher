@@ -78,7 +78,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         await self.check_bin_script(
             name="Watcher",
             index=None,
-            exe_name="run_watcher.py",
+            exe_name="run_watcher",
         )
 
     async def test_initial_info(self):
@@ -585,7 +585,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         original_argv = sys.argv[:]
         try:
             for state_name in ("disabled", "enabled"):
-                sys.argv = [original_argv[0], "run_watcher.py", "--state", state_name]
+                sys.argv = [original_argv[0], "run_watcher", "--state", state_name]
                 with pytest.raises(SystemExit):
                     await watcher.WatcherCsc.make_from_cmd_line(index=None)
         finally:
