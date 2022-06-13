@@ -1,2 +1,2 @@
 @Library('JenkinsShared')_
-CondaPipeline(["ts_config_ocs"], "ts-watcher", "lsst.ts.watcher")
+CondaPipeline(["ts_config_ocs"], "ts-watcher", "lsst.ts.watcher", "noarch")

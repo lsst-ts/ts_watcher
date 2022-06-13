@@ -7,6 +7,7 @@ source:
   path: ../
 
 build:
+  noarch: generic
   script: python -m pip install --no-deps --ignore-installed .
   entry_points:
     - command_watcher = lsst.ts.watcher:command_watcher
