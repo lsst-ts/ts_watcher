@@ -7,7 +7,11 @@ source:
   path: ../
 
 build:
+  noarch: generic
   script: python -m pip install --no-deps --ignore-installed .
+  entry_points:
+    - command_watcher = lsst.ts.watcher:command_watcher
+    - run_watcher = lsst.ts.watcher:run_watcher
 
 test:
   requires:
@@ -20,6 +24,7 @@ test:
     - bin
     - tests
     - setup.cfg
+    - pyproject.toml
   commands:
     - pytest
 

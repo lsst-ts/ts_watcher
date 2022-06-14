@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["WatcherCsc"]
+__all__ = ["WatcherCsc", "run_watcher"]
 
 import asyncio
 
@@ -182,3 +182,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
         """Unmute one or more alarms."""
         self.assert_enabled()
         await self.model.unmute_alarm(name=data.name)
+
+
+def run_watcher():
+    """Run the Watcher CSC."""
+    asyncio.run(WatcherCsc.amain(index=None))

@@ -2,7 +2,7 @@
 ts_watcher
 ##########
 
-``ts_watcher`` implements the Watcher CSC, which monitors other SAL components and issues alarms for the Vera C. Rubin Observatory.
+A CSC which monitors other SAL components and issues alarms for the Vera C. Rubin Observatory."
 
 `Documentation <https://ts-watcher.lsst.io>`_
 
