@@ -215,7 +215,7 @@ class ATCameraDewar(watcher.BaseRule):
                 min_warning_ccd_temp:
                     description: Minimum CCD temperature (C) below which warning.
                     type: [number, "null"]
-                    default: -95
+                    default: -95.16
                 min_serious_ccd_temp:
                     description: Minimum CCD temperature (C) below which serious.
                     type: [number, "null"]
@@ -226,7 +226,7 @@ class ATCameraDewar(watcher.BaseRule):
                 max_warning_ccd_temp:
                     description: Maximum CCD temperature (C) above which warning.
                     type: [number, "null"]
-                    default: -93
+                    default: -93.16
                 max_serious_ccd_temp:
                     description: Maximum CCD temperature (C) above which serious.
                     type: [number, "null"]
@@ -278,7 +278,7 @@ class ATCameraDewar(watcher.BaseRule):
                         The amount by which a value must improve past an
                         alarm threshold before the alarm severity decreases.
                     type: number
-                    default: 1
+                    default: 0.4
                     exclusiveMinimum: 0
                 vacuum_window:
                     description: Period of time (seconds) over which to median vacuums.
@@ -295,7 +295,7 @@ class ATCameraDewar(watcher.BaseRule):
                     exclusiveMinimum: 0
                 min_values:
                     description:
-                        The minumum number of values in order to report data.
+                        The minimum number of values in order to report data.
                         No data is reported unless there are at least this many data points
                         for both vacuum and temperatures. (Treating these categories separately
                         would make it difficult to warn if we never got enough data
