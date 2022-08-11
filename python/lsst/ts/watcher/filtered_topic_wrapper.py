@@ -135,8 +135,8 @@ class FilteredTopicWrapper:
     def add_field_wrapper(self, field_wrapper):
         """Add a filtered field wrapper to the internal cache.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         field_wrapper : `BaseFilteredFieldWrapper`
             The filtered field wrapper to add.
         """

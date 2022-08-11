@@ -22,6 +22,7 @@
 import asyncio
 import copy
 import itertools
+import json
 import pytest
 import unittest
 
@@ -73,8 +74,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         name="test.alarm",
         auto_acknowledge_delay=0,
         auto_unacknowledge_delay=0,
-        escalate_to="",
-        escalate_delay=0,
+        escalation_responders=(),
+        escalation_delay=0,
     ):
         """An iterator over alarms with all allowed values of
         severity and max_severity.
@@ -95,12 +96,14 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         auto_unacknowledge_delay : `float`, optional
             Delay (in seconds) before an acknowledged alarm is automatically
             unacknowledged, or 0 for no automatic unacknowledgement.
-        escalate_to : `str`, optional
-            Who or what to escalate the alarm to.
-            If "" (the default) the alarm is not escalated.
-        escalate_delay : `float`, optional
+        escalation_delay : `float`, optional
             Delay before escalating a critical unacknowledged alarm (sec).
             If 0 (the default) the alarm is not escalated.
+        escalation_responders : `list`
+            Who or what to escalate the alarm, in the form used for
+            CSC configuration; a list of: ``{"name": "...", "type": "..."}``.
+            The value of the ``escalation_responders`` attribute is similar,
+            but with "type" renamed to "type".
 
         Notes
         -----
@@ -118,8 +121,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 name=name,
                 auto_acknowledge_delay=auto_acknowledge_delay,
                 auto_unacknowledge_delay=auto_unacknowledge_delay,
-                escalate_to=escalate_to,
-                escalate_delay=escalate_delay,
+                escalation_responders=escalation_responders,
+                escalation_delay=escalation_delay,
             )
 
             severities = list(AlarmSeverity)
@@ -178,8 +181,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         callback=None,
         auto_acknowledge_delay=0,
         auto_unacknowledge_delay=0,
-        escalate_to="",
-        escalate_delay=0,
+        escalation_responders=(),
+        escalation_delay=0,
     ):
         """Make an alarm and keep a reference so tearDown can close it.
 
@@ -196,20 +199,24 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         auto_unacknowledge_delay : `float`, optional
             Delay (in seconds) before an acknowledged alarm is automatically
             unacknowledged, or 0 for no automatic unacknowledgement.
-        escalate_to : `str`, optional
-            Who or what to escalate the alarm to.
-            If "" (the default) the alarm is not escalated.
-        escalate_delay : `float`, optional
+        escalation_delay : `float`, optional
             Delay before escalating a critical unacknowledged alarm (sec).
             If 0 (the default) the alarm is not escalated.
+        escalation_responders : `list`
+            Who or what to escalate the alarm, in the form used for
+            CSC configuration; a list of: ``{"name": "...", "type": "..."}``.
+            The value of the ``escalation_responders`` attribute is similar,
+            but with "type" renamed to "type".
         """
         alarm = watcher.Alarm(name=name)
-        alarm.configure(
+        alarm.configure_basics(
             callback=callback,
             auto_acknowledge_delay=auto_acknowledge_delay,
             auto_unacknowledge_delay=auto_unacknowledge_delay,
-            escalate_to=escalate_to,
-            escalate_delay=escalate_delay,
+        )
+        alarm.configure_escalation(
+            escalation_responders=escalation_responders,
+            escalation_delay=escalation_delay,
         )
         self._alarms.append(alarm)
         return alarm
@@ -400,8 +407,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             name="test.alarm",
             auto_acknowledge_delay=0,
             auto_unacknowledge_delay=0,
-            escalate_to="",
-            escalate_delay=0,
+            escalation_responders=[],
+            escalation_delay=0,
         )
         for callback, kwargs in itertools.product(
             (None, self.callback),
@@ -410,9 +417,12 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 dict(name="foo"),
                 dict(auto_acknowledge_delay=1),
                 dict(auto_unacknowledge_delay=2),
-                # Set both escalate_to and escalate_delay
+                # Set both escalation_responders and escalation_delay
                 # to enable escalation.
-                dict(escalate_to="chaos", escalate_delay=3),
+                dict(
+                    escalation_responders=[dict(name="chaos", type="team")],
+                    escalation_delay=3,
+                ),
             ),
         ):
 
@@ -436,7 +446,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                 assert alarm.max_severity >= alarm.severity
                 assert not alarm.acknowledged
                 assert alarm.acknowledged_by == ""
-                assert not alarm.escalated
+                assert not alarm.do_escalate
                 assert alarm.muted_severity == AlarmSeverity.NONE
                 assert alarm.muted_by == ""
                 if nitems == 1:
@@ -468,8 +478,8 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
                 auto_escalate = (
                     alarm.max_severity == AlarmSeverity.CRITICAL
-                    and alarm.escalate_delay > 0
-                    and alarm.escalate_to != ""
+                    and alarm.escalation_delay > 0
+                    and alarm.escalation_responders
                 )
                 if auto_escalate:
                     assert alarm.timestamp_escalate > 0
@@ -528,9 +538,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_config_errors(self):
         alarm = self.make_alarm(name="test")
         with pytest.raises(ValueError):
-            alarm.configure(auto_acknowledge_delay=-0.001)
+            alarm.configure_basics(auto_acknowledge_delay=-0.001)
         with pytest.raises(ValueError):
-            alarm.configure(auto_unacknowledge_delay=-0.001)
+            alarm.configure_basics(auto_unacknowledge_delay=-0.001)
 
     async def test_none_severity_when_nominal(self):
         """Test that set_severity to NONE has no effect if nominal."""
@@ -711,7 +721,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                         # Check task state; sleep first
                         # to let task cancellation happen.
                         assert alarm.auto_acknowledge_task.done()
-                        assert alarm.escalate_task.done()
+                        assert alarm.escalation_timer_task.done()
                         if (
                             auto_unacknowledge_delay == 0
                             or alarm.severity == AlarmSeverity.NONE
@@ -806,27 +816,41 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
 
         assert self.ncalls == desired_ncalls
 
-    async def test_escalate(self):
-        escalate_delay = 0.1
-        escalate_to = "chaos"
+    async def test_escalation(self):
+        escalation_delay = 0.1
+        escalation_responders = [dict(name="chaos", type="team")]
 
         async for alarm in self.alarm_iter(
             name="user",
             callback=self.callback,
-            escalate_delay=escalate_delay,
-            escalate_to=escalate_to,
+            escalation_delay=escalation_delay,
+            escalation_responders=escalation_responders,
         ):
-            assert not alarm.escalated
-            assert alarm.escalate_delay == escalate_delay
-            assert alarm.escalate_to == escalate_to
+            assert not alarm.do_escalate
+            assert alarm.escalation_delay == escalation_delay
+            assert alarm.escalation_responders == escalation_responders
+            assert json.loads(alarm.escalation_responders_json) == escalation_responders
             if alarm.max_severity < AlarmSeverity.CRITICAL:
                 assert alarm.timestamp_escalate == 0
-                assert alarm.escalate_task.done()
+                assert alarm.escalation_timer_task.done()
             else:
                 assert alarm.timestamp_escalate > 0
-                assert not alarm.escalate_task.done()
+                assert not alarm.escalation_timer_task.done()
+                # Wait for the alarm to call back when the escalation timer
+                # fires. Then check the escalation fields set by Alarm.
                 await self.next_queued_alarm(expected_alarm=alarm)
-                assert alarm.escalated
+                assert alarm.do_escalate
+                assert alarm.escalation_timer_task.done()
+
+                # Acknowledging the alarm should clear do_escalate.
+                await alarm.acknowledge(
+                    severity=AlarmSeverity.CRITICAL, user="arbitrary"
+                )
+                assert not alarm.do_escalate
+                assert alarm.escalation_timer_task.done()
+                # Make sure this alarm called back, and flush
+                # the callback queue.
+                await self.next_queued_alarm(expected_alarm=alarm)
 
     async def test_reset(self):
         name = "alarm"

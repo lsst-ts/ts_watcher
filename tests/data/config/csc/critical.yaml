@@ -5,14 +5,21 @@ rules:
   configs:
   - name: ATDome
     interval: 0.4
-    severities: [2, 4, 1]
+    severities: [2, 4, 2]
     repeats: 1
   - name: ATCamera
     interval: 0.4
     delay: 0.2
-    severities: [3, 4, 2]
+    severities: [3, 4, 1]
     repeats: 1
 escalation:
 - alarms: [test.ConfiguredSeverities.ATDome]
-  to: stella
+  responders:
+    - name: stella
+      type: team
   delay: 0.01
+# This assumes the mock OpsGenie uses the standard port,
+# but randomly assigned ports are safer.
+# If you use a random port, overwrite
+# `csc.model.escalation_url with the correct URL.
+escalation_url: http://127.0.0.1:80
