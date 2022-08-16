@@ -23,6 +23,7 @@ __all__ = ["Alarm"]
 
 import asyncio
 import inspect
+import json
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
@@ -45,18 +46,33 @@ class Alarm:
     ----------
     name : `str`
         Name of alarm.
+    acknowledged_by : `str`
+        The ``user`` argument when the alarm is acknowledged.
+        "" if not acknowledged.
     auto_acknowledge_delay : `float`
         The delay (seconds) after which an alarm will be automatically
         acknowledged. Never if 0 (the default).
     auto_unacknowledge_delay : `float`
         The delay (seconds) after which an alarm will be automatically
         unacknowleddged. Never if 0 (the default).
-    escalate_to : `str`
-        Who to escalate this alarm to. Do not escalate if blank (the default).
-    escalate_delay : `float`
+    do_escalate : `bool`
+        Should the alarm be escalated? The value is set by this class
+        and is intended to be read by the alarm callback.
+    escalation_delay : `float`
         If an alarm goes to critical state and remains unacknowledged
         for this period of time (seconds), the alarm should be escalated.
-        Do not escalate if 0 (the default).
+        If 0, the alarm will not be escalated.
+    escalation_responders : `list`
+        Who or what to escalate the alarm, as a list of:
+        ``{"name": "...", "type": "..."}``.
+        If an empty list, the alarm will not be escalated.
+    escalation_responders_json : `str`
+        json-encoded version of escalation_responders.
+    escalated_id : `str`
+        ID of the OpsGenie escalation alert. "" if not escalated.
+        Set to "Failed: {reason}" if escalation failed.
+        This is set to "" by `reset`, and intended to be set to
+        non-empty values by the alarm callback.
     severity_queue : `asyncio.Queue` or `None`
         Intended only for unit tests.
         Defaults to None. If a unit test sets this
@@ -69,7 +85,7 @@ class Alarm:
         (
             "auto_acknowledge_task",
             "auto_unacknowledge_task",
-            "escalate_task",
+            "escalation_timer_task",
             "unmute_task",
             "severity_queue",
         )
@@ -80,11 +96,10 @@ class Alarm:
         self._callback = None
         self.auto_acknowledge_delay = 0
         self.auto_unacknowledge_delay = 0
-        self.escalate_to = ""
-        self.escalate_delay = 0
+        self.configure_escalation(escalation_delay=0, escalation_responders=[])
         self.auto_acknowledge_task = utils.make_done_future()
         self.auto_unacknowledge_task = utils.make_done_future()
-        self.escalate_task = utils.make_done_future()
+        self.escalation_timer_task = utils.make_done_future()
         self.unmute_task = utils.make_done_future()
         self.severity_queue = None
         self.reset()
@@ -106,13 +121,11 @@ class Alarm:
             and self.max_severity == AlarmSeverity.NONE
         )
 
-    def configure(
+    def configure_basics(
         self,
         callback=None,
         auto_acknowledge_delay=0,
         auto_unacknowledge_delay=0,
-        escalate_to="",
-        escalate_delay=0,
     ):
         """Configure the callback function and auto ack/unack delays.
 
@@ -132,12 +145,6 @@ class Alarm:
             unacknowledged, or 0 for no automatic unacknowledgement.
             Automatic unacknowledgement only occurs if the alarm persists,
             because an acknowledged alarm is reset if severity goes to NONE.
-        escalate_to : `str`, optional
-            Who or what to escalate the alarm to.
-            If "" (the default) the alarm is not escalated.
-        escalate_delay : `float`, optional
-            Delay before escalating a critical unacknowledged alarm (sec).
-            If 0 (the default) the alarm is not escalated.
         """
         if auto_acknowledge_delay < 0:
             raise ValueError(
@@ -150,21 +157,57 @@ class Alarm:
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
-        self.escalate_to = escalate_to
-        self.escalate_delay = escalate_delay
+
+    def configure_escalation(self, escalation_delay, escalation_responders):
+        """Configure escalation.
+
+        Set the following attributes:
+
+        * escalation_delay
+        * escalation_responders
+        * escalation_responders_json
+
+        Parameters
+        ----------
+        escalation_delay : `float`
+            Delay before escalating a critical unacknowledged alarm (sec).
+            If 0 the alarm is not escalated.
+        escalation_responders : `list`
+            Who or what to escalate the alarm, as a sequence of
+            ``{"name": "...", "type": "..."}``.
+            If an empty sequence the alarm will not be escalated.
+
+        Raises
+        ------
+        ValueError
+            If escalation_delay < 0.
+            If escalation_delay > 0 and escalation_responders empty,
+            or escalation_delay = 0 and escalation_responders not empty.
+        """
+        if escalation_delay < 0:
+            raise ValueError(f"{escalation_delay=} must be ≥ 0")
+        if (escalation_delay == 0) != (len(escalation_responders) == 0):
+            raise ValueError(
+                f"{escalation_delay=} must be > 0 if and only if"
+                f"{escalation_responders=} is not empty"
+            )
+        self.escalation_responders = list(escalation_responders)
+        self.escalation_responders_json = json.dumps(self.escalation_responders)
+        self.escalation_delay = escalation_delay
 
     def close(self):
         """Cancel pending tasks."""
         self._cancel_auto_acknowledge()
         self._cancel_auto_unacknowledge()
-        self._cancel_escalate()
+        self._cancel_escalation_timer()
         self._cancel_unmute()
 
     async def acknowledge(self, severity, user):
         """Acknowledge the alarm.
 
-        Almost a no-op if nominal or acknowledged.
-        If acknowledged restart the auto-unack timer, if wanted.
+        Halt the escalation timer, if running, and set do_escalate False.
+        Restart the auto unacknowledge timer, if configured
+        (self.auto_unacknowledge_delay > 0).
 
         Parameters
         ----------
@@ -185,19 +228,24 @@ class Alarm:
         Raises
         ------
         ValueError
-            If ``severity < self.max_severity``
-            and the alarm was not already acknowledged.
+            If ``severity < self.max_severity``. In this case the acknowledge
+            method does not change the alarm state.
 
         Notes
         -----
         The reason ``severity`` is an argument is to handle the case that
         a user acknowledges an alarm just as the alarm severity increases.
-        To avoid the danger of accidentally acknowledging at a higher
-        severity than intended, the command must be rejected.
+        To avoid the danger of accidentally acknowledging an alarm at a
+        higher severity than intended, the acknowledgement is rejected.
         """
+        severity = AlarmSeverity(severity)
+        if severity < self.max_severity:
+            raise ValueError(f"severity {severity} < max_severity {self.max_severity}")
+
         self._cancel_auto_acknowledge()
         self._cancel_auto_unacknowledge()
-        self._cancel_escalate()
+        self._cancel_escalation_timer()
+        self.do_escalate = False
         if self.nominal:
             return False
 
@@ -211,9 +259,6 @@ class Alarm:
 
         curr_tai = utils.current_tai()
 
-        severity = AlarmSeverity(severity)
-        if severity < self.max_severity:
-            raise ValueError(f"severity {severity} < max_severity {self.max_severity}")
         if self.severity == AlarmSeverity.NONE:
             # reset the alarm to nominal
             self.max_severity = AlarmSeverity.NONE
@@ -284,7 +329,8 @@ class Alarm:
         self.reason = ""
         self.acknowledged = False
         self.acknowledged_by = ""
-        self.escalated = False
+        self.do_escalate = False
+        self.escalated_id = ""
 
         self.timestamp_severity_oldest = 0
         self.timestamp_severity_newest = 0
@@ -294,7 +340,7 @@ class Alarm:
         # These cancel methods reset all associated attributes.
         self._cancel_auto_acknowledge()
         self._cancel_auto_unacknowledge()
-        self._cancel_escalate()
+        self._cancel_escalation_timer()
         self._cancel_unmute()
 
     async def set_severity(self, severity, reason):
@@ -340,12 +386,13 @@ class Alarm:
                 self.reason = ""
                 self.acknowledged = False
                 self.acknowledged_by = ""
+                self.do_escalate = False
                 self.max_severity = AlarmSeverity.NONE
                 self.timestamp_acknowledged = curr_tai
                 self.timestamp_max_severity = curr_tai
                 self._cancel_auto_acknowledge()
                 self._cancel_auto_unacknowledge()
-                self._cancel_escalate()
+                self._cancel_escalation_timer()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
                 if (
@@ -582,10 +629,10 @@ class Alarm:
         await asyncio.sleep(self.auto_unacknowledge_delay)
         await self.unacknowledge(escalate=False)
 
-    async def _escalate_timer(self):
+    async def _escalation_timer(self):
         """Wait, then escalate this alarm."""
-        await asyncio.sleep(self.escalate_delay)
-        self.escalated = True
+        await asyncio.sleep(self.escalation_delay)
+        self.do_escalate = True
         await self._run_callback()
 
     async def _unmute_timer(self, duration):
@@ -611,10 +658,10 @@ class Alarm:
         self.timestamp_auto_unacknowledge = 0
         self.auto_unacknowledge_task.cancel()
 
-    def _cancel_escalate(self):
+    def _cancel_escalation_timer(self):
         """Cancel the escalate timer, if pending."""
         self.timestamp_escalate = 0
-        self.escalate_task.cancel()
+        self.escalation_timer_task.cancel()
 
     def _cancel_unmute(self):
         """Cancel the unmute timer, if running."""
@@ -645,11 +692,11 @@ class Alarm:
 
         A no-op if escalation is not configured.
         """
-        if self.escalate_delay <= 0 or self.escalate_to == "":
+        if self.escalation_delay <= 0 or not self.escalation_responders:
             # Escalation not configured
             return
-        self._cancel_escalate()
+        self._cancel_escalation_timer()
         # Set the timestamp here, rather than the timer method,
         # so it is set before the callback runs.
-        self.timestamp_escalate = utils.current_tai() + self.escalate_delay
-        self.escalate_task = asyncio.create_task(self._escalate_timer())
+        self.timestamp_escalate = utils.current_tai() + self.escalation_delay
+        self.escalation_timer_task = asyncio.create_task(self._escalation_timer())

@@ -22,6 +22,11 @@
 __all__ = ["WatcherCsc", "run_watcher"]
 
 import asyncio
+import os
+from http import HTTPStatus
+
+
+import aiohttp
 
 from lsst.ts import salobj
 
@@ -63,6 +68,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     ):
         # the Watcher model is created when the CSC is configured
         self.model = None
+        self.http_client = aiohttp.ClientSession()
         super().__init__(
             "Watcher",
             index=0,
@@ -71,6 +77,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
             initial_state=initial_state,
             override=override,
         )
+        self.escalation_key = ""
+        # TODO DM-35892: remove this flag and the code that uses it.
+        # Assume ts_xml 12.1.
+        self.new_alarm_schema = "escalatedId" in vars(self.evt_alarm.DataType())
 
     @staticmethod
     def get_config_pkg():
@@ -80,6 +90,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await super().close_tasks()
         if self.model is not None:
             await self.model.close()
+        await self.http_client.close()
+        # aiohttp.ClientSession needs a bit more time to fully close.
+        await asyncio.sleep(0.1)
 
     async def configure(self, config):
         if self.model is not None:
@@ -93,6 +106,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.model = Model(
             domain=self.domain, config=config, alarm_callback=self.output_alarm
         )
+        if config.escalation_url:
+            try:
+                self.escalation_key = os.environ["ESCALATION_KEY"]
+            except KeyError:
+                raise RuntimeError(
+                    "env variable ESCALATION_KEY must be sit if config.escalation_url is set"
+                )
+
         await self.model.start_task
         self._enable_or_disable_model()
 
@@ -103,13 +124,140 @@ class WatcherCsc(salobj.ConfigurableCsc):
         elif self.model is not None:
             self.model.disable()
 
+    async def escalate_alarm(self, alarm):
+        """Escalate an alarm by creating an OpsGenie alert.
+
+        Store the ID of the alert in alarm.escalation_id.
+        If the attempt fails, store an error message that begins with
+        "Failed: " in alarm.escalation_id.
+
+        If self.model.config.escalation_url is blank then check the conditions
+        in the Raises section, but do nothing else.
+
+        Raises
+        ------
+        RuntimeError
+            If pre-conditions are not met (escalation is not attempted):
+
+            * alarm.escalated_id is not blank: the alarm was already
+              escalated (or at least an attempt was made).
+            * alarm.do_escalate false: alarm should not be escalated.
+            * alarm.escalation_responders empty: there is nobody to escalate
+              the alarm to (so do_escalate should never have been set).
+        """
+        if alarm.escalated_id:
+            raise RuntimeError("Alarm already escalated")
+        if not alarm.do_escalate:
+            raise RuntimeError("Alarm do_escalate false")
+        if not alarm.escalation_responders:
+            raise RuntimeError("Alarm escalation_responders empty")
+        if self.model.config.escalation_url == "":
+            return
+
+        # Try to create an OpsGenie alert
+        try:
+            async with self.http_client.post(
+                url=self.model.config.escalation_url,
+                json=dict(
+                    message=f"Watcher alarm {alarm.name!r} escalated",
+                    description=alarm.reason,
+                    responders=alarm.escalation_responders,
+                ),
+                headers=dict(
+                    Authorization=f"GenieKey {self.escalation_key}",
+                ),
+            ) as response:
+                if response.status == HTTPStatus.ACCEPTED:
+                    read_data = await response.json()
+                    alarm.escalated_id = read_data["requestId"]
+                else:
+                    read_text = await response.text()
+                    alarm.escalated_id = f"Failed: {read_text}"
+                    self.log.warning(f"Could not escalate alarm {alarm}: {read_text}")
+        except Exception as e:
+            errmsg = f"Could not reach OpsGenie: {e!r}"
+            alarm.escalated_id = f"Failed: {errmsg}"
+            self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
+
+    async def deescalate_alarm(self, alarm):
+        """De-escalate an alarm by closing the associated OpsGenie alert.
+
+        Clear alarm.escalated_id and, if alarm.escalated_id is valid
+        (does not start with "Failed"), tell OpsGenie to close the alert.
+        """
+        if not alarm.escalated_id:
+            return
+
+        escalated_id = alarm.escalated_id
+        alarm.escalated_id = ""
+        if escalated_id.startswith("Failed") or self.model.config.escalation_url == "":
+            # Nothing else to do
+            return
+
+        # Try to close the OpsGenie alert
+        async with self.http_client.post(
+            url=f"{self.model.config.escalation_url}/:{escalated_id}/close",
+            headers=dict(
+                Authorization=f"GenieKey {self.escalation_key}",
+            ),
+        ) as response:
+            if response.status != HTTPStatus.ACCEPTED:
+                read_text = await response.text()
+                self.log.warning(
+                    f"Could not close OpsGenie alert {escalated_id} "
+                    f"for alarm {alarm}: {read_text}"
+                )
+
     async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
         if self.summary_state != salobj.State.ENABLED:
             return
+
+        if alarm.do_escalate:
+            if not alarm.escalated_id:
+                try:
+                    await asyncio.wait_for(
+                        self.escalate_alarm(alarm),
+                        timeout=self.model.config.escalation_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    errmsg = "Timed out waiting for OpsGenie"
+                    alarm.escalated_id = f"Failed: {errmsg}"
+                    self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
+                except RuntimeError as e:
+                    self.log.error(
+                        f"Bug: escalation of {alarm} could not be attempted: {e!r}"
+                    )
+        else:
+            if alarm.escalated_id:
+                try:
+                    await asyncio.wait_for(
+                        self.deescalate_alarm(alarm),
+                        timeout=self.model.config.escalation_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    self.log.warning(
+                        f"Could not de-escalate alarm {alarm} "
+                        f"by closing OpsGenie alert {alarm.escalation_id}: "
+                        "timed out waiting for OpsGenie"
+                    )
+                except Exception:
+                    self.log.exception(
+                        f"Failed to de-escalate alarm {alarm} "
+                        f"by closing OpsGenie alert {alarm.escalation_id}"
+                    )
+                finally:
+                    alarm.escalated_id = ""
+
         # Do not set timestampSeverityNewest because it causes
         # too many unwanted messages. In the long run remove
         # that field from ts_xml.
+        # TODO DM-35892: remove the if/else and assume ts_xml 12.1.
+        if self.new_alarm_schema:
+            escalated_kwargs = dict(escalatedId=alarm.escalated_id)
+        else:
+            escalated_kwargs = dict(escalated=bool(alarm.escalated_id))
+
         await self.evt_alarm.set_write(
             name=alarm.name,
             severity=alarm.severity,
@@ -117,10 +265,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
             maxSeverity=alarm.max_severity,
             acknowledged=alarm.acknowledged,
             acknowledgedBy=alarm.acknowledged_by,
-            escalated=alarm.escalated,
-            escalateTo=alarm.escalate_to,
             mutedSeverity=alarm.muted_severity,
             mutedBy=alarm.muted_by,
+            escalateTo=alarm.escalation_responders_json,
+            **escalated_kwargs,
             timestampSeverityOldest=alarm.timestamp_severity_oldest,
             timestampMaxSeverity=alarm.timestamp_max_severity,
             timestampAcknowledged=alarm.timestamp_acknowledged,

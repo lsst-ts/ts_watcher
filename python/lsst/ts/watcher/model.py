@@ -159,8 +159,10 @@ class Model:
                 remaining_names = remaining_names.difference(matched_names)
                 for name in matched_names:
                     alarm = self.rules[name].alarm
-                    alarm.escalate_to = escalation_item["to"]
-                    alarm.escalate_delay = escalation_item["delay"]
+                    alarm.configure_escalation(
+                        escalation_responders=escalation_item["responders"],
+                        escalation_delay=escalation_item["delay"],
+                    )
 
         # Finish setup
         for rule in self.rules.values():
@@ -242,7 +244,7 @@ class Model:
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
-        rule.alarm.configure(
+        rule.alarm.configure_basics(
             callback=self.alarm_callback,
             auto_acknowledge_delay=self.config.auto_acknowledge_delay,
             auto_unacknowledge_delay=self.config.auto_unacknowledge_delay,

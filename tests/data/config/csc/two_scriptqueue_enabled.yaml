@@ -5,5 +5,7 @@ rules:
   - name: "ScriptQueue:2"
 escalation:
 - alarms: ["Enabled.ScriptQueue:2"]
-  to: stella
+  responders:
+  - name: stella
+    type: team
   delay: 0.11
