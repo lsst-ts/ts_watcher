@@ -6,6 +6,21 @@
 Version History
 ###############
 
+v1.10.1
+-------
+
+Changes:
+
+* Add new ScriptFailed rule, which monitors the ScriptQueue execution and set severity to WARNING if the current script failed.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 12.1) and ts_sal 7.
+
 v1.10.0
 -------
 
