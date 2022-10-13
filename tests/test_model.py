@@ -355,11 +355,23 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
         # Escalation info for the first two rules;
         # check that case does not have to match.
-        esc_info12 = dict(alarms=["enabled.scriptqueue:*"], to="chaos", delay=0.11)
+        esc_info12 = dict(
+            alarms=["enabled.scriptqueue:*"],
+            responders=[dict(name="chaos", type="team")],
+            delay=0.11,
+        )
         # Escalation info for the next two rules
-        esc_info34 = dict(alarms=["Enabled.Test:?"], to="stella", delay=0.12)
+        esc_info34 = dict(
+            alarms=["Enabled.Test:?"],
+            responders=[dict(name="stella", type="team")],
+            delay=0.12,
+        )
         # Escalation info that does not match any alarm names
-        esc_notused = dict(alarms=["Enabled.NoMatch"], to="otho", delay=0.13)
+        esc_notused = dict(
+            alarms=["Enabled.NoMatch"],
+            responders=[dict(name="someone@somewhere", type="user")],
+            delay=0.13,
+        )
 
         async with self.make_model(
             names=remote_names,
@@ -369,14 +381,14 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             alarms = [rule.alarm for rule in self.model.rules.values()]
             assert len(alarms) == len(remote_names)
             for alarm in alarms[0:2]:
-                assert alarm.escalate_to == esc_info12["to"]
-                assert alarm.escalate_delay == esc_info12["delay"]
+                assert alarm.escalation_responders == esc_info12["responders"]
+                assert alarm.escalation_delay == esc_info12["delay"]
             for alarm in alarms[2:4]:
-                assert alarm.escalate_to == esc_info34["to"]
-                assert alarm.escalate_delay == esc_info34["delay"]
+                assert alarm.escalation_responders == esc_info34["responders"]
+                assert alarm.escalation_delay == esc_info34["delay"]
             for alarm in alarms[4:]:
-                assert alarm.escalate_to == ""
-                assert alarm.escalate_delay == 0
+                assert alarm.escalation_responders == []
+                assert alarm.escalation_delay == 0
             for alarm in alarms:
                 assert alarm.timestamp_escalate == 0
 

@@ -89,13 +89,14 @@ class WatcherSchemaTestCase(unittest.TestCase):
             dict(name="ATCamera"),
             dict(name="ScriptQueue:2"),
         ]
-        assert len(config.escalation) == 3
+        assert len(config.escalation) == 2
         assert config.escalation[0] == dict(
-            alarms=["Enabled.AT*"], to="stella", delay=0.11
+            alarms=["Enabled.AT*"],
+            responders=[dict(name="stella", type="team")],
+            delay=0.11,
         )
         assert config.escalation[1] == dict(
-            alarms=["Enabled.ATCamera"], to="otho", delay=0.12
-        )
-        assert config.escalation[2] == dict(
-            alarms=["Enabled.ScriptQueue:*"], to="", delay=0
+            alarms=["Enabled.ATCamera"],
+            responders=[dict(name="someone@somewhere", type="user")],
+            delay=0.12,
         )

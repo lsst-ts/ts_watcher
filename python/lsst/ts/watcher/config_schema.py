@@ -26,7 +26,7 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v2
+title: Watcher v3
 description: Configuration for the Watcher
 type: object
 required:
@@ -35,6 +35,7 @@ required:
   - auto_unacknowledge_delay
   - rules
   - escalation
+  - escalation_url
 additionalProperties: false
 properties:
   disabled_sal_components:
@@ -90,7 +91,7 @@ properties:
     type: array
     items:
       type: object
-      required: [alarms, to, delay]
+      required: [alarms, responders, delay]
       additionalProperties: false
       minItems: 0
       properties:
@@ -104,21 +105,43 @@ properties:
           minItems: 1
           items:
             type: string
-        to:
-          description: >-
-            User or channel to which to escalate these alarms.
-            Set empty to prevent this alarm from being escalated
-            (as if the alarm did not appear in the escalation section).
-          type: string
+        responders:
+          description: ->
+            Teams, users, and/or schedules to which to escalate these alarms.
+            The format is the same used by OpsGenie to create an alert.
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            additionalProperties: false
+            minItems: 1
+            properties:
+              name:
+                description: ->
+                    Name of team, user, or schedule to which to escalate this alarm.
+                    Note that IDs are not supported; it must be a name.
+                type: string
+              type:
+                description: Type of name.
+                type: string
+                enum: ["team", "user", "schedule"]
         delay:
           description: >-
             Delay before escalating these alarms (seconds).
-            A value of 0 disables escalation (as does an empty string for `to`).
+            Must be positive.
             The alarm will be escalated `delay` seconds after the alarm severity
             first goes to CRITICAL, unless the alarm is acknowledged first.
             Warning: stale alarms–those for which the severity has gone back to None–
             will not reliably be escalated if `delay` is longer than `auto_acknowledge_delay`,
             because the alarm may be automatically acknowledged before it is escalated.
           type: number
+          exclusiveMinimum: 0
+  escalation_url:
+    description: URL to OpsGenie escalation service.
+    type: string
+  escalation_timeout:
+    description: Timeout (seconds) for OpsGenie requests.
+    type: number
+    exclusiveMinimum: 0
 """
 )

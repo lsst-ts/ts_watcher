@@ -6,6 +6,53 @@
 Version History
 ###############
 
+v1.10.1
+-------
+
+Changes:
+
+* Add new ScriptFailed rule, which monitors the ScriptQueue execution and set severity to WARNING if the current script failed.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 12.1) and ts_sal 7.
+
+v1.10.0
+-------
+
+Changes:
+
+* Escalate alarms to OpsGenie by using the REST API to create alerts.
+
+  * Update the CSC configuration schema to version 3:
+
+    * Update ``escalation`` items by replacing the ``to`` field (a string) ``responders`` (a list of objects).
+    * Add escalation_url.
+
+  * Overhaul escalation-related `Alarm` fields.
+    It is important to keep track of the ID of escalation alerts.
+  * Update `Model` to handle the new `Alarm` fields.
+  * Update `WatcherCsc` to handle the new `Alarm` fields and `Model` changes.
+  * Add `MockOpsGenie`, a mock OpsGenie service for unit tests.
+  * Add support for ts_xml 12.1, which has more detailed escalation information in the ``alarm`` event, while retaining backwards compatibility with ts_xml 11.
+
+* Modernize the documentation.
+  Split the main page into a User Guide (still part of the main page) and a Developer Guide (a separate page).
+  Add a section on alarm escalation to the User Guide.
+
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 12.1) and ts_sal 7.
+
 v1.9.0
 ------
 

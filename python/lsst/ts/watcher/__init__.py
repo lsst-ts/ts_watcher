@@ -38,3 +38,4 @@ from . import rules
 from .model import *
 from .watcher_csc import *
 from .testutils import *
+from .mock_opsgenie import *

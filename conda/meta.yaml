@@ -15,6 +15,7 @@ build:
 
 test:
   requires:
+    - aiohttp >=3.8,<4.0
     - ts-conda-build =0.3
     - ts-idl {{ idl_version }}
     - ts-utils
@@ -39,6 +40,7 @@ requirements:
     - python
     - setuptools
     - setuptools_scm
+    - aiohttp >=3.8,<4.0
     - ts-idl
     - ts-utils
     - ts-salobj
