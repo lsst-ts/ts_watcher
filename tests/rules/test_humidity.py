@@ -81,14 +81,11 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         rule = Humidity(config=config)
         assert len(rule.remote_info_list) == 2
         expected_sal_indices = (5, 1)
-        expected_poll_names = [
-            ("tel_hx85a", "tel_hx85ba"),
-            ("tel_hx85a",),
-        ]
+        expected_poll_names = ("tel_relativeHumidity",)
         for i, remote_info in enumerate(rule.remote_info_list):
             assert remote_info.name == "ESS"
             assert remote_info.index == expected_sal_indices[i]
-            assert remote_info.poll_names == expected_poll_names[i]
+            assert remote_info.poll_names == expected_poll_names
 
     async def test_operation(self):
         poll_interval = 0.05
@@ -123,10 +120,10 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
             # The keys are based on the rule configuration
             humidity_topics = dict(
-                high=controller5.tel_hx85a,
-                low=controller5.tel_hx85a,
-                outside=controller5.tel_hx85ba,
-                inside=controller1.tel_hx85a,
+                high=controller5.tel_relativeHumidity,
+                low=controller5.tel_relativeHumidity,
+                outside=controller5.tel_relativeHumidity,
+                inside=controller1.tel_relativeHumidity,
             )
 
             send_ess_data = functools.partial(
