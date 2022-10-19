@@ -35,7 +35,7 @@ def get_topic_key(topic):
     topic_key : `tuple`
         Topic key: (SAL component name, SAL index, topic attribute name)
         where topic attribute name includes the ``tel_`` or ``evt_`` prefix.
-        Example: ``("ESS", 5, "tel_hx85a")``
+        Example: ``("ESS", 5, "tel_temperature")``
     """
     return (topic.salinfo.name, topic.salinfo.index, topic.attr_name)
 
