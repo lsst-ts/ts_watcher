@@ -88,10 +88,10 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         config = self.get_config(filepath=self.configpath / "good_full.yaml")
         rule = DewPointDepression(config=config)
         assert len(rule.remote_info_list) == 2
-        expected_sal_indices = (5, 1)
+        expected_sal_indices = (1, 5)
         expected_poll_names = [
-            ("tel_hx85a", "tel_hx85ba"),
-            ("tel_hx85a", "tel_temperature"),
+            ("tel_temperature", "tel_dewPoint"),
+            ("tel_dewPoint",),
         ]
         for i, remote_info in enumerate(rule.remote_info_list):
             assert remote_info.name == "ESS"
@@ -131,10 +131,10 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
             # The keys are based on the rule configuration
             dew_point_topics = dict(
-                high=controller5.tel_hx85a,
-                low=controller5.tel_hx85a,
-                outside=controller5.tel_hx85ba,
-                inside=controller1.tel_hx85a,
+                high=controller5.tel_dewPoint,
+                low=controller5.tel_dewPoint,
+                outside=controller5.tel_dewPoint,
+                inside=controller1.tel_dewPoint,
             )
             temperature_topics = dict(
                 maintel=(controller1.tel_temperature, None),
