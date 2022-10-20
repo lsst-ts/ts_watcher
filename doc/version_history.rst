@@ -6,6 +6,49 @@
 Version History
 ###############
 
+v1.11.0
+-------
+
+Changes:
+
+* Update for ts_xml 13:
+
+  * Update rules to use the new ESS topics.
+  * Update unit tests and documentation to eliminate use of obsolete ESS topics.
+
+* Update rules that use ESS topics to use hard-coded topics (this was made possible by ts_xml 13), simplifying configuration:
+
+  * `rules.DewPoint`
+  * `rules.Humidity`
+  * `rules.OverTemperature`
+
+* Update CONFIG_SCHEMA to v4, because of the changes to the schemas of the rules noted above.
+* Update `rules.ATCameraDewer` to improve float formatting in alarm details; vacuum was always shown as 0.00.
+* Fix a race condition caused by making rule and topic wrapper callbacks read data from the topic callback instance:
+
+  * `Model`: call call rules with an additional data argument.
+  * `TopicCallback`:
+  
+    * Call rules and topic wrappers with an additional data argument.
+    * Eliminate the `get` method; use the data passed to the callback, instead.
+    * Add attribute ``call_event`` for unit tests.
+
+  * Updated all rules accordingly.
+  * Updated the "Writing Watcher Rules" document accordingly.
+
+* Add `PollingRule` class, for rules that poll for data.
+  Modified polling rules to use it.
+* Add `write_and_wait` function for unit tests.
+* Make test_clock.py compatible with Kafka salobj, while preserving compatibility with DDS salobj.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.10.1
 -------
 
@@ -19,7 +62,7 @@ Requires:
 * ts_salobj 7.1
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
-  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 12.1) and ts_sal 7.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 13) and ts_sal 7.
 
 v1.10.0
 -------
@@ -38,7 +81,7 @@ Changes:
   * Update `Model` to handle the new `Alarm` fields.
   * Update `WatcherCsc` to handle the new `Alarm` fields and `Model` changes.
   * Add `MockOpsGenie`, a mock OpsGenie service for unit tests.
-  * Add support for ts_xml 12.1, which has more detailed escalation information in the ``alarm`` event, while retaining backwards compatibility with ts_xml 11.
+  * Add support for ts_xml 13, which has more detailed escalation information in the ``alarm`` event, while retaining backwards compatibility with ts_xml 11.
 
 * Modernize the documentation.
   Split the main page into a User Guide (still part of the main page) and a Developer Guide (a separate page).
@@ -51,7 +94,7 @@ Requires:
 * ts_salobj 7.1
 * ts_idl 2
 * IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
-  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 12.1) and ts_sal 7.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 11 (preferably 13) and ts_sal 7.
 
 v1.9.0
 ------
