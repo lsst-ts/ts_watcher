@@ -38,9 +38,6 @@ from lsst.ts.watcher.rules import Humidity
 
 index_gen = utils.index_generator()
 
-# Time limit for writing SAL data and processing the result (seconds).
-STD_TIMEOUT = 1
-
 
 class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -228,25 +225,15 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         pessimistic_humidity_filter_value = rng.choice(list(humidity_topics.keys()))
         for filter_value, topic in humidity_topics.items():
             if filter_value == pessimistic_humidity_filter_value:
-                data_dict = dict(
-                    relativeHumidity=pessimistic_humidity,
-                )
+                humidity = pessimistic_humidity
             else:
-                data_dict = dict(
-                    relativeHumidity=normal_humidity,
-                )
+                humidity = normal_humidity
             if use_other_filter_values:
                 filter_value += " with modifications"
-            if verbose:
-                print(
-                    f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, {data_dict})"
-                )
-            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
-            topic_callback = getattr(remote, topic.attr_name).callback
-            topic_callback.call_event.clear()
-            await topic.set_write(sensorName=filter_value, **data_dict)
-            await asyncio.wait_for(
-                topic_callback.call_event.wait(),
-                timeout=STD_TIMEOUT,
+            await watcher.write_and_wait(
+                model=model,
+                topic=topic,
+                sensorName=filter_value,
+                relativeHumidity=humidity,
+                verbose=verbose,
             )

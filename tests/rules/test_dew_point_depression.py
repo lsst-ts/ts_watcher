@@ -40,10 +40,6 @@ from lsst.ts.watcher.rules import DewPointDepression
 index_gen = utils.index_generator()
 
 
-# Time limit for writing SAL data and processing the result (seconds).
-STD_TIMEOUT = 1
-
-
 class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
@@ -259,17 +255,12 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 dew_point = normal_dew_point
             if use_other_filter_values:
                 filter_value += " with modifications"
-            if verbose:
-                print(
-                    f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, dewPoint={dew_point})"
-                )
-            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
-            topic_callback = remote.tel_dewPoint.callback
-            topic_callback.call_event.clear()
-            await topic.set_write(sensorName=filter_value, dewPoint=dew_point)
-            await asyncio.wait_for(
-                topic_callback.call_event.wait(), timeout=STD_TIMEOUT
+            await watcher.write_and_wait(
+                model=model,
+                topic=topic,
+                sensorName=filter_value,
+                dewPoint=dew_point,
+                verbose=verbose,
             )
 
         pessimistic_temperature = pessimistic_dew_point + dew_point_depression
@@ -296,15 +287,10 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 temperatures[pessimistic_index] = pessimistic_temperature
             if use_other_filter_values:
                 filter_value += " with modifications"
-            if verbose:
-                print(
-                    f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, temperature={temperatures})"
-                )
-            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
-            topic_callback = remote.tel_temperature.callback
-            topic_callback.call_event.clear()
-            await topic.set_write(sensorName=filter_value, temperature=temperatures)
-            await asyncio.wait_for(
-                topic_callback.call_event.wait(), timeout=STD_TIMEOUT
+            await watcher.write_and_wait(
+                model=model,
+                topic=topic,
+                sensorName=filter_value,
+                temperature=temperatures,
+                verbose=verbose,
             )
