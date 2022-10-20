@@ -84,7 +84,7 @@ class Heartbeat(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, topic_callback):
+    def __call__(self, data=None, topic_callback=None):
         self.restart_timer()
         return watcher.NoneNoReason
 

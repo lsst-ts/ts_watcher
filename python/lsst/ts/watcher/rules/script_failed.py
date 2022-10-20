@@ -82,17 +82,16 @@ class ScriptFailed(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, topic_callback):
+    def __call__(self, data, topic_callback):
 
         if topic_callback.attr_name == "evt_queue":
-            queue = topic_callback.get()
-            self.queue_enabled = queue.enabled
-            self.queue_running = queue.running
-            self.current_script_sal_index = queue.currentSalIndex
+            self.queue_enabled = data.enabled
+            self.queue_running = data.running
+            self.current_script_sal_index = data.currentSalIndex
         elif self.current_script_sal_index is not None:
-            script = topic_callback.get()
-            if script.scriptSalIndex == self.current_script_sal_index:
-                self.current_script_state = ScriptState(script.scriptState)
+            # attr_name is evt_script
+            if data.scriptSalIndex == self.current_script_sal_index:
+                self.current_script_state = ScriptState(data.scriptState)
 
         if (
             self.queue_enabled is True

@@ -95,8 +95,7 @@ class Clock(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, topic_callback):
-        data = topic_callback.get()
+    def __call__(self, data, topic_callback=None):
         clock_error = data.private_rcvStamp - data.private_sndStamp
         if self.n_clock_errors < self.clock_errors.shape[0]:
             self.clock_errors[self.n_clock_errors] = clock_error

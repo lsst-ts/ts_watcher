@@ -77,8 +77,8 @@ class Enabled(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, topic_callback):
-        state = topic_callback.get().summaryState
+    def __call__(self, data, topic_callback=None):
+        state = data.summaryState
         if state == salobj.State.ENABLED:
             return watcher.NoneNoReason
         elif state == salobj.State.FAULT:

@@ -269,7 +269,7 @@ additionalProperties: false
             await self.alarm.set_severity(severity=severity, reason=reason)
             await asyncio.sleep(self.config.poll_interval)
 
-    def __call__(self, topic_callback=None):
+    def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()
         # List of (temperature, wrapper, index)
         temperature_values = self.temperature_field_wrappers.get_data(
