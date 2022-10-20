@@ -40,6 +40,10 @@ from lsst.ts.watcher.rules import DewPointDepression
 index_gen = utils.index_generator()
 
 
+# Time limit for writing SAL data and processing the result (seconds).
+STD_TIMEOUT = 1
+
+
 class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
@@ -129,7 +133,8 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
             model.enable()
 
-            # The keys are based on the rule configuration
+            # Dicts of sensor name: write topic.
+            # The content must match the rule configuration.
             dew_point_topics = dict(
                 high=controller5.tel_dewPoint,
                 low=controller5.tel_dewPoint,
@@ -143,18 +148,22 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
             send_ess_data = functools.partial(
                 self.send_ess_data,
+                model=model,
                 rule=rule,
                 dew_point_topics=dew_point_topics,
                 temperature_topics=temperature_topics,
             )
+
+            # Stop the rule polling task and poll manually.
+            rule.stop()
 
             # Send data indicating condensation using filter values
             # other than those the rule is listening to.
             # This should not affect the rule.
             await send_ess_data(dew_point_depression=-1, use_other_filter_values=True)
             # Give the rule time to deal with all of the new data.
-            await asyncio.sleep(poll_interval)
-            await rule.alarm.assert_next_severity(AlarmSeverity.NONE, flush=True)
+            severity, reason = await rule.poll_once(set_poll_start_tai=True)
+            assert severity == AlarmSeverity.NONE
             assert rule.alarm.nominal
 
             # Check a sequence of dew points
@@ -163,11 +172,12 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(dew_point_depression=dew_point_depression)
-                # Give the rule time to deal with all of the new data.
-                await asyncio.sleep(poll_interval)
-                await rule.alarm.assert_next_severity(expected_severity, flush=True)
+                severity, reason = await rule.poll_once(set_poll_start_tai=True)
+                assert severity == expected_severity
 
             # Check that no data for max_data_age triggers severity=SERIOUS.
+            # Resume polling first.
+            rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
             await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
@@ -175,6 +185,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
     async def send_ess_data(
         self,
         dew_point_depression,
+        model,
         rule,
         dew_point_topics,
         temperature_topics,
@@ -192,6 +203,8 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         ----------
         dew_point_depression : `float`
             Desired pessimistic dew point depression
+        model : `Model`
+            Watcher model.
         rule : `DewPointDepressionRule`
             Dew point depression rule.
         dew_point_topics : `dict` of ``str`: write topic
@@ -251,7 +264,13 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, dewPoint={dew_point})"
                 )
+            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
+            topic_callback = remote.tel_dewPoint.callback
+            topic_callback.call_event.clear()
             await topic.set_write(sensorName=filter_value, dewPoint=dew_point)
+            await asyncio.wait_for(
+                topic_callback.call_event.wait(), timeout=STD_TIMEOUT
+            )
 
         pessimistic_temperature = pessimistic_dew_point + dew_point_depression
         normal_temperature = pessimistic_temperature + delta_temperature
@@ -282,4 +301,10 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, temperature={temperatures})"
                 )
+            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
+            topic_callback = remote.tel_temperature.callback
+            topic_callback.call_event.clear()
             await topic.set_write(sensorName=filter_value, temperature=temperatures)
+            await asyncio.wait_for(
+                topic_callback.call_event.wait(), timeout=STD_TIMEOUT
+            )

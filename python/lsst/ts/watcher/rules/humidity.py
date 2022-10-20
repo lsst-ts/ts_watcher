@@ -32,7 +32,7 @@ from lsst.ts import watcher
 ESSHumidityField = "relativeHumidity"
 
 
-class Humidity(watcher.BaseRule):
+class Humidity(watcher.PollingRule):
     """Check the humidity.
 
     This rule only reads ESS telemetry topics.
@@ -201,11 +201,29 @@ additionalProperties: false
         # Keep track of when polling begins
         # in order to avoid confusing "no data ever seen"
         # with "all data is older than max_data_age"
-        self.poll_start_tai = utils.current_tai()
+        is_first = True
         while True:
-            severity, reason = self()
-            await self.alarm.set_severity(severity=severity, reason=reason)
+            await self.poll_once(set_poll_start_tai=is_first)
+            is_first = False
             await asyncio.sleep(self.config.poll_interval)
+
+    async def poll_once(self, set_poll_start_tai):
+        """Poll the alarm once.
+
+        Parameters
+        ----------
+        set_poll_start_tai : `bool`
+            If true then set self.poll_start_tai to the current TAI.
+
+        Returns
+        -------
+        severity, reason
+        """
+        if set_poll_start_tai:
+            self.poll_start_tai = utils.current_tai()
+        severity, reason = self()
+        await self.alarm.set_severity(severity=severity, reason=reason)
+        return severity, reason
 
     def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()

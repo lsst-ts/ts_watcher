@@ -38,6 +38,9 @@ from lsst.ts.watcher.rules import Humidity
 
 index_gen = utils.index_generator()
 
+# Time limit for writing SAL data and processing the result (seconds).
+STD_TIMEOUT = 1
+
 
 class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -88,8 +91,15 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             assert remote_info.poll_names == expected_poll_names
 
     async def test_operation(self):
-        poll_interval = 0.05
-        max_data_age = poll_interval * 5
+        # max_data_age must be long enough to reliably
+        # write and process all data, so the main part of the test
+        # can run without the data aging out.
+        max_data_age = 1
+        # The test does manual polling, for reproducibility,
+        # except when testing that the data has aged out.
+        # So poll_interval just needs to be significantly
+        # shorter than max_data_age.
+        poll_interval = max_data_age / 5
         rule_config_path = self.configpath / "good_full.yaml"
         with open(rule_config_path, "r") as f:
             rule_config_dict = yaml.safe_load(f)
@@ -118,7 +128,8 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
             model.enable()
 
-            # The keys are based on the rule configuration
+            # A dict of sensor name: write topic.
+            # The content must match the rule configuration.
             humidity_topics = dict(
                 high=controller5.tel_relativeHumidity,
                 low=controller5.tel_relativeHumidity,
@@ -128,31 +139,38 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
 
             send_ess_data = functools.partial(
                 self.send_ess_data,
+                model=model,
                 rule=rule,
                 humidity_topics=humidity_topics,
                 verbose=False,
             )
 
+            # Stop the rule polling task and poll manually.
+            rule.stop()
+
             # Send data indicating condensation using filter values
             # other than those the rule is listening to.
             # This should not affect the rule.
             await send_ess_data(humidity=100, use_other_filter_values=True)
-            # Give the rule time to deal with all of the new data.
-            await asyncio.sleep(poll_interval)
-            await rule.alarm.assert_next_severity(AlarmSeverity.NONE, flush=True)
+            # Manually run the rule like HumidityRule.poll_loop does.
+            severity, reason = await rule.poll_once(set_poll_start_tai=True)
+            assert severity == AlarmSeverity.NONE
             assert rule.alarm.nominal
 
             # Check a sequence of humidities
+            # Turn off the polling loop first and manually poll,
+            # to make the test more efficient.
             for (
                 humidity,
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(humidity=humidity)
-                # Give the rule time to deal with all of the new data.
-                await asyncio.sleep(poll_interval)
-                await rule.alarm.assert_next_severity(expected_severity, flush=True)
+                severity, reason = await rule.poll_once(set_poll_start_tai=True)
+                assert severity == expected_severity
 
             # Check that no data for max_data_age triggers severity=SERIOUS.
+            # Resume polling first.
+            rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
             await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
@@ -160,12 +178,13 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
     async def send_ess_data(
         self,
         humidity,
+        model,
         rule,
         humidity_topics,
         use_other_filter_values=False,
         verbose=False,
     ):
-        """Send ESS data.
+        """Send ESS data and wait for the rule to be triggered.
 
         Parameters
         ----------
@@ -173,9 +192,11 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             Desired humidity
         rule : `HumidityRule`
             Dew point depression rule.
-        humidity_topics : `dict` of ``str`: write topic
+        humidity_topics : `dict`[`str`, `lsst.ts.salobj.topics.WriteTopic`]
             Dict of filter_value: controller topic
             that writes humidity
+        topic_callbacks : `dict`[`str`, `TopicCallback`]
+            Dict of (SAL component name, SAL index): topic callback.
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
@@ -196,7 +217,6 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                 f"send_ess_data(humidity={humidity}, "
                 f"use_other_filter_values={use_other_filter_values}"
             )
-
         delta_humidity = 2
         pessimistic_humidity = humidity
         normal_humidity = humidity - delta_humidity
@@ -222,4 +242,11 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                     f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
                     f"(sensorName={filter_value!r}, {data_dict})"
                 )
+            remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
+            topic_callback = getattr(remote, topic.attr_name).callback
+            topic_callback.call_event.clear()
             await topic.set_write(sensorName=filter_value, **data_dict)
+            await asyncio.wait_for(
+                topic_callback.call_event.wait(),
+                timeout=STD_TIMEOUT,
+            )

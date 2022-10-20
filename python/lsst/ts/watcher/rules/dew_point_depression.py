@@ -21,7 +21,6 @@
 
 __all__ = ["DewPointDepression"]
 
-import asyncio
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -37,7 +36,7 @@ ESSDewPointField = "dewPoint"
 ESSTemperatureField = "temperature"
 
 
-class DewPointDepression(watcher.BaseRule):
+class DewPointDepression(watcher.PollingRule):
     """Check the dew point depression.
 
     This rule only reads ESS telemetry topics.
@@ -59,6 +58,7 @@ class DewPointDepression(watcher.BaseRule):
     """
 
     def __init__(self, config):
+        self.poll_start_tai = utils.current_tai()
         self.poll_loop_task = utils.make_done_future()
 
         # Dew point field wrappers; computed in `setup`.
@@ -268,23 +268,6 @@ additionalProperties: false
                         field_name=ESSTemperatureField,
                     )
                 self.temperature_field_wrappers.add_wrapper(field_wrapper)
-
-    def start(self):
-        self.poll_loop_task.cancel()
-        self.poll_loop_task = asyncio.create_task(self.poll_loop())
-
-    def stop(self):
-        self.poll_loop_task.cancel()
-
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        self.poll_start_tai = utils.current_tai()
-        while True:
-            severity, reason = self()
-            await self.alarm.set_severity(severity=severity, reason=reason)
-            await asyncio.sleep(self.config.poll_interval)
 
     def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()
