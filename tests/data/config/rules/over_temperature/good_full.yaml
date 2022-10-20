@@ -1,17 +1,13 @@
 name: MT Widget
 temperature_sensors:
   - sal_index: 1
-    topics:
-      - topic_name: temperature
-        sensor_names:
-          - sensor_name: upstairs
-          - sensor_name: downstairs
-            indices: [0, 2, 1, 3]
+    sensor_info:
+      - sensor_name: upstairs
+      - sensor_name: downstairs
+        indices: [0, 2, 1, 3]
   - sal_index: 5
-    topics:
-      - topic_name: temperature
-        sensor_names:
-          - sensor_name: inside
+    sensor_info:
+      - sensor_name: inside
 warning_level: 19
 critical_level: 30
 warning_msg: "performance may be degraded"
