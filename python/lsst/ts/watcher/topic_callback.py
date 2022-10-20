@@ -21,6 +21,8 @@
 
 __all__ = ["get_topic_key", "TopicCallback"]
 
+import asyncio
+
 
 def get_topic_key(topic):
     """Compute the key unique to a topic.
@@ -67,9 +69,15 @@ class TopicCallback:
         The Watcher model.
     topic_key : `tuple`
         The topic key computed by get_topic_key.
+    call_event : `asyncio.Event`
+        An event that is set whenever this topic callback's
+        ``__call__`` method finishes normally (without raising an exception).
+        Intended for unit tests, which may clear this event
+        and then wait for it to be set.
     """
 
     def __init__(self, topic, rule, model):
+        self.call_event = asyncio.Event()
         self._topic = topic
         self.topic_wrappers = list()
         if rule is None:
@@ -127,7 +135,6 @@ class TopicCallback:
         self.rules[rule.name] = rule
 
     async def __call__(self, data):
-        self._cached_data = data
         if not self.model.enabled:
             return
         for wrapper in self.topic_wrappers:
@@ -147,3 +154,4 @@ class TopicCallback:
                     f"Error calling rule {rule} with data {data!s}"
                 )
                 pass
+        self.call_event.set()
