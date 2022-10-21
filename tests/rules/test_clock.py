@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import copy
 import types
 import unittest
 
@@ -35,6 +36,11 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
 
     def __init__(self, salinfo):
         super().__init__(salinfo=salinfo, name="heartbeat")
+        # TODO DM-36679: remove this flag and the code that uses it
+        # once we switch to Kafka or decide not to.
+        # Set true if using the DDS version of ts_salobj,
+        # false if using the Kafka version
+        self._is_dds = hasattr(self, "_writer")
 
     async def alt_write(self, dt):
         """Write the current data with private_sndStamp offset by dt"""
@@ -48,7 +54,15 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         if self.salinfo.index != 0:
             self.data.salIndex = self.salinfo.index
 
-        self._writer.write(self.data)
+        if self._is_dds:
+            self._writer.write(self.data)
+        else:
+            data = copy.copy(self.data)
+            data_dict = vars(data)
+            await self.salinfo.write_data(
+                topic_info=self.topic_info, data_dict=data_dict
+            )
+            return data
 
     async def write(self):
         raise NotImplementedError()
