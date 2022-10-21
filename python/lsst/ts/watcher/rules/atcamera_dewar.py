@@ -196,6 +196,7 @@ class ATCameraDewar(watcher.BaseRule):
             hysteresis=getattr(config, f"{category}_hysteresis"),
             big_is_bad=big_is_bad,
             value_name=info.descr,
+            value_format="0.3g",
             units=info.units,
             **level_kwargs,
         )
