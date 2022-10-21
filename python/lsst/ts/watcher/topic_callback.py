@@ -21,6 +21,8 @@
 
 __all__ = ["get_topic_key", "TopicCallback"]
 
+import asyncio
+
 
 def get_topic_key(topic):
     """Compute the key unique to a topic.
@@ -35,15 +37,13 @@ def get_topic_key(topic):
     topic_key : `tuple`
         Topic key: (SAL component name, SAL index, topic attribute name)
         where topic attribute name includes the ``tel_`` or ``evt_`` prefix.
-        Example: ``("ESS", 5, "tel_hx85a")``
+        Example: ``("ESS", 5, "tel_temperature")``
     """
     return (topic.salinfo.name, topic.salinfo.index, topic.attr_name)
 
 
 class TopicCallback:
-    """Call one or more rules when a salobj topic receives a sample.
-
-    The rule is called with one argument: this topic callback.
+    """Call rules and/or wrapper callbacks when a topic receives data.
 
     Parameters
     ----------
@@ -51,6 +51,10 @@ class TopicCallback:
         Topic to monitor.
     rule : `BaseRule` or `None`
         Rule to call, or None if none.
+        The rule is called with two keyword arguments:
+
+        * data: the new data
+        * topic_callbacck: this instance
     model : `Model`
         Watcher model. Used by `__call__`
         to check if the model is enabled.
@@ -65,9 +69,15 @@ class TopicCallback:
         The Watcher model.
     topic_key : `tuple`
         The topic key computed by get_topic_key.
+    call_event : `asyncio.Event`
+        An event that is set whenever this topic callback's
+        ``__call__`` method finishes normally (without raising an exception).
+        Intended for unit tests, which may clear this event
+        and then wait for it to be set.
     """
 
     def __init__(self, topic, rule, model):
+        self.call_event = asyncio.Event()
         self._topic = topic
         self.topic_wrappers = list()
         if rule is None:
@@ -99,7 +109,14 @@ class TopicCallback:
     def add_topic_wrapper(self, wrapper):
         """Add a topic wrapper, or other non-rule callable.
 
-        The callable is called with a single variable: this `TopicCallback`.
+        Parameters
+        ----------
+        wrapper : `callable`
+            A TopicWrapper or other function that will be called with
+            two keyword arguments:
+
+            * data: the new data
+            * topic_callbacck: this instance
 
         Wrapper callbacks are called before rule callbacks.
         """
@@ -117,31 +134,24 @@ class TopicCallback:
             raise ValueError(f"A rule named {rule.name} already exists")
         self.rules[rule.name] = rule
 
-    def get(self):
-        """Get the current value of the topic.
-
-        This is provided so that code in `Rule.__call__` can easily get
-        the current value of the topic that triggered the call.
-        """
-        return self._topic.get()
-
-    async def __call__(self, value):
+    async def __call__(self, data):
         if not self.model.enabled:
             return
         for wrapper in self.topic_wrappers:
             try:
-                wrapper(self)
+                wrapper(data=data, topic_callback=self)
             except Exception:
                 self._topic.log.exception(
-                    f"Error calling wrapper {wrapper} with value {value!s}"
+                    f"Error calling wrapper {wrapper} with data {data!s}"
                 )
                 pass
         for rule in self.rules.values():
             try:
-                severity, reason = rule(self)
+                severity, reason = rule(data=data, topic_callback=self)
                 await rule.alarm.set_severity(severity=severity, reason=reason)
             except Exception:
                 self._topic.log.exception(
-                    f"Error calling rule {rule} with value {value!s}"
+                    f"Error calling rule {rule} with data {data!s}"
                 )
                 pass
+        self.call_event.set()

@@ -54,7 +54,7 @@ class BadEnabledRule(watcher.rules.Enabled):
         super().__init__(**kwargs)
         self.alarm.name = "Bad" + self.alarm.name
 
-    def __call__(self, topic_callback):
+    def __call__(self, data=None, topic_callback=None):
         self.num_callbacks += 1
         self.num_callbacks_queue.put_nowait(self.num_callbacks)
         raise RuntimeError("BadEnabledRule.__call__ intentionally raises")
@@ -86,7 +86,7 @@ class BadTopicWrapper(watcher.FilteredTopicWrapper):
         self.num_callbacks_queue = asyncio.Queue()
         super().__init__(**kwargs)
 
-    def __call__(self, topic_callback):
+    def __call__(self, data=None, topic_callback=None):
         self.num_callbacks += 1
         self.num_callbacks_queue.put_nowait(self.num_callbacks)
         raise RuntimeError("BadTopicWrapper.__call__ intentionally raises")
@@ -140,7 +140,6 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             assert topic_callback.attr_name == "evt_summaryState"
             assert topic_callback.remote_name == "Test"
             assert topic_callback.remote_index == self.index
-            assert topic_callback.get() is None
 
             await controller.evt_summaryState.set_write(
                 summaryState=salobj.State.DISABLED, force_output=True

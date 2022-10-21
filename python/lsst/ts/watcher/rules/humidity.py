@@ -32,7 +32,7 @@ from lsst.ts import watcher
 ESSHumidityField = "relativeHumidity"
 
 
-class Humidity(watcher.BaseRule):
+class Humidity(watcher.PollingRule):
     """Check the humidity.
 
     This rule only reads ESS telemetry topics.
@@ -74,11 +74,9 @@ class Humidity(watcher.BaseRule):
         # in order to creat remote_info_list
         topic_names_dict = dict()
         sal_name = "ESS"
+        topic_attr_names = ["tel_relativeHumidity"]
         for sensor_info in config.humidity_sensors:
             sal_index = sensor_info["sal_index"]
-            topic_attr_names = [
-                "tel_" + topic["topic_name"] for topic in sensor_info["topics"]
-            ]
             sal_name_index = (sal_name, sal_index)
             if sal_name_index not in topic_names_dict:
                 topic_names_dict[sal_name_index] = topic_attr_names
@@ -122,30 +120,17 @@ properties:
         sal_index:
           description: SAL index of ESS CSC.
           type: integer
-        topics:
+        sensor_names:
+          description: >-
+            Values of sensorName field to readfor the relativeHumidity
+            telemetry topic.
           type: array
           minItems: 1
           items:
-            type: object
-            properties:
-              topic_name:
-                description: >-
-                    Name of ESS telemetry topic.
-                    It must have a relativeHumidity field.
-                type: string
-              sensor_names:
-                description: Values of sensorName field to read.
-                type: array
-                minItems: 1
-                items:
-                  type: string
-            required:
-              - topic_name
-              - sensor_names
-            additionalProperties: false
+            type: string
       required:
         - sal_index
-        - topics
+        - sensor_names
       additionalProperties: false
   warning_level:
     description: >-
@@ -195,18 +180,15 @@ additionalProperties: false
             sal_index = humidity_sensor_info["sal_index"]
             sal_name_index = (sal_name, sal_index)
             remote = model.remotes[sal_name_index]
-            for topic_info in humidity_sensor_info["topics"]:
-                topic_attr_name = "tel_" + topic_info["topic_name"]
-                topic = getattr(remote, topic_attr_name)
-
-                for sensor_name in topic_info["sensor_names"]:
-                    field_wrapper = watcher.FilteredEssFieldWrapper(
-                        model=model,
-                        topic=topic,
-                        sensor_name=sensor_name,
-                        field_name=ESSHumidityField,
-                    )
-                    self.humidity_field_wrappers.add_wrapper(field_wrapper)
+            topic = remote.tel_relativeHumidity
+            for sensor_name in humidity_sensor_info["sensor_names"]:
+                field_wrapper = watcher.FilteredEssFieldWrapper(
+                    model=model,
+                    topic=topic,
+                    sensor_name=sensor_name,
+                    field_name=ESSHumidityField,
+                )
+                self.humidity_field_wrappers.add_wrapper(field_wrapper)
 
     def start(self):
         self.poll_loop_task.cancel()
@@ -219,13 +201,31 @@ additionalProperties: false
         # Keep track of when polling begins
         # in order to avoid confusing "no data ever seen"
         # with "all data is older than max_data_age"
-        self.poll_start_tai = utils.current_tai()
+        is_first = True
         while True:
-            severity, reason = self()
-            await self.alarm.set_severity(severity=severity, reason=reason)
+            await self.poll_once(set_poll_start_tai=is_first)
+            is_first = False
             await asyncio.sleep(self.config.poll_interval)
 
-    def __call__(self, topic_callback=None):
+    async def poll_once(self, set_poll_start_tai):
+        """Poll the alarm once.
+
+        Parameters
+        ----------
+        set_poll_start_tai : `bool`
+            If true then set self.poll_start_tai to the current TAI.
+
+        Returns
+        -------
+        severity, reason
+        """
+        if set_poll_start_tai:
+            self.poll_start_tai = utils.current_tai()
+        severity, reason = self()
+        await self.alarm.set_severity(severity=severity, reason=reason)
+        return severity, reason
+
+    def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()
         # List of (humidity, wrapper, index)
         humidity_values = self.humidity_field_wrappers.get_data(

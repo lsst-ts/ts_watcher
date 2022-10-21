@@ -44,7 +44,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_basics(self):
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
-        scalar_data_field = "relativeHumidity"
+        scalar_data_field = "dewPoint"
         array_data_field = "temperature"
         array_len = 16
         nan_array_len = 2
@@ -67,11 +67,11 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             name="ESS",
             index=self.index,
             readonly=True,
-            include=["hx85a", "temperature"],
+            include=["dewPoint", "temperature"],
         ) as remote:
-            remote_scalar_topic = remote.tel_hx85a
+            remote_scalar_topic = remote.tel_dewPoint
             remote_array_topic = remote.tel_temperature
-            controller_scalar_topic = controller.tel_hx85a
+            controller_scalar_topic = controller.tel_dewPoint
             controller_array_topic = controller.tel_temperature
 
             array_len = len(getattr(remote_array_topic.DataType(), array_data_field))

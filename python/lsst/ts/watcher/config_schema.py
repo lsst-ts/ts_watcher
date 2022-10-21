@@ -26,7 +26,7 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v3
+title: Watcher v4
 description: Configuration for the Watcher
 type: object
 required:

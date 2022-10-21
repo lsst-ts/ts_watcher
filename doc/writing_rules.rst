@@ -108,13 +108,17 @@ The default implementation is a no-op, and that suffices for most rules.
 \_\_call\_\_
 ------------
 The `BaseRule.__call__` method is called whenever a topic you have subscribed to receives a sample.
-It receives a single argument: a `TopicWrapper` for the topic.
+It receives two arguments by name:
+
+* data: topic data
+* topic_wrapper: a `TopicWrapper` for the topic.
+  If necessary, this can be used to determine which topic read the data.
 
 Compute the new alarm severity and a reason for it and return these as a tuple: ``(severity, reason)``.
 you may return `NoneNoReason` if the severity is ``NONE``.
 
-If your rule relies only on polling, it will still have to define this method.
-We recommend you use it as designed: to calculate the severity (but ignoring the ``topic_wrapper`` argument).
+If your rule relies only on polling, consider inheriting from `PollingRule`.
+This calls the rule at regular intervals (set by `config.poll_interval) with no arguments.
 
 If your rule compares a value to one or more severity threshold levels to determine the alarm severity, consider using `ThresholdHandler` to compute the severity and reason.
 Most rules that use `ESS data <lsst.ts.watcher.writing_rules.ess_data>` fall into this category.

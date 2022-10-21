@@ -46,7 +46,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         """Test `FilteredEssFieldWrapper` with a scalar field."""
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
-        data_field = "temperature"
+        data_field = "dewPoint"
 
         filter_values = ["one", "two"]
         # Dict of sensor_name: FilteredEssFieldWrapper
@@ -59,9 +59,9 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             name="ESS",
             index=self.index,
             readonly=True,
-            include=["hx85a"],
+            include=["dewPoint"],
         ) as remote:
-            topic = remote.tel_hx85a
+            topic = remote.tel_dewPoint
 
             topic_wrapper = None
             for i, sensor_name in enumerate(filter_values):
@@ -120,7 +120,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 location_str_dict[sensor_name] = data_dict["location"]
                 expected_values[sensor_name] = data_dict[data_field]
                 topic_wrapper.call_event.clear()
-                await controller.tel_hx85a.set_write(**data_dict)
+                await controller.tel_dewPoint.set_write(**data_dict)
                 await asyncio.wait_for(
                     topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
                 )

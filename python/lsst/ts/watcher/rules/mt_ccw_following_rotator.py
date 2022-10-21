@@ -58,8 +58,8 @@ class MTCCWFollowingRotator(watcher.BaseRule):
     def get_schema(cls):
         return None
 
-    def __call__(self, topic_callback):
-        enabled = topic_callback.get().enabled
+    def __call__(self, data, topic_callback=None):
+        enabled = data.enabled
         if enabled:
             return watcher.NoneNoReason
         return (

@@ -196,6 +196,7 @@ class ATCameraDewar(watcher.BaseRule):
             hysteresis=getattr(config, f"{category}_hysteresis"),
             big_is_bad=big_is_bad,
             value_name=info.descr,
+            value_format="0.3g",
             units=info.units,
             **level_kwargs,
         )
@@ -352,9 +353,13 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def __call__(self, topic_callback: watcher.TopicCallback) -> AlarmSeverity:
+    def __call__(
+        self,
+        data: salobj.BaseMsgType,
+        topic_callback: watcher.TopicCallback | None = None,
+    ) -> AlarmSeverity:
         self.restart_no_data_timer()
-        self.data_queue.append(topic_callback.get())
+        self.data_queue.append(data)
         curr_tai = utils.current_tai()
 
         oldest_temp_tai = curr_tai - self.config.temperature_window
