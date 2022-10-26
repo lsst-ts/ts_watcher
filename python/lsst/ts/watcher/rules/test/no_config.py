@@ -54,5 +54,5 @@ class NoConfig(watcher.BaseRule):
     def get_schema(cls):
         return None
 
-    def __call__(self, topic_callback):
+    def __call__(self, data=None, topic_callback=None):
         raise RuntimeError("This should never be called")

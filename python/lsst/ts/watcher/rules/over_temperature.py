@@ -32,7 +32,7 @@ from lsst.ts import watcher
 ESSTemperatureField = "temperature"
 
 
-class OverTemperature(watcher.BaseRule):
+class OverTemperature(watcher.PollingRule):
     """Check for something being too hot, such as hexapod struts.
 
     This rule only reads ESS telemetry topics.
@@ -79,14 +79,10 @@ class OverTemperature(watcher.BaseRule):
         sal_name = "ESS"
         for sensor_info in config.temperature_sensors:
             sal_index = sensor_info["sal_index"]
-            topic_attr_names = [
-                "tel_" + topic["topic_name"] for topic in sensor_info["topics"]
-            ]
+            topic_attr_names = ["tel_temperature"]
             sal_name_index = (sal_name, sal_index)
             if sal_name_index not in topic_names_dict:
                 topic_names_dict[sal_name_index] = topic_attr_names
-            else:
-                topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
             watcher.RemoteInfo(
@@ -116,8 +112,7 @@ properties:
   temperature_sensors:
     description: >-
         ESS temperature sensors to monitor.
-        These can be any topic with a "temperature" field,
-        including temperature, hx85a and hx85ba.
+        Temperatures are reported in the temperature telemetry topic.
     type: array
     minItems: 1
     items:
@@ -126,45 +121,29 @@ properties:
         sal_index:
           description: SAL index of ESS CSC.
           type: integer
-        topics:
+        sensor_info:
+          description: List of dict of sensor_name, indices.
           type: array
           minItems: 1
           items:
             type: object
             properties:
-              topic_name:
-                description: >-
-                    Name of ESS telemetry topic.
-                    Typically "temperature", "hx85a", or "hx85ba".
+              sensor_name:
+                description: value of sensorName field.
                 type: string
-              sensor_names:
-                description: List of dict of sensor_name, indices.
+              indices:
+                description: >-
+                  Indices of the data to read (optional).
+                  If omitted then read all non-nan values.
                 type: array
-                minItems: 1
                 items:
-                  type: object
-                  properties:
-                    sensor_name:
-                      description: value of sensorName field.
-                      type: string
-                    indices:
-                      description: >-
-                        Indices of the data to read (optional).
-                        If omitted then read all non-nan values.
-                        Must be omitted if the field is a scalar.
-                      type: array
-                      items:
-                        type: integer
-                  required:
-                    - sensor_name
-                  additionalProperties: false
+                  type: integer
             required:
-              - topic_name
-              - sensor_names
+              - sensor_name
             additionalProperties: false
       required:
         - sal_index
-        - topics
+        - sensor_info
       additionalProperties: false
   warning_level:
     description: >-
@@ -228,29 +207,26 @@ additionalProperties: false
         for temperature_sensor_info in self.config.temperature_sensors:
             sal_index = temperature_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
-            for topic_info in temperature_sensor_info["topics"]:
-                topic_attr_name = "tel_" + topic_info["topic_name"]
-                topic = getattr(remote, topic_attr_name)
-
-                for sensor_field_name in topic_info["sensor_names"]:
-                    sensor_name = sensor_field_name["sensor_name"]
-                    indices = sensor_field_name.get("indices", None)
-                    if indices is not None:
-                        field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
-                            model=model,
-                            topic=topic,
-                            sensor_name=sensor_name,
-                            field_name=ESSTemperatureField,
-                            indices=indices,
-                        )
-                    else:
-                        field_wrapper = watcher.FilteredEssFieldWrapper(
-                            model=model,
-                            topic=topic,
-                            sensor_name=sensor_name,
-                            field_name=ESSTemperatureField,
-                        )
-                    self.temperature_field_wrappers.add_wrapper(field_wrapper)
+            topic = remote.tel_temperature
+            for sensor_info in temperature_sensor_info["sensor_info"]:
+                sensor_name = sensor_info["sensor_name"]
+                indices = sensor_info.get("indices", None)
+                if indices is not None:
+                    field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
+                        model=model,
+                        topic=topic,
+                        sensor_name=sensor_name,
+                        field_name=ESSTemperatureField,
+                        indices=indices,
+                    )
+                else:
+                    field_wrapper = watcher.FilteredEssFieldWrapper(
+                        model=model,
+                        topic=topic,
+                        sensor_name=sensor_name,
+                        field_name=ESSTemperatureField,
+                    )
+                self.temperature_field_wrappers.add_wrapper(field_wrapper)
 
     def start(self):
         self.poll_loop_task.cancel()
@@ -269,7 +245,7 @@ additionalProperties: false
             await self.alarm.set_severity(severity=severity, reason=reason)
             await asyncio.sleep(self.config.poll_interval)
 
-    def __call__(self, topic_callback=None):
+    def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()
         # List of (temperature, wrapper, index)
         temperature_values = self.temperature_field_wrappers.get_data(

@@ -21,8 +21,6 @@
 
 __all__ = ["DewPointDepression"]
 
-import asyncio
-import itertools
 import yaml
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -33,14 +31,15 @@ from lsst.ts import watcher
 # for dew point and humidity sensors.
 ESSDewPointField = "dewPoint"
 
-# Name of temperature field in ESS telemetry topics for humidity sensors.
+# Name of temperature field in ESS telemetry topics
+# for temperature sensors.
 ESSTemperatureField = "temperature"
 
 
-class DewPointDepression(watcher.BaseRule):
+class DewPointDepression(watcher.PollingRule):
     """Check the dew point depression.
 
-    This rule only reads ES telemetry topics.
+    This rule only reads ESS telemetry topics.
 
     Parameters
     ----------
@@ -59,6 +58,7 @@ class DewPointDepression(watcher.BaseRule):
     """
 
     def __init__(self, config):
+        self.poll_start_tai = utils.current_tai()
         self.poll_loop_task = utils.make_done_future()
 
         # Dew point field wrappers; computed in `setup`.
@@ -85,18 +85,21 @@ class DewPointDepression(watcher.BaseRule):
         # in order to creat remote_info_list
         topic_names_dict = dict()
         sal_name = "ESS"
-        for sensor_info in itertools.chain(
-            config.dew_point_sensors, config.temperature_sensors
-        ):
-            sal_index = sensor_info["sal_index"]
-            topic_attr_names = [
-                "tel_" + topic["topic_name"] for topic in sensor_info["topics"]
-            ]
-            sal_name_index = (sal_name, sal_index)
-            if sal_name_index not in topic_names_dict:
-                topic_names_dict[sal_name_index] = topic_attr_names
+
+        for is_dew_point in (False, True):
+            if is_dew_point:
+                topic_attr_names = ["tel_dewPoint"]
+                sensor_info = config.dew_point_sensors
             else:
-                topic_names_dict[sal_name_index] += topic_attr_names
+                topic_attr_names = ["tel_temperature"]
+                sensor_info = config.temperature_sensors
+            for sensor in sensor_info:
+                sal_index = sensor["sal_index"]
+                sal_name_index = (sal_name, sal_index)
+                if sal_name_index not in topic_names_dict:
+                    topic_names_dict[sal_name_index] = topic_attr_names
+                else:
+                    topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
             watcher.RemoteInfo(
@@ -127,9 +130,8 @@ properties:
     type: string
   dew_point_sensors:
     description: >-
-        ESS dew point and humidity sensors to monitor.
-        These can be any topic with a "dewPoint" field,
-        including hx85a and hx85ba.
+        ESS dew point sensors. These report data using
+        the dewPoint telemetry topic.
     type: array
     minItems: 1
     items:
@@ -138,36 +140,20 @@ properties:
         sal_index:
           description: SAL index of ESS CSC.
           type: integer
-        topics:
+        sensor_names:
+          description: Values of sensorName field to read.
           type: array
           minItems: 1
           items:
-            type: object
-            properties:
-              topic_name:
-                description: >-
-                    Name of ESS dew point or humidity telemetry topic.
-                    Typically "hx85a" or "hx85ba".
-                type: string
-              sensor_names:
-                description: Values of sensorName field to read.
-                type: array
-                minItems: 1
-                items:
-                  type: string
-            required:
-              - topic_name
-              - sensor_names
-            additionalProperties: false
+            type: string
       required:
         - sal_index
-        - topics
+        - sensor_names
       additionalProperties: false
   temperature_sensors:
     description: >-
-        ESS temperature sensors to monitor.
-        These can be any topic with a "temperature" field,
-        including temperature, hx85a and hx85ba.
+        ESS temperature point sensors. These report data using
+        the temperature telemetry topic.
     type: array
     minItems: 1
     items:
@@ -176,45 +162,29 @@ properties:
         sal_index:
           description: SAL index of ESS CSC.
           type: integer
-        topics:
+        sensor_info:
+          description: List of dicts with keys sensor_name and indices.
           type: array
           minItems: 1
           items:
             type: object
             properties:
-              topic_name:
-                description: >-
-                    Name of ESS telemetry topic.
-                    Typically "temperature", "hx85a", or "hx85ba".
+              sensor_name:
+                description: value of sensorName field.
                 type: string
-              sensor_names:
-                description: List of dict of sensor_name, indices.
+              indices:
+                description: >-
+                  Indices of the data to read (optional).
+                  If omitted then read all non-nan values.
                 type: array
-                minItems: 1
                 items:
-                  type: object
-                  properties:
-                    sensor_name:
-                      description: value of sensorName field.
-                      type: string
-                    indices:
-                      description: >-
-                        Indices of the data to read (optional).
-                        If omitted then read all non-nan values.
-                        Must be omitted if the field is a scalar.
-                      type: array
-                      items:
-                        type: integer
-                  required:
-                    - sensor_name
-                  additionalProperties: false
+                  type: integer
             required:
-              - topic_name
-              - sensor_names
+              - sensor_name
             additionalProperties: false
-      required:
+      re:
         - sal_index
-        - topics
+        - sensor_names
       additionalProperties: false
   warning_level:
     description: >-
@@ -267,64 +237,39 @@ additionalProperties: false
         for dew_point_sensor_info in self.config.dew_point_sensors:
             sal_index = dew_point_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
-            for topic_info in dew_point_sensor_info["topics"]:
-                topic_attr_name = "tel_" + topic_info["topic_name"]
-                topic = getattr(remote, topic_attr_name)
-
-                for sensor_name in topic_info["sensor_names"]:
-                    field_wrapper = watcher.FilteredEssFieldWrapper(
-                        model=model,
-                        topic=topic,
-                        sensor_name=sensor_name,
-                        field_name=ESSDewPointField,
-                    )
-                    self.dew_point_field_wrappers.add_wrapper(field_wrapper)
+            for sensor_name in dew_point_sensor_info["sensor_names"]:
+                field_wrapper = watcher.FilteredEssFieldWrapper(
+                    model=model,
+                    topic=remote.tel_dewPoint,
+                    sensor_name=sensor_name,
+                    field_name=ESSDewPointField,
+                )
+                self.dew_point_field_wrappers.add_wrapper(field_wrapper)
 
         for temperature_sensor_info in self.config.temperature_sensors:
             sal_index = temperature_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
-            for topic_info in temperature_sensor_info["topics"]:
-                topic_attr_name = "tel_" + topic_info["topic_name"]
-                topic = getattr(remote, topic_attr_name)
+            for sensor_info in temperature_sensor_info["sensor_info"]:
+                sensor_name = sensor_info["sensor_name"]
+                indices = sensor_info.get("indices", None)
+                if indices is not None:
+                    field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
+                        model=model,
+                        topic=remote.tel_temperature,
+                        sensor_name=sensor_name,
+                        field_name=ESSTemperatureField,
+                        indices=indices,
+                    )
+                else:
+                    field_wrapper = watcher.FilteredEssFieldWrapper(
+                        model=model,
+                        topic=remote.tel_temperature,
+                        sensor_name=sensor_name,
+                        field_name=ESSTemperatureField,
+                    )
+                self.temperature_field_wrappers.add_wrapper(field_wrapper)
 
-                for sensor_field_name in topic_info["sensor_names"]:
-                    sensor_name = sensor_field_name["sensor_name"]
-                    indices = sensor_field_name.get("indices", None)
-                    if indices is not None:
-                        field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
-                            model=model,
-                            topic=topic,
-                            sensor_name=sensor_name,
-                            field_name=ESSTemperatureField,
-                            indices=indices,
-                        )
-                    else:
-                        field_wrapper = watcher.FilteredEssFieldWrapper(
-                            model=model,
-                            topic=topic,
-                            sensor_name=sensor_name,
-                            field_name=ESSTemperatureField,
-                        )
-                    self.temperature_field_wrappers.add_wrapper(field_wrapper)
-
-    def start(self):
-        self.poll_loop_task.cancel()
-        self.poll_loop_task = asyncio.create_task(self.poll_loop())
-
-    def stop(self):
-        self.poll_loop_task.cancel()
-
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        self.poll_start_tai = utils.current_tai()
-        while True:
-            severity, reason = self()
-            await self.alarm.set_severity(severity=severity, reason=reason)
-            await asyncio.sleep(self.config.poll_interval)
-
-    def __call__(self, topic_callback=None):
+    def __call__(self, data=None, topic_callback=None):
         current_tai = utils.current_tai()
         # List of (dew_point, wrapper, index)
         dew_points = self.dew_point_field_wrappers.get_data(

@@ -130,10 +130,14 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
 
             send_ess_data = functools.partial(
                 self.send_ess_data,
+                model=model,
                 rule=rule,
                 temperature_topics=temperature_topics,
                 verbose=False,
             )
+
+            # Stop the rule polling task and poll manually.
+            rule.stop()
 
             # Send data indicating high temperature using filter values
             # other than those the rule is listening to.
@@ -141,7 +145,8 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             await send_ess_data(temperature=100, use_other_filter_values=True)
             # Give the rule time to deal with all of the new data.
             await asyncio.sleep(poll_interval)
-            await rule.alarm.assert_next_severity(AlarmSeverity.NONE, flush=True)
+            severity, reason = await rule.poll_once(set_poll_start_tai=True)
+            assert severity == AlarmSeverity.NONE
             assert rule.alarm.nominal
 
             # Check a sequence of temperatures
@@ -150,11 +155,11 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(temperature=temperature)
-                # Give the rule time to deal with all of the new data.
-                await asyncio.sleep(poll_interval)
-                await rule.alarm.assert_next_severity(expected_severity, flush=True)
+                severity, reason = await rule.poll_once(set_poll_start_tai=True)
+                assert severity == expected_severity
 
             # Check that no data for max_data_age triggers severity=SERIOUS.
+            rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
             await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
@@ -162,6 +167,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
     async def send_ess_data(
         self,
         temperature,
+        model,
         rule,
         temperature_topics,
         use_other_filter_values=False,
@@ -173,6 +179,8 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         ----------
         temperature : `float`
             Desired pessimistic temperature
+        model : `Model`
+            Watcher model.
         rule : `rules.OverTemperature`
             over-temperature rule.
         dew_point_topics : `dict` of ``str`: write topic
@@ -228,9 +236,10 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 temperatures[pessimistic_index] = pessimistic_temperature
             if use_other_filter_values:
                 filter_value += " with modifications"
-            if verbose:
-                print(
-                    f"{topic.salinfo.name_index}.{topic.attr_name}.set_put"
-                    f"(sensorName={filter_value!r}, temperature={temperatures})"
-                )
-            await topic.set_write(sensorName=filter_value, temperature=temperatures)
+            await watcher.write_and_wait(
+                model=model,
+                topic=topic,
+                sensorName=filter_value,
+                temperature=temperatures,
+                verbose=verbose,
+            )

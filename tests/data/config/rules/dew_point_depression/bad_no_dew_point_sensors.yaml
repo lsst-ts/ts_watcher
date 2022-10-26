@@ -2,10 +2,8 @@ name: Main Telescope
 dew_point_sensors: []
 temperature_sensors:
   - sal_index: 2
-    topics:
-      - topic_name: temperature
-        sensor_names:
-          - sensor_name: somewhere
-            indices: [0, 1, 2, 3]
+    sensor_info:
+      - sensor_name: somewhere
+        indices: [0, 1, 2, 3]
 warning_level: 2
 serious_level: 3

@@ -19,10 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MockModel"]
+__all__ = ["MockModel", "write_and_wait"]
+
+import asyncio
 
 from .filtered_topic_wrapper import get_filtered_topic_wrapper_key, FilteredTopicWrapper
 from .topic_callback import get_topic_key
+
+# Default time to write a SAL message and read and process it.
+DEFAULT_READ_WRITE_TIMEOUT = 1
 
 
 class MockModel:
@@ -79,3 +84,33 @@ class MockModel:
             )
             self.filtered_topic_wrappers[key] = wrapper
         return wrapper
+
+
+async def write_and_wait(
+    model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, verbose=False, **kwargs
+):
+    """Write data and wait for it to be processed by the topic callback.
+
+    Parmeters
+    ---------
+    model : `Model`
+        Watcher model.
+    topic : `salobj.topics.WriteTopic`
+        Topic to write.
+    timeout : `float`, optional
+        Time limit, in seconds, to wait for the data to be processed.
+    verbose : `bool`, optional
+        If true, print the data being written.
+    kwargs : `dict`
+        Data to write.
+    """
+    remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
+    topic_callback = getattr(remote, topic.attr_name).callback
+    topic_callback.call_event.clear()
+    if verbose:
+        print(f"{topic.salinfo.name_index}.{topic.attr_name}.set_write({kwargs})")
+    await topic.set_write(**kwargs)
+    await asyncio.wait_for(
+        topic_callback.call_event.wait(),
+        timeout=timeout,
+    )

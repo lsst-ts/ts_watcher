@@ -26,6 +26,7 @@ except ImportError:
 
 from .alarm import *
 from .base_rule import *
+from .polling_rule import *
 from .remote_info import *
 from .remote_wrapper import *
 from .topic_callback import *

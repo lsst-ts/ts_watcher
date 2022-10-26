@@ -153,7 +153,7 @@ class FilteredTopicWrapper:
         """
         return self.data_cache.get(filter_value, None)
 
-    def __call__(self, topic_callback):
+    def __call__(self, data, topic_callback):
         """Update the cached data.
 
         Set data_cache[filter_value] to the new data, and call update_value
@@ -161,11 +161,12 @@ class FilteredTopicWrapper:
 
         Parameters
         ----------
+        data : `lsst.ts.salobj.BaseMsgType`
+            Topic data.
         topic_callback : `TopicCallback`
             The topic callback that triggered this call.
         """
         self.call_event.set()
-        data = topic_callback.get()
         timestamp = data.private_sndStamp
         filter_value = getattr(data, self.filter_field)
         self.data_cache[filter_value] = data

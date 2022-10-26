@@ -1,7 +1,5 @@
 humidity_sensors:
   - sal_index: 5
-    topics:
-      - topic_name: hx85a
-        sensor_names:
-          - up
-          - down
+    sensor_names:
+      - up
+      - down
