@@ -24,6 +24,7 @@ __all__ = ["CpVerifyAlarm"]
 import yaml
 import json
 import lsst.daf.butler as dafButler
+import salobj
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -104,10 +105,13 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         Returns
         -------
-        verify_pass : `bool`
-            Did the cp_verify tests pass?
+        AlarmSeverity : `lsst.ts.idl.enums.Watcher`
+            Alarm severity.
+        reason : `str`
+            Reason for the alarm severity.
         """
         verify_pass = True
+        job_id_verify = response_verify["job_id"]
         # Loop over the entries of the 'results' list
         # and look for the adecuate dataset type.
         for entry in response_verify["results"]:
@@ -123,8 +127,9 @@ class CpVerifyAlarm(watcher.BaseRule):
             else:
                 # This is not a response from cp_verify
                 # bias, dark, or flat.
-                # Do not issue a watcher alarm.
-                return verify_pass
+                raise salobj.ExpectedError(
+                    "Job {job_id_verify} is not a recognizable cp_verify run."
+                )
 
         # Find repo and instrument
         for entry in response_verify["parameters"]["environment"]:
@@ -133,10 +138,9 @@ class CpVerifyAlarm(watcher.BaseRule):
                 instrument_name = repo.split("/")[-1]
                 break
             else:
-                raise RuntimeError("OCPS response does not contain a repo")
+                raise salobj.ExpectedError("OCPS response does not list a repo.")
 
         if verify_stats_string:
-            job_id_verify = response_verify["job_id"]
             # Collection name containing the verification outputs.
             verify_collection = f"u/ocps/{job_id_verify}"
             butler = dafButler.Butler(repo, collections=[verify_collection])
