@@ -92,16 +92,9 @@ class CpVerifyAlarm(watcher.BaseRule):
         # OCPS response after calling the pipetask
         response = json.loads(msg.result)
         # boolean: did verification fail?
-        verify_tests_pass = await self.get_verify_tests_pass_boolean(response)
+        return await self.check_response(response)
 
-        if verify_tests_pass:
-            return watcher.NoneNoReason
-        else:
-            # Tests did not pass. Follow up on images and calibrations is
-            # recommended.
-            return AlarmSeverity.SERIOUS, "FAULT state"
-
-    async def get_verify_tests_pass_boolean(self, response_verify):
+    async def check_response(self, response_verify):
         """Determine if cp_verify bias tests passed from OCPS response.
 
         Parameters
@@ -139,6 +132,8 @@ class CpVerifyAlarm(watcher.BaseRule):
                 repo = entry["value"]
                 instrument_name = repo.split("/")[-1]
                 break
+            else:
+                raise RuntimeError("OCPS response does not contain a repo")
 
         if verify_stats_string:
             job_id_verify = response_verify["job_id"]
@@ -147,14 +142,27 @@ class CpVerifyAlarm(watcher.BaseRule):
             butler = dafButler.Butler(repo, collections=[verify_collection])
             verify_stats = butler.get(verify_stats_string, instrument=instrument_name)
             if verify_stats["SUCCESS"] is False:
-                (verify_pass, _, _,) = await self.count_failed_verification_tests(
+                (
+                    verify_pass,
+                    _,
+                    thresholds,
+                ) = await self.count_failed_verification_tests(
                     verify_stats, self.config.verification_threshold
                 )
             else:
                 # Nothing failed
                 verify_pass = True
 
-        return verify_pass
+        if verify_pass:
+            return watcher.NoneNoReason
+        else:
+            n_exp_failed = thresholds["FINAL_NUMBER_OF_FAILED_EXPOSURES"]
+            n_exp_threshold = thresholds["MAX_FAILED_EXPOSURES_THRESHOLD"]
+            return AlarmSeverity.SERIOUS, (
+                f"cp_verify run {job_id_verify} failed verification threshold. "
+                f"{n_exp_failed} exposures failed majority of tests, n_exposure"
+                f" threshold: {n_exp_threshold}."
+            )
 
     async def count_failed_verification_tests(
         self, verify_stats, max_number_failures_per_detector_per_test
@@ -189,8 +197,6 @@ class CpVerifyAlarm(watcher.BaseRule):
         For at least one type of test, if the majority of tests fail in
         the majority of detectors and the majority of exposures,
         then don't certify the calibration.
-
-        Suported calibrations: see `self.pipetask_parameters_verification`.
         """
         certify_calib = True
 
