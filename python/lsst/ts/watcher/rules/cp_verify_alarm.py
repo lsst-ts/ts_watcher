@@ -43,7 +43,7 @@ class CpVerifyAlarm(watcher.BaseRule):
 
     Notes
     -----
-    The alarm name is f"CpVerifyAlarm.{calibration_type}:{ocps_index}",
+    The alarm name is f"CpVerifyAlarm.{ocps_index}:{calibration_type}",
     where ``calibration_type`` and ``ocps_index`` are derived from
     ``config.calibration_type`` and ``config.ocps_index``, respectively.
     """
@@ -59,7 +59,7 @@ class CpVerifyAlarm(watcher.BaseRule):
         )
         super().__init__(
             config=config,
-            name=f"CpVerifyAlarm.{remote_info.name}:{remote_info.index}",
+            name=f"CpVerifyAlarm.{remote_info.index}:{remote_info.name}",
             remote_info_list=[remote_info],
         )
 
