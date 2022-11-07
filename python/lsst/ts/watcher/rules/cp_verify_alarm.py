@@ -83,7 +83,7 @@ class CpVerifyAlarm(watcher.BaseRule):
                     type: integer
                     descriptor: Maximum number of failures per detector per test type.
                 default: 8
-            required: [name]
+            required: [calibration_type, ocps_index]
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
