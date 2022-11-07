@@ -92,16 +92,21 @@ class CpVerifyAlarm(watcher.BaseRule):
         msg = topic_callback.get()
         # OCPS response after calling the pipetask
         response = json.loads(msg.result)
+        # Get the dictionary with cp_verify stats, from the butler.
+        verify_stats = await self.get_cp_verify_stats(response)
         # boolean: did verification fail?
-        return await self.check_response(response)
+        return await self.check_response(response, verify_stats)
 
-    async def check_response(self, response_verify):
+    async def check_response(self, response_verify, verify_stats):
         """Determine if cp_verify bias tests passed from OCPS response.
 
         Parameters
         ----------
-        response : `dict`
+        response_verify : `dict`
             OCPS call response.
+
+        verify_stats: `dict`
+            Dictionary with statistics after running ``cp_verify``.
 
         Returns
         -------
@@ -112,50 +117,14 @@ class CpVerifyAlarm(watcher.BaseRule):
         """
         verify_pass = True
         job_id_verify = response_verify["job_id"]
-        # Loop over the entries of the 'results' list
-        # and look for the adecuate dataset type.
-        for entry in response_verify["results"]:
-            if "verifyBiasStats" in entry["uri"]:
-                verify_stats_string = "verifyBiasStats"
-                break
-            elif "verifyDarkStats" in entry["uri"]:
-                verify_stats_string = "verifyDarkStats"
-                break
-            elif "verifyFlatStats" in entry["uri"]:
-                verify_stats_string = "verifyFlatStats"
-                break
-            else:
-                # This is not a response from cp_verify
-                # bias, dark, or flat.
-                raise salobj.ExpectedError(
-                    "Job {job_id_verify} is not a recognizable cp_verify run."
-                )
 
-        # Find repo and instrument
-        for entry in response_verify["parameters"]["environment"]:
-            if entry["name"] == "BUTLER_REPO":
-                repo = entry["value"]
-                instrument_name = repo.split("/")[-1]
-                break
-            else:
-                raise salobj.ExpectedError("OCPS response does not list a repo.")
-
-        if verify_stats_string:
-            # Collection name containing the verification outputs.
-            verify_collection = f"u/ocps/{job_id_verify}"
-            butler = dafButler.Butler(repo, collections=[verify_collection])
-            verify_stats = butler.get(verify_stats_string, instrument=instrument_name)
-            if verify_stats["SUCCESS"] is False:
-                (
-                    verify_pass,
-                    _,
-                    thresholds,
-                ) = await self.count_failed_verification_tests(
-                    verify_stats, self.config.verification_threshold
-                )
-            else:
-                # Nothing failed
-                verify_pass = True
+        if verify_stats["SUCCESS"] is False:
+            (verify_pass, _, thresholds,) = await self.count_failed_verification_tests(
+                verify_stats, self.config.verification_threshold
+            )
+        else:
+            # Nothing failed
+            verify_pass = True
 
         if verify_pass:
             return watcher.NoneNoReason
@@ -274,3 +243,52 @@ class CpVerifyAlarm(watcher.BaseRule):
         }
 
         return certify_calib, total_counter_failed_tests, thresholds
+
+    async def get_cp_verify_stats(self, response_verify):
+        """Get cp_verify statistics from the butler.
+
+        Parameters
+        ----------
+        response_verify : `dict`
+            OCPS call response.
+
+        Returns
+        -------
+        verify_stats : `dict`
+            Statistics from cp_verify.
+        """
+        job_id_verify = response_verify["job_id"]
+        # Loop over the entries of the 'results' list
+        # and look for the adecuate dataset type.
+        for entry in response_verify["results"]:
+            if "verifyBiasStats" in entry["uri"]:
+                verify_stats_string = "verifyBiasStats"
+                break
+            elif "verifyDarkStats" in entry["uri"]:
+                verify_stats_string = "verifyDarkStats"
+                break
+            elif "verifyFlatStats" in entry["uri"]:
+                verify_stats_string = "verifyFlatStats"
+                break
+            else:
+                # This is not a response from cp_verify
+                # bias, dark, or flat.
+                raise salobj.ExpectedError(
+                    "Job {job_id_verify} is not a recognizable cp_verify run."
+                )
+
+        # Find repo and instrument
+        for entry in response_verify["parameters"]["environment"]:
+            if entry["name"] == "BUTLER_REPO":
+                repo = entry["value"]
+                instrument_name = repo.split("/")[-1]
+                break
+            else:
+                raise salobj.ExpectedError("OCPS response does not list a repo.")
+
+        # Collection name containing the verification outputs.
+        verify_collection = f"u/ocps/{job_id_verify}"
+        butler = dafButler.Butler(repo, collections=[verify_collection])
+        verify_stats = butler.get(verify_stats_string, instrument=instrument_name)
+
+        return verify_stats
