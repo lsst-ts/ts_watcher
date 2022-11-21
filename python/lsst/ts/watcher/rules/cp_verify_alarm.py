@@ -98,7 +98,7 @@ class CpVerifyAlarm(watcher.BaseRule):
         return await self.check_response(response, verify_stats)
 
     async def check_response(self, response_verify, verify_stats):
-        """Determine if cp_verify bias tests passed from OCPS response.
+        """Determine if cp_verify tests passed from OCPS response.
 
         Parameters
         ----------
@@ -122,16 +122,13 @@ class CpVerifyAlarm(watcher.BaseRule):
             (verify_pass, _, thresholds,) = await self.count_failed_verification_tests(
                 verify_stats, self.config.verification_threshold
             )
-        else:
-            # Nothing failed
-            verify_pass = True
 
         if verify_pass:
             return watcher.NoneNoReason
         else:
             n_exp_failed = thresholds["FINAL_NUMBER_OF_FAILED_EXPOSURES"]
             n_exp_threshold = thresholds["MAX_FAILED_EXPOSURES_THRESHOLD"]
-            return AlarmSeverity.SERIOUS, (
+            return AlarmSeverity.WARNING, (
                 f"cp_verify run {job_id_verify} failed verification threshold. "
                 f"{n_exp_failed} exposures failed majority of tests, n_exposure"
                 f" threshold: {n_exp_threshold}."
@@ -274,7 +271,7 @@ class CpVerifyAlarm(watcher.BaseRule):
                 # This is not a response from cp_verify
                 # bias, dark, or flat.
                 raise salobj.ExpectedError(
-                    "Job {job_id_verify} is not a recognizable cp_verify run."
+                    f"Job {job_id_verify} is not a recognizable cp_verify run."
                 )
 
         # Find repo and instrument
