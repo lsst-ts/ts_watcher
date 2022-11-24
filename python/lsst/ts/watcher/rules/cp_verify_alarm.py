@@ -275,6 +275,9 @@ class CpVerifyAlarm(watcher.BaseRule):
                 )
 
         # Find repo and instrument
+        if len(response_verify["parameters"]["environment"]):
+            raise salobj.ExpectedError("response_verify['parameters']['environment'] is empty.")
+
         for entry in response_verify["parameters"]["environment"]:
             if entry["name"] == "BUTLER_REPO":
                 repo = entry["value"]
