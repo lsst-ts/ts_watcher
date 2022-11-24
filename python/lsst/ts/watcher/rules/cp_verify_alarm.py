@@ -35,7 +35,7 @@ class CpVerifyAlarm(watcher.BaseRule):
     for a particular type of calibration (BIAS, DARK, FLAT, etc).
 
     Set alarm severity NONE if the cp_verify tests passed,
-    and issue a SERIOUS alarm if not.
+    and issue a WARNNING  alarm if not.
 
     Parameters
     ----------
