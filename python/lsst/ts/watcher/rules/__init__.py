@@ -31,3 +31,4 @@ from .humidity import *
 from .over_temperature import *
 from .script_failed import *
 from .under_pressure import *
+from .cp_verify_alarm import *
