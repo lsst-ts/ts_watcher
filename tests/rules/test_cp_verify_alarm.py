@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# import asyncio
+import asyncio
 import types
 import unittest
 
@@ -77,7 +77,8 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
         assert "CpVerifyAlarm" in repr(rule)
 
     async def test_call(self):
-        calib_type = "OCPS"
+        calib_type = "BIAS"
+        name = "OCPS"
         ocps_index = 1
 
         watcher_config_dict = yaml.safe_load(
@@ -96,6 +97,48 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         # use mock OCPS response and verify data below to test
         # self.check_response(response, verify_stats) in the alarm
+
+        async with salobj.Controller(
+            name="ScriptQueue", index=ocps_index
+        ) as script_queue:
+            async with watcher.Model(
+                domain=script_queue.domain, config=watcher_config
+            ) as model:
+                model.enable()
+
+                assert len(model.rules) == 1
+                rule_name = f"cpVerifyAlarm:{ocps_index}.{name}"
+                rule = model.rules[rule_name]
+                rule.alarm.init_severity_queue()
+
+                for test_params in self.get_test_params():
+
+                    await script_queue.evt_queue.set_write(
+                        enabled=test_params.queue_enabled,
+                        running=test_params.queue_running,
+                        currentSalIndex=test_params.script_sal_index,
+                    )
+
+                    await script_queue.evt_script.set_write(
+                        scriptSalIndex=test_params.script_sal_index,
+                        processState=test_params.process_state,
+                        scriptState=test_params.script_state,
+                    )
+
+                    # This will publish 2 alarm states for each set of test
+                    # parameters: one for the queue ScriptQueue event, the next
+                    # for the script ScriptQueue event.
+                    for expected_severity in test_params.expected_severity:
+                        with self.subTest(
+                            description=test_params.description,
+                            expected_severity=expected_severity,
+                        ):
+                            severity = await asyncio.wait_for(
+                                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                            )
+
+                            assert severity == expected_severity
+                    assert rule.alarm.severity_queue.empty()
 
     async def mock_latiss_ocps_response(self):
         """Return example of cp_verify bias OCPS response.
