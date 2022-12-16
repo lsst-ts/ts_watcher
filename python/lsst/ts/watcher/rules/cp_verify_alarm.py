@@ -93,11 +93,11 @@ class CpVerifyAlarm(watcher.BaseRule):
         # OCPS response after calling the pipetask
         response = json.loads(msg.result)
         # Get the dictionary with cp_verify stats, from the butler.
-        verify_stats = await self.get_cp_verify_stats(response)
+        verify_stats = self.get_cp_verify_stats(response)
         # boolean: did verification fail?
-        return await self.check_response(response, verify_stats)
+        return self.check_response(response, verify_stats)
 
-    async def check_response(self, response_verify, verify_stats):
+    def check_response(self, response_verify, verify_stats):
         """Determine if cp_verify tests passed from OCPS response.
 
         Parameters
@@ -119,7 +119,7 @@ class CpVerifyAlarm(watcher.BaseRule):
         job_id_verify = response_verify["job_id"]
 
         if verify_stats["SUCCESS"] is False:
-            (verify_pass, _, thresholds,) = await self.count_failed_verification_tests(
+            (verify_pass, _, thresholds,) = self.count_failed_verification_tests(
                 verify_stats, self.config.verification_threshold
             )
 
@@ -134,7 +134,7 @@ class CpVerifyAlarm(watcher.BaseRule):
                 f" threshold: {n_exp_threshold}."
             )
 
-    async def count_failed_verification_tests(
+    def count_failed_verification_tests(
         self, verify_stats, max_number_failures_per_detector_per_test
     ):
         """Count number of tests that failed cp_verify.
@@ -241,7 +241,7 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         return certify_calib, total_counter_failed_tests, thresholds
 
-    async def get_cp_verify_stats(self, response_verify):
+    def get_cp_verify_stats(self, response_verify):
         """Get cp_verify statistics from the butler.
 
         Parameters
