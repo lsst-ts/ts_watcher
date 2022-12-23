@@ -6,6 +6,21 @@
 Version History
 ###############
 
+v1.11.1
+-------
+
+Changes:
+
+* Modernize pre-commit hooks and conda recipe.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.11.0
 -------
 
@@ -28,7 +43,7 @@ Changes:
 
   * `Model`: call call rules with an additional data argument.
   * `TopicCallback`:
-  
+
     * Call rules and topic wrappers with an additional data argument.
     * Eliminate the `get` method; use the data passed to the callback, instead.
     * Add attribute ``call_event`` for unit tests.
