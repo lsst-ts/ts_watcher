@@ -78,9 +78,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             override=override,
         )
         self.escalation_key = ""
-        # TODO DM-35892: remove this flag and the code that uses it.
-        # Assume ts_xml 12.1.
-        self.new_alarm_schema = "escalatedId" in vars(self.evt_alarm.DataType())
 
     @staticmethod
     def get_config_pkg():
@@ -249,15 +246,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
                 finally:
                     alarm.escalated_id = ""
 
-        # Do not set timestampSeverityNewest because it causes
-        # too many unwanted messages. In the long run remove
-        # that field from ts_xml.
-        # TODO DM-35892: remove the if/else and assume ts_xml 12.1.
-        if self.new_alarm_schema:
-            escalated_kwargs = dict(escalatedId=alarm.escalated_id)
-        else:
-            escalated_kwargs = dict(escalated=bool(alarm.escalated_id))
-
         await self.evt_alarm.set_write(
             name=alarm.name,
             severity=alarm.severity,
@@ -268,7 +256,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             mutedSeverity=alarm.muted_severity,
             mutedBy=alarm.muted_by,
             escalateTo=alarm.escalation_responders_json,
-            **escalated_kwargs,
+            escalatedId=alarm.escalated_id,
             timestampSeverityOldest=alarm.timestamp_severity_oldest,
             timestampMaxSeverity=alarm.timestamp_max_severity,
             timestampAcknowledged=alarm.timestamp_acknowledged,
