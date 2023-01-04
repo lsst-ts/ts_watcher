@@ -243,16 +243,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 # but expect one extra event from ATDome (alarm 1)
                 # when it goes critical, because the alarm is escalated
                 # after a very short delay.
-                # TODO DM-35892: remove the if/else and assume ts_xml 12.1.
-                if self.csc.new_alarm_schema:
-                    not_escalated_kwargs = dict(escalatedId="")
-                else:
-                    not_escalated_kwargs = dict(escalated=False)
                 await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
                     maxSeverity=AlarmSeverity.WARNING,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo=expected_escalate_to_alarm1,
                     timestampEscalate=0,
                 )
@@ -260,7 +255,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     name=alarm_name2,
                     severity=AlarmSeverity.SERIOUS,
                     maxSeverity=AlarmSeverity.SERIOUS,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo="[]",
                     timestampEscalate=0,
                 )
@@ -272,7 +267,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     name=alarm_name1,
                     severity=AlarmSeverity.CRITICAL,
                     maxSeverity=AlarmSeverity.CRITICAL,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo=expected_escalate_to_alarm1,
                 )
                 assert data.timestampEscalate > 0
@@ -290,15 +285,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 )
                 assert alarm1.do_escalate
                 assert alarm1.escalated_id != ""
+                assert data.escalatedId == alarm1.escalated_id
                 if escalation_fails:
                     assert alarm1.escalated_id.startswith("Failed: ")
                 else:
                     assert not alarm1.escalated_id.startswith("Failed: ")
-                # TODO DM-35892: remove the if/else and assume ts_xml 12.1.
-                if self.csc.new_alarm_schema:
-                    assert data.escalatedId == alarm1.escalated_id
-                else:
-                    assert data.escalated
                 if escalation_fails:
                     assert len(mock_opsgenie.alerts) == 0
                 else:
@@ -314,7 +305,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     name=alarm_name2,
                     severity=AlarmSeverity.CRITICAL,
                     maxSeverity=AlarmSeverity.CRITICAL,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo="[]",
                     timestampEscalate=0,
                 )
@@ -330,20 +321,16 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 )
                 assert alarm1.do_escalate
                 assert alarm1.escalated_id != ""
+                assert data.escalatedId == alarm1.escalated_id
                 if escalation_fails:
                     assert alarm1.escalated_id.startswith("Failed: ")
                 else:
                     assert not alarm1.escalated_id.startswith("Failed: ")
-                # TODO DM-35892: remove the if/else and assume ts_xml 12.1.
-                if self.csc.new_alarm_schema:
-                    assert data.escalatedId == alarm1.escalated_id
-                else:
-                    assert data.escalated
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.NONE,
                     maxSeverity=AlarmSeverity.CRITICAL,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo="[]",
                     timestampEscalate=0,
                 )
@@ -362,7 +349,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
                     maxSeverity=AlarmSeverity.CRITICAL,
-                    **not_escalated_kwargs,
+                    escalatedId="",
                     escalateTo=expected_escalate_to_alarm1,
                     timestampEscalate=0,
                 )

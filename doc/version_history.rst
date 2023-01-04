@@ -6,6 +6,22 @@
 Version History
 ###############
 
+v1.11.2
+-------
+
+Changes:
+
+* Remove some obsolete backwards compatibility code for ts_xml 11 and 12 (DM-35892).
+  Version v1.11.0 already required ts_xml 13, due to other changes.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.11.1
 -------
 
