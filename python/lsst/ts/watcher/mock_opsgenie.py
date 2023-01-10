@@ -61,20 +61,26 @@ class MockOpsGenie:
     ----------
     port : `int`
         The TCP/IP port for the service. 0 to choose a free port.
+        The default is 80 because that is what OpsGenie uses.
 
     Notes
     -----
     To use::
 
-        async with MockOpsGenie(port=...):
+        async with MockOpsGenie(port=...) as server:
             # ... use the server
 
         # Or if you prefer explicit start/stop:
 
-        genie = MockOpsGenie(port=...)
-        await genie.start()
+        server = MockOpsGenie(port=...)
+        await server.start()
         # ... use the server
-        await genie.cleanup()
+        await server.close()
+
+    Raises
+    ------
+    `RuntimeError`
+        If env var ``ESCALATION_KEY`` not set.
 
     Attributes
     ----------
@@ -83,19 +89,45 @@ class MockOpsGenie:
         (after `start` has run). Otherwise the specified port.
         The default is 80 because that is what OpsGenie uses.
     url : `str` | `None`
-        The root URL of the service. None until `start` has run.
+        The root URL of the service. "" until `start` has run.
+    escalation_key : `str`
+        The value of env var ESCALATION_KEY.
+    alerts : `dict` [`str`, `dict`]
+        Dict of alert ID: alert data in OpsGenie's format.
+        The following keys should be in the sent data:
+
+        * message (str): a summary of the problem
+        * description (str): a detailed description of the problem
+        * responders (list[dict[str, str]]): a list of responders,
+          each of which is a dict with two keys:,
+
+          * type (str): one of "user" or "team" (or some other value
+            Watcher will not use).
+          * id (str): user email address; only present if type is "user"
+          * name (str): team name; only present if type is "team"
+
+        The OpsGenie service the following two keys:
+
+        * id (str): a unique alert ID
+        * status (str): one of "open" or "closed"
+          (the real OpsGenie service has additional statuses).
+
+    reject_next_request : `bool`
+        If the user sets this true then the mock will reject the next request
+        with `web.HTTPInternalServerError` and reset this flag. For unit tests.
     """
 
     def __init__(self, port: int = 80) -> None:
         self.port = port
-        self.escalation_key = os.environ["ESCALATION_KEY"]
-        # Dict of alert ID: data_dict
+        try:
+            self.escalation_key = os.environ["ESCALATION_KEY"]
+        except KeyError:
+            raise RuntimeError("env variable ESCALATION_KEY must be set")
         self.alerts: dict[str, dict] = dict()
-        self.runner: web.AppRunner | None = None
-        self.site: web.TCPSite | None = None
-        self.url: str | None = None
-        # Unit tests may set this True to reject the next request
+        self.url: str = ""
         self.reject_next_request = False
+        self._runner: web.AppRunner | None = None
+        self._site: web.TCPSite | None = None
 
     def make_app(self) -> web.Application:
         """Make an instance of the web application."""
@@ -114,18 +146,19 @@ class MockOpsGenie:
 
         Raises
         ------
-        RuntimeError
+        `RuntimeError`
             If port = 0 and serving on more than one socket
-            (in which case the served port cannot be determined).
+            (in which case the served port cannot be determined),
+            or if this method has already been called.
         """
-        if self.runner is not None:
+        if self._runner is not None:
             raise RuntimeError("Already started")
         app = self.make_app()
-        self.runner = web.AppRunner(app)
-        await self.runner.setup()
-        self.site = web.TCPSite(self.runner, "127.0.0.1", port=self.port)
-        await self.site.start()
-        server = self.site._server
+        self._runner = web.AppRunner(app)
+        await self._runner.setup()
+        self._site = web.TCPSite(self._runner, "127.0.0.1", port=self.port)
+        await self._site.start()
+        server = self._site._server
         if self.port == 0:
             if len(server.sockets) != 1:
                 raise RuntimeError(
@@ -134,11 +167,10 @@ class MockOpsGenie:
             self.port = server.sockets[0].getsockname()[1]  # type: ignore
         self.url = f"http://127.0.0.1:{self.port}"
 
-    async def cleanup(self) -> None:
-        """Stop the service."""
-        if self.runner is None:
-            raise RuntimeError("No runner; did you call start?")
-        await self.runner.cleanup()
+    async def close(self) -> None:
+        """Stop the service, if running."""
+        if self._runner is None:
+            await self._runner.cleanup()
 
     def assert_authorized(self, request: web.Request) -> None:
         """Raise an error if self.reject_next_request true or not authorized.
@@ -152,9 +184,9 @@ class MockOpsGenie:
 
         Raises
         ------
-        HTTPInternalServerError
+        `web.HTTPInternalServerError`
             If self.reject_next_request True.
-        Raise HTTPForbidden
+        `web.HTTPForbidden`
             If the request is not authorized.
         """
         if self.reject_next_request:
@@ -170,7 +202,7 @@ class MockOpsGenie:
             name, value = auth_header.split(None, 1)
         except ValueError:
             raise web.HTTPForbidden(
-                text="Authorization header must be of the form 'GenieKey <key>'"
+                text="Authorization header must be of the form 'GenieKey {key}'"
             )
         if name != "GenieKey":
             raise web.HTTPForbidden(
@@ -235,4 +267,4 @@ class MockOpsGenie:
         value: None | BaseException,
         traceback: None | types.TracebackType,
     ) -> None:
-        await self.cleanup()
+        await self.close()
