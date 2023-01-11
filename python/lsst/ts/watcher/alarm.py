@@ -23,7 +23,6 @@ __all__ = ["Alarm"]
 
 import asyncio
 import inspect
-import json
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
@@ -62,12 +61,9 @@ class Alarm:
         If an alarm goes to critical state and remains unacknowledged
         for this period of time (seconds), the alarm should be escalated.
         If 0, the alarm will not be escalated.
-    escalation_responders : `list`
-        Who or what to escalate the alarm, as a list of:
-        ``{"name": "...", "type": "..."}``.
-        If an empty list, the alarm will not be escalated.
-    escalation_responders_json : `str`
-        json-encoded version of escalation_responders.
+    escalation_responder : `str`
+        Who or what to escalate the alarm to.
+        If blank, the alarm will not be escalated.
     escalated_id : `str`
         ID of the OpsGenie escalation alert. "" if not escalated.
         Set to "Failed: {reason}" if escalation failed.
@@ -96,7 +92,7 @@ class Alarm:
         self._callback = None
         self.auto_acknowledge_delay = 0
         self.auto_unacknowledge_delay = 0
-        self.configure_escalation(escalation_delay=0, escalation_responders=[])
+        self.configure_escalation(escalation_delay=0, escalation_responder="")
         self.auto_acknowledge_task = utils.make_done_future()
         self.auto_unacknowledge_task = utils.make_done_future()
         self.escalation_timer_task = utils.make_done_future()
@@ -158,41 +154,42 @@ class Alarm:
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
 
-    def configure_escalation(self, escalation_delay, escalation_responders):
+    def configure_escalation(self, escalation_delay, escalation_responder):
         """Configure escalation.
 
         Set the following attributes:
 
         * escalation_delay
-        * escalation_responders
-        * escalation_responders_json
+        * escalation_responder
 
         Parameters
         ----------
         escalation_delay : `float`
             Delay before escalating a critical unacknowledged alarm (sec).
             If 0 the alarm is not escalated.
-        escalation_responders : `list`
-            Who or what to escalate the alarm, as a sequence of
-            ``{"name": "...", "type": "..."}``.
-            If an empty sequence the alarm will not be escalated.
+        escalation_responder : `str`
+            Who or what to escalate the alarm to.
+            If blank, the alarm will not be escalated.
 
         Raises
         ------
         ValueError
             If escalation_delay < 0.
-            If escalation_delay > 0 and escalation_responders empty,
-            or escalation_delay = 0 and escalation_responders not empty.
+            If escalation_delay > 0 and escalation_responder empty,
+            or escalation_delay = 0 and escalation_responder not empty.
+        TypeError
+            If escalation_responder is not a str.
         """
         if escalation_delay < 0:
             raise ValueError(f"{escalation_delay=} must be ≥ 0")
-        if (escalation_delay == 0) != (len(escalation_responders) == 0):
+        if (escalation_delay == 0) != (len(escalation_responder) == 0):
             raise ValueError(
                 f"{escalation_delay=} must be > 0 if and only if"
-                f"{escalation_responders=} is not empty"
+                f"{escalation_responder=} is not empty"
             )
-        self.escalation_responders = list(escalation_responders)
-        self.escalation_responders_json = json.dumps(self.escalation_responders)
+        if not isinstance(escalation_responder, str):
+            raise TypeError(f"{escalation_responder=!r} must be a str")
+        self.escalation_responder = escalation_responder
         self.escalation_delay = escalation_delay
 
     def close(self):
@@ -692,7 +689,7 @@ class Alarm:
 
         A no-op if escalation is not configured.
         """
-        if self.escalation_delay <= 0 or not self.escalation_responders:
+        if self.escalation_delay <= 0 or not self.escalation_responder:
             # Escalation not configured
             return
         self._cancel_escalation_timer()

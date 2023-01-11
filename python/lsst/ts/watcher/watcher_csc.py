@@ -23,6 +23,7 @@ __all__ = ["WatcherCsc", "run_watcher"]
 
 import asyncio
 import os
+import uuid
 from http import HTTPStatus
 
 
@@ -33,6 +34,9 @@ from lsst.ts import salobj
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
 from .model import Model
+
+# URL suffix for the SquadCast Incident Webhook API
+INCIDENT_WEBHOOK_URL_SUFFIX = "/v2/incidents/api/"
 
 
 class WatcherCsc(salobj.ConfigurableCsc):
@@ -77,7 +81,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             initial_state=initial_state,
             override=override,
         )
-        self.escalation_key = ""
+        self.escalation_endpoint_url = ""
 
     @staticmethod
     def get_config_pkg():
@@ -105,11 +109,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
         if config.escalation_url:
             try:
-                self.escalation_key = os.environ["ESCALATION_KEY"]
+                escalation_key = os.environ["ESCALATION_KEY"]
             except KeyError:
                 raise RuntimeError(
-                    "env variable ESCALATION_KEY must be sit if config.escalation_url is set"
+                    "env variable ESCALATION_KEY must be set if config.escalation_url is set"
                 )
+            self.escalation_endpoint_url = (
+                config.escalation_url + INCIDENT_WEBHOOK_URL_SUFFIX + escalation_key
+            )
 
         await self.model.start_task
         self._enable_or_disable_model()
@@ -122,7 +129,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.model.disable()
 
     async def escalate_alarm(self, alarm):
-        """Escalate an alarm by creating an OpsGenie alert.
+        """Escalate an alarm by creating a SquadCast incident.
 
         Store the ID of the alert in alarm.escalation_id.
         If the attempt fails, store an error message that begins with
@@ -139,48 +146,50 @@ class WatcherCsc(salobj.ConfigurableCsc):
             * alarm.escalated_id is not blank: the alarm was already
               escalated (or at least an attempt was made).
             * alarm.do_escalate false: alarm should not be escalated.
-            * alarm.escalation_responders empty: there is nobody to escalate
+            * alarm.escalation_responder empty: there is nobody to escalate
               the alarm to (so do_escalate should never have been set).
         """
         if alarm.escalated_id:
             raise RuntimeError("Alarm already escalated")
         if not alarm.do_escalate:
             raise RuntimeError("Alarm do_escalate false")
-        if not alarm.escalation_responders:
-            raise RuntimeError("Alarm escalation_responders empty")
+        if not alarm.escalation_responder:
+            raise RuntimeError("Alarm escalation_responder empty")
         if self.model.config.escalation_url == "":
             return
 
-        # Try to create an OpsGenie alert
+        # Try to create an SquadCast incident
         try:
+            escalated_id = str(uuid.uuid4())
             async with self.http_client.post(
-                url=self.model.config.escalation_url,
+                url=self.escalation_endpoint_url,
                 json=dict(
+                    status="trigger",
+                    event_id=escalated_id,
                     message=f"Watcher alarm {alarm.name!r} escalated",
                     description=alarm.reason,
-                    responders=alarm.escalation_responders,
-                ),
-                headers=dict(
-                    Authorization=f"GenieKey {self.escalation_key}",
+                    tags=dict(
+                        responder=alarm.escalation_responder,
+                        alarm_name=alarm.name,
+                    ),
                 ),
             ) as response:
                 if response.status == HTTPStatus.ACCEPTED:
-                    read_data = await response.json()
-                    alarm.escalated_id = read_data["requestId"]
+                    alarm.escalated_id = escalated_id
                 else:
                     read_text = await response.text()
                     alarm.escalated_id = f"Failed: {read_text}"
                     self.log.warning(f"Could not escalate alarm {alarm}: {read_text}")
         except Exception as e:
-            errmsg = f"Could not reach OpsGenie: {e!r}"
+            errmsg = f"Could not reach SquadCast: {e!r}"
             alarm.escalated_id = f"Failed: {errmsg}"
             self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
 
     async def deescalate_alarm(self, alarm):
-        """De-escalate an alarm by closing the associated OpsGenie alert.
+        """De-escalate an alarm by resolving the associated SquadCast incident.
 
         Clear alarm.escalated_id and, if alarm.escalated_id is valid
-        (does not start with "Failed"), tell OpsGenie to close the alert.
+        (does not start with "Failed"), tell SquadCast to close the alert.
         """
         if not alarm.escalated_id:
             return
@@ -191,17 +200,18 @@ class WatcherCsc(salobj.ConfigurableCsc):
             # Nothing else to do
             return
 
-        # Try to close the OpsGenie alert
+        # Try to resolve the SquadCast incident
         async with self.http_client.post(
-            url=f"{self.model.config.escalation_url}/:{escalated_id}/close",
-            headers=dict(
-                Authorization=f"GenieKey {self.escalation_key}",
+            url=self.escalation_endpoint_url,
+            json=dict(
+                status="resolve",
+                event_id=escalated_id,
             ),
         ) as response:
             if response.status != HTTPStatus.ACCEPTED:
                 read_text = await response.text()
                 self.log.warning(
-                    f"Could not close OpsGenie alert {escalated_id} "
+                    f"Could not resolve SquadCast incident {escalated_id} "
                     f"for alarm {alarm}: {read_text}"
                 )
 
@@ -218,7 +228,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
                         timeout=self.model.config.escalation_timeout,
                     )
                 except asyncio.TimeoutError:
-                    errmsg = "Timed out waiting for OpsGenie"
+                    errmsg = "Timed out waiting for SquadCast"
                     alarm.escalated_id = f"Failed: {errmsg}"
                     self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
                 except RuntimeError as e:
@@ -234,15 +244,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
                     )
                 except asyncio.TimeoutError:
                     self.log.warning(
-                        f"Could not de-escalate alarm {alarm} "
-                        f"by closing OpsGenie alert {alarm.escalation_id}: "
-                        "timed out waiting for OpsGenie"
+                        f"Could not de-escalate alarm {alarm}: timed out waiting for SquadCast"
                     )
                 except Exception:
-                    self.log.exception(
-                        f"Failed to de-escalate alarm {alarm} "
-                        f"by closing OpsGenie alert {alarm.escalation_id}"
-                    )
+                    self.log.exception(f"Failed to de-escalate alarm {alarm}")
                 finally:
                     alarm.escalated_id = ""
 
@@ -255,7 +260,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             acknowledgedBy=alarm.acknowledged_by,
             mutedSeverity=alarm.muted_severity,
             mutedBy=alarm.muted_by,
-            escalateTo=alarm.escalation_responders_json,
+            escalateTo=alarm.escalation_responder,
             escalatedId=alarm.escalated_id,
             timestampSeverityOldest=alarm.timestamp_severity_oldest,
             timestampMaxSeverity=alarm.timestamp_max_severity,

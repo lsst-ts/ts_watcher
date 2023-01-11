@@ -4,19 +4,17 @@ rules:
 - classname: test.ConfiguredSeverities
   configs:
   - name: ATDome
-    interval: 0.4
+    interval: 0.2
     severities: [2, 4, 2]
     repeats: 1
   - name: ATCamera
-    interval: 0.4
-    delay: 0.2
+    interval: 0.2
+    delay: 1
     severities: [3, 4, 1]
     repeats: 1
 escalation:
 - alarms: [test.ConfiguredSeverities.ATDome]
-  responders:
-    - name: stella
-      type: team
+  responder: stella
   delay: 0.01
 # This assumes the mock OpsGenie uses the standard port,
 # but randomly assigned ports are safer.

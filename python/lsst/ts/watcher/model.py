@@ -160,7 +160,7 @@ class Model:
                 for name in matched_names:
                     alarm = self.rules[name].alarm
                     alarm.configure_escalation(
-                        escalation_responders=escalation_item["responders"],
+                        escalation_responder=escalation_item["responder"],
                         escalation_delay=escalation_item["delay"],
                     )
 
