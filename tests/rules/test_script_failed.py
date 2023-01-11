@@ -37,7 +37,12 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 @dataclasses.dataclass
-class TestParams:
+class CallTestParams:
+    """Params for test_call.
+
+    The name does not start with "Test" to avoid a warning.
+    """
+
     queue_enabled: bool
     queue_running: bool
     current_script_sal_index: int
@@ -117,7 +122,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
-                for test_params in self.get_test_params():
+                for test_params in self.get_test_call_params():
 
                     await script_queue.evt_queue.set_write(
                         enabled=test_params.queue_enabled,
@@ -146,9 +151,9 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                             assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()
 
-    def get_test_params(self):
+    def get_test_call_params(self):
         return [
-            TestParams(
+            CallTestParams(
                 queue_enabled=True,
                 queue_running=True,
                 current_script_sal_index=1000,
@@ -158,7 +163,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity=[AlarmSeverity.NONE, AlarmSeverity.NONE],
                 description="Current Script is running.",
             ),
-            TestParams(
+            CallTestParams(
                 queue_enabled=True,
                 queue_running=True,
                 current_script_sal_index=1001,
@@ -168,7 +173,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity=[AlarmSeverity.NONE, AlarmSeverity.NONE],
                 description="Current Script completed successfully.",
             ),
-            TestParams(
+            CallTestParams(
                 queue_enabled=True,
                 queue_running=False,
                 current_script_sal_index=1002,
@@ -178,7 +183,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity=[AlarmSeverity.NONE, AlarmSeverity.WARNING],
                 description="Current Script failed",
             ),
-            TestParams(
+            CallTestParams(
                 queue_enabled=True,
                 queue_running=True,
                 current_script_sal_index=1003,
