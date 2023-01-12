@@ -118,7 +118,7 @@ Compute the new alarm severity and a reason for it and return these as a tuple: 
 you may return `NoneNoReason` if the severity is ``NONE``.
 
 If your rule relies only on polling, consider inheriting from `PollingRule`.
-This calls the rule at regular intervals (set by `config.poll_interval) with no arguments.
+This calls the rule at regular intervals (set by ``config.poll_interval``) with no arguments.
 
 If your rule compares a value to one or more severity threshold levels to determine the alarm severity, consider using `ThresholdHandler` to compute the severity and reason.
 Most rules that use `ESS data <lsst.ts.watcher.writing_rules.ess_data>` fall into this category.
