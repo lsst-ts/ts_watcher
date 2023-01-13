@@ -98,11 +98,9 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
         # use mock OCPS response and verify data below to test
         # self.check_response(response, verify_stats) in the alarm
 
-        async with salobj.Controller(
-            name="ScriptQueue", index=ocps_index
-        ) as script_queue:
+        async with salobj.Controller(name="OCPS", index=ocps_index) as ocps:
             async with watcher.Model(
-                domain=script_queue.domain, config=watcher_config
+                domain=ocps.domain, config=watcher_config
             ) as model:
                 model.enable()
 
@@ -112,17 +110,10 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
                 rule.alarm.init_severity_queue()
 
                 for test_params in self.get_test_params():
+                    response_verify = await self.mock_latiss_ocps_response()
 
-                    await script_queue.evt_queue.set_write(
-                        enabled=test_params.queue_enabled,
-                        running=test_params.queue_running,
-                        currentSalIndex=test_params.script_sal_index,
-                    )
-
-                    await script_queue.evt_script.set_write(
-                        scriptSalIndex=test_params.script_sal_index,
-                        processState=test_params.process_state,
-                        scriptState=test_params.script_state,
+                    await ocps.evt_job_result.set_write(
+                        result=response_verify,
                     )
 
                     # This will publish 2 alarm states for each set of test
