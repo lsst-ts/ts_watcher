@@ -221,12 +221,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
             return
 
         if alarm.do_escalate:
-            if not alarm.escalated_id:
+            if not alarm.escalated_id and alarm.escalating_task.done():
                 try:
-                    await asyncio.wait_for(
-                        self.escalate_alarm(alarm),
-                        timeout=self.model.config.escalation_timeout,
+                    alarm.escalating_task = asyncio.create_task(
+                        asyncio.wait_for(
+                            self.escalate_alarm(alarm),
+                            timeout=self.model.config.escalation_timeout,
+                        )
                     )
+                    await alarm.escalating_task
                 except asyncio.TimeoutError:
                     errmsg = "Timed out waiting for SquadCast"
                     alarm.escalated_id = f"Failed: {errmsg}"

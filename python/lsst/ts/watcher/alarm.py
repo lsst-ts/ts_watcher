@@ -82,6 +82,7 @@ class Alarm:
             "auto_acknowledge_task",
             "auto_unacknowledge_task",
             "escalation_timer_task",
+            "escalating_task",
             "unmute_task",
             "severity_queue",
         )
@@ -95,6 +96,7 @@ class Alarm:
         self.configure_escalation(escalation_delay=0, escalation_responder="")
         self.auto_acknowledge_task = utils.make_done_future()
         self.auto_unacknowledge_task = utils.make_done_future()
+        self.escalating_task = utils.make_done_future()
         self.escalation_timer_task = utils.make_done_future()
         self.unmute_task = utils.make_done_future()
         self.severity_queue = None
@@ -242,6 +244,7 @@ class Alarm:
         self._cancel_auto_acknowledge()
         self._cancel_auto_unacknowledge()
         self._cancel_escalation_timer()
+        self.escalating_task.cancel()
         self.do_escalate = False
         if self.nominal:
             return False
@@ -390,6 +393,7 @@ class Alarm:
                 self._cancel_auto_acknowledge()
                 self._cancel_auto_unacknowledge()
                 self._cancel_escalation_timer()
+                self.escalating_task.cancel()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
                 if (
