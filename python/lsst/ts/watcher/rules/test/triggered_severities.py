@@ -35,6 +35,10 @@ class TriggeredSeverities(watcher.BaseRule):
     """A test rule that transitions through a specified list of severities,
     repeatedly, when manually triggered by test code.
 
+    This is only intended for unit tests, since it will not transition
+    between severities on its own. It gives unit tests complete control
+    over when to report the next severity.
+
     Parameters
     ----------
     config : `types.SimpleNamespace`
