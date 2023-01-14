@@ -6,6 +6,27 @@
 Version History
 ###############
 
+v1.12.0
+-------
+
+Changes:
+
+* Escalate critical alarms to SquadCast instead of OpsGenie.
+  This changed the config schema version from v4 to v5.
+* Add `rules.test.TriggeredSeverities` rule.
+  This is only intended for unit tests, since it will not transition between severities on its own.
+  It gives unit tests complete control over when to report the next severity.
+* Add `MockPagerDuty` and `MockSquadCast` classes.
+* Make test_clock.py and test_heartbeat more robust by increasing the timing margin.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.11.2
 -------
 

@@ -32,24 +32,22 @@ from lsst.ts import watcher
 NEXT_SEVERITY_TIMEOUT = 1
 
 
-class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
-    def make_config(self, name, interval, severities, **kwargs):
-        """Make a config for the TestConfiguredSeverities rule.
+class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
+    def make_config(self, name, severities, **kwargs):
+        """Make a config for the TestTriggeredSeverities rule.
 
         Parameters
         ----------
         name : `str`
             Rule name (one field in a longer name).
-        interval : `float`
-            Interval between severities (seconds).
         severities : `list` [`lsst.ts.idl.enums.Watcher.AlarmSeverity`]
             A list of severities.
         **kwargs : `dict`
             Optional config parameters.
         """
-        schema = watcher.rules.test.ConfiguredSeverities.get_schema()
+        schema = watcher.rules.test.TriggeredSeverities.get_schema()
         validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, interval=interval, severities=severities)
+        config_dict = dict(name=name, severities=severities)
         config_dict.update(kwargs)
 
         full_config_dict = validator.validate(config_dict)
@@ -59,18 +57,15 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         return config
 
     async def test_basics(self):
-        schema = watcher.rules.test.ConfiguredSeverities.get_schema()
+        schema = watcher.rules.test.TriggeredSeverities.get_schema()
         assert schema is not None
         name = "arulename"
-        interval = 1.23
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
-        config = self.make_config(name=name, interval=interval, severities=severities)
-        # Check default config parameters
-        assert config.delay == 0
-        assert config.repeats == 0
+        config = self.make_config(name=name, severities=severities)
+        assert config.repeats == 0  # The default value.
 
-        desired_rule_name = f"test.ConfiguredSeverities.{name}"
-        rule = watcher.rules.test.ConfiguredSeverities(config=config)
+        desired_rule_name = f"test.TriggeredSeverities.{name}"
+        rule = watcher.rules.test.TriggeredSeverities(config=config)
         assert rule.remote_info_list == []
         assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
@@ -79,10 +74,9 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         with pytest.raises(RuntimeError):
             rule(topic_callback=None)
         assert name in repr(rule)
-        assert "test.ConfiguredSeverities" in repr(rule)
+        assert "test.TriggeredSeverities" in repr(rule)
 
     async def test_run(self):
-        interval = 0.01
         repeats = 2
         severities = [
             AlarmSeverity.WARNING,
@@ -93,35 +87,30 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         ]
         config = self.make_config(
             name="arbitrary",
-            interval=interval,
             severities=severities,
-            delay=0.1,
             repeats=repeats,
         )
-        assert config.delay == 0.1
         assert config.repeats == 2
-        rule = watcher.rules.test.ConfiguredSeverities(config=config)
+        rule = watcher.rules.test.TriggeredSeverities(config=config)
 
         expected_severities = severities * repeats
         read_severities = []
-        num_expected_severities = len(expected_severities)
-        done_future = asyncio.Future()
+
+        alarm_seen_event = asyncio.Event()
 
         async def alarm_callback(alarm):
             nonlocal read_severities
             read_severities.append(alarm.severity)
-            if (
-                len(read_severities) >= num_expected_severities
-                and not done_future.done()
-            ):
-                done_future.set_result(None)
+            alarm_seen_event.set()
 
         rule.alarm.callback = alarm_callback
         rule.start()
-        await asyncio.wait_for(
-            done_future, timeout=NEXT_SEVERITY_TIMEOUT * num_expected_severities
-        )
-        # The rule's run_task should be done, or almost done.
-        await asyncio.wait_for(rule.run_task, timeout=NEXT_SEVERITY_TIMEOUT)
+        for i in range(len(expected_severities)):
+            alarm_seen_event.clear()
+            rule.trigger_next_severity_event.set()
+            await asyncio.wait_for(
+                alarm_seen_event.wait(), timeout=NEXT_SEVERITY_TIMEOUT
+            )
+        assert rule.run_task.done()
         rule.stop()
         assert read_severities == expected_severities

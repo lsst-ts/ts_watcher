@@ -120,7 +120,11 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_operation(self):
         name = "ScriptQueue"
         index = 5
-        threshold = 0.5
+        # Set margin (seconds) to a value large enough to handle
+        # timing uncertainties (including Docker's clock
+        # non-monotonicity on macOS and slow systems).
+        margin = 1
+        threshold = margin * 2
 
         watcher_config_dict = yaml.safe_load(
             f"""
@@ -154,8 +158,8 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 # with excessive error should leave the alarm in its
                 # original nominal state, because we require
                 # ``min_errors`` sequential time errors for an alarm.
-                bad_dt = threshold + 0.1
-                good_dt = threshold * 0.9
+                bad_dt = threshold + margin
+                good_dt = threshold - margin
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.alt_write(dt=bad_dt)
                     await alarm.assert_next_severity(AlarmSeverity.NONE)

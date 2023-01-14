@@ -35,7 +35,7 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
             super().run(result)
 
     async def asyncSetUp(self):
-        self.opsgenie = watcher.MockOpsGenie(port=0)
+        self.server = watcher.MockOpsGenie(port=0)
         self.http_client = aiohttp.ClientSession()
         self.escalation_key = os.environ["ESCALATION_KEY"]
         self.headers = dict(Authorization=f"GenieKey {self.escalation_key}")
@@ -45,10 +45,10 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
             dict(Authorization=f"NotGenieKey {self.escalation_key}"),
             dict(Authorization=f"GenieKey extra-{self.escalation_key}"),
         ]
-        await self.opsgenie.start()
+        await self.server.start()
 
     async def asyncTearDown(self):
-        await self.opsgenie.cleanup()
+        await self.server.close()
 
     async def create_alert(
         self,
@@ -101,9 +101,9 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
             responders=responders,
         )
         if reject_request:
-            self.opsgenie.reject_next_request = True
+            self.server.reject_next_request = True
         async with self.http_client.post(
-            url=self.opsgenie.url,
+            url=self.server.url,
             json=data,
             headers=headers,
         ) as response:
@@ -111,10 +111,10 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
             if expected_status != HTTPStatus.ACCEPTED:
                 return None
             response_data = await response.json()
-        assert not self.opsgenie.reject_next_request
+        assert not self.server.reject_next_request
 
         alert_id = response_data["requestId"]
-        alert = self.opsgenie.alerts[alert_id]
+        alert = self.server.alerts[alert_id]
         assert alert["id"] == alert_id
         for key, value in data.items():
             assert alert[key] == value
@@ -136,20 +136,20 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
 
             kwargs_list.append(kwargs)
             await self.create_alert(**kwargs)
-            assert len(self.opsgenie.alerts) == i + 1
+            assert len(self.server.alerts) == i + 1
         assert len(kwargs_list) == NumAlerts
 
         # Bad headers should prevent alert creation
         for bad_headers in self.bad_headers_list:
             await self.create_alert(headers=bad_headers)
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
 
         # Rejecting the create request should prevent alert creation
         await self.create_alert(reject_request=True)
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
 
         # Now check that we have exactly the expected alerts
-        for kwargs, alert in zip(kwargs_list, self.opsgenie.alerts.values()):
+        for kwargs, alert in zip(kwargs_list, self.server.alerts.values()):
             assert alert["message"] == kwargs["message"]
             assert alert["description"] == kwargs["description"]
             assert alert["responders"] == kwargs["responders"]
@@ -160,16 +160,16 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
         assert alert is not None
         alert_id = alert["id"]
         kwargs = dict(
-            url=f"{self.opsgenie.url}/:{alert_id}/close",
+            url=f"{self.server.url}/:{alert_id}/close",
             json=dict(),
         )
 
         # First try various ways the request can fail;
         # these should not affect the alert
-        self.opsgenie.reject_next_request = True
+        self.server.reject_next_request = True
         async with self.http_client.post(**kwargs, headers=self.headers) as response:
             assert response.status == HTTPStatus.INTERNAL_SERVER_ERROR
-        alert = self.opsgenie.alerts[alert_id]
+        alert = self.server.alerts[alert_id]
         assert alert["status"] == "open"
 
         for bad_headers in self.bad_headers_list:
@@ -178,7 +178,7 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
         assert alert["status"] == "open"
 
         bad_id_kwargs = kwargs.copy()
-        bad_id_kwargs["url"] = f"{self.opsgenie.url}/:no_such_id/close"
+        bad_id_kwargs["url"] = f"{self.server.url}/:no_such_id/close"
         async with self.http_client.post(
             **bad_id_kwargs, headers=self.headers
         ) as response:
@@ -194,7 +194,7 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
         # The close request should have a different ID
         # than the create request.
         assert response_data["requestId"] != alert_id
-        alert = self.opsgenie.alerts[alert_id]
+        alert = self.server.alerts[alert_id]
         assert alert["status"] == "closed"
 
     async def test_delete_alert(self):
@@ -205,37 +205,37 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
             assert alert is not None
             if i == 1:
                 alert_id_to_delete = alert["id"]
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
         kwargs = dict(
-            url=f"{self.opsgenie.url}/:{alert_id_to_delete}",
+            url=f"{self.server.url}/:{alert_id_to_delete}",
             json=dict(),
         )
 
         # First try various ways the request can fail;
         # these should not affect the alerts
-        self.opsgenie.reject_next_request = True
+        self.server.reject_next_request = True
         async with self.http_client.delete(**kwargs, headers=self.headers) as response:
             assert response.status == HTTPStatus.INTERNAL_SERVER_ERROR
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
 
         for bad_headers in self.bad_headers_list:
             async with self.http_client.delete(
                 **kwargs, headers=bad_headers
             ) as response:
                 assert response.status == HTTPStatus.FORBIDDEN
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
 
         bad_id_kwargs = kwargs.copy()
-        bad_id_kwargs["url"] = f"{self.opsgenie.url}/:no_such_id"
+        bad_id_kwargs["url"] = f"{self.server.url}/:no_such_id"
         async with self.http_client.delete(
             **bad_id_kwargs, headers=self.headers
         ) as response:
             # This returns ACCEPTED instead of some kind of error,
             # because that is how the real OpsGenie is documented to work.
             assert response.status == HTTPStatus.ACCEPTED
-        assert len(self.opsgenie.alerts) == NumAlerts
+        assert len(self.server.alerts) == NumAlerts
 
-        for alert in self.opsgenie.alerts.values():
+        for alert in self.server.alerts.values():
             assert alert["status"] == "open"
 
         async with self.http_client.delete(**kwargs, headers=self.headers) as response:
@@ -244,7 +244,7 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
         # The delete request should have a different ID
         # than the create request.
         assert response_data["requestId"] != alert_id_to_delete
-        assert alert_id_to_delete not in self.opsgenie.alerts
-        assert len(self.opsgenie.alerts) == NumAlerts - 1
-        for alert in self.opsgenie.alerts.values():
+        assert alert_id_to_delete not in self.server.alerts
+        assert len(self.server.alerts) == NumAlerts - 1
+        for alert in self.server.alerts.values():
             assert alert["status"] == "open"

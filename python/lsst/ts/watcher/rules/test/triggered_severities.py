@@ -19,18 +19,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ConfiguredSeverities"]
+__all__ = ["TriggeredSeverities"]
 
 import asyncio
 import yaml
 
-from lsst.ts import utils
 from lsst.ts import watcher
+from lsst.ts import utils
+
+# Maximum time (seconds) to wait for the next severity to be reported.
+NEXT_SEVERITY_TIMEOUT = 1
 
 
-class ConfiguredSeverities(watcher.BaseRule):
+class TriggeredSeverities(watcher.BaseRule):
     """A test rule that transitions through a specified list of severities,
-    repeatedly.
+    repeatedly, when manually triggered by test code.
+
+    This is only intended for unit tests, since it will not transition
+    between severities on its own. It gives unit tests complete control
+    over when to report the next severity.
 
     Parameters
     ----------
@@ -50,37 +57,33 @@ class ConfiguredSeverities(watcher.BaseRule):
         The task used to run the `run` method.
         Once started, you may check if this task is done to determine
         that all repeats have run.
+    trigger_next_severity_event : `asyncio.Event`
+        An event the user can set to trigger the next severity.
 
     Notes
     -----
-    The alarm name is ``f"test.ConfiguredSeverities.{config.name}"``
+    The alarm name is ``f"test.TriggeredSeverities.{config.name}"``
     """
 
     def __init__(self, config):
         super().__init__(
             config=config,
-            name=f"test.ConfiguredSeverities.{config.name}",
+            name=f"test.TriggeredSeverities.{config.name}",
             remote_info_list=[],
         )
         self.run_task = utils.make_done_future()
+        self.trigger_next_severity_event = asyncio.Event()
 
     @classmethod
     def get_schema(cls):
         schema_yaml = """
             $schema: http://json-schema.org/draft-07/schema#
-            description: Configuration for ConfiguredSeverities
+            description: Configuration for TriggeredSeverities
             type: object
             properties:
                 name:
                     description: Rule name (one field in a longer name).
                     type: string
-                interval:
-                    description: Interval between severities (seconds).
-                    type: number
-                delay:
-                    description: Additional delay before the first severity (seconds).
-                    type: number
-                    default: 0
                 severities:
                     description: A list of severities as lsst.ts.idl.enums.Watcher.AlarmSeverity constants.
                     type: array
@@ -90,10 +93,24 @@ class ConfiguredSeverities(watcher.BaseRule):
                     description: How many times to repeat the pattern? 0 = forever.
                     type: integer
                     default: 0
-            required: [name, interval, severities]
+            required: [name, severities]
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
+
+    async def run(self):
+        """Run through the configured severities, repeatedly, forever."""
+        repeat = 0
+        while True:
+            for severity in self.config.severities:
+                await self.trigger_next_severity_event.wait()
+                self.trigger_next_severity_event.clear()
+                await self.alarm.set_severity(
+                    severity=severity, reason="Commanded severity"
+                )
+            repeat += 1
+            if self.config.repeats > 0 and repeat >= self.config.repeats:
+                break
 
     def start(self):
         self.run_task.cancel()
@@ -101,20 +118,6 @@ class ConfiguredSeverities(watcher.BaseRule):
 
     def stop(self):
         self.run_task.cancel()
-
-    async def run(self):
-        """Run through the configured severities, repeatedly, forever."""
-        await asyncio.sleep(self.config.delay)
-        repeat = 0
-        while True:
-            for severity in self.config.severities:
-                await asyncio.sleep(self.config.interval)
-                await self.alarm.set_severity(
-                    severity=severity, reason="Commanded severity"
-                )
-            repeat += 1
-            if self.config.repeats > 0 and repeat >= self.config.repeats:
-                break
 
     def __call__(self, topic_callback):
         raise RuntimeError("This should never be called")

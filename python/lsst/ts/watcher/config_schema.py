@@ -26,7 +26,7 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v4
+title: Watcher v5
 description: Configuration for the Watcher
 type: object
 required:
@@ -91,7 +91,7 @@ properties:
     type: array
     items:
       type: object
-      required: [alarms, responders, delay]
+      required: [alarms, responder, delay]
       additionalProperties: false
       minItems: 0
       properties:
@@ -105,33 +105,19 @@ properties:
           minItems: 1
           items:
             type: string
-        responders:
-          description: ->
-            Teams, users, and/or schedules to which to escalate these alarms.
-            The format is the same used by OpsGenie to create an alert.
-          type: array
-          items:
-            type: object
-            required: [name, type]
-            additionalProperties: false
-            minItems: 1
-            properties:
-              name:
-                description: ->
-                    Name of team, user, or schedule to which to escalate this alarm.
-                    Note that IDs are not supported; it must be a name.
-                type: string
-              type:
-                description: Type of name.
-                type: string
-                enum: ["team", "user", "schedule"]
+        responder:
+          description: >-
+            Who or what to escalate this alarm to. Used by routing rules
+            for the Incident Response service in SquadCast
+            to direct the alarm to the right people.
+          type: string
         delay:
           description: >-
             Delay before escalating these alarms (seconds).
             Must be positive.
             The alarm will be escalated `delay` seconds after the alarm severity
             first goes to CRITICAL, unless the alarm is acknowledged first.
-            Warning: stale alarms–those for which the severity has gone back to None–
+            Warning: stale alarms (those for which the severity has gone back to None)
             will not reliably be escalated if `delay` is longer than `auto_acknowledge_delay`,
             because the alarm may be automatically acknowledged before it is escalated.
           type: number

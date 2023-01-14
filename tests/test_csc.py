@@ -20,7 +20,6 @@
 
 import asyncio
 import glob
-import json
 import os
 import pathlib
 import pytest
@@ -111,12 +110,12 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # and is set for the second rule.
             alarm1 = self.csc.model.rules[expected_rule_names[0]].alarm
             alarm2 = self.csc.model.rules[expected_rule_names[1]].alarm
-            assert alarm1.escalation_responders == []
+            assert alarm1.escalation_responder == ""
             assert alarm1.escalation_delay == 0
             assert alarm1.timestamp_escalate == 0
             assert not alarm1.do_escalate
             assert alarm1.escalated_id == ""
-            assert alarm2.escalation_responders == [{"name": "stella", "type": "team"}]
+            assert alarm2.escalation_responder == "stella"
             assert alarm2.escalation_delay == 0.11
             assert alarm2.timestamp_escalate == 0
             assert not alarm2.do_escalate
@@ -127,7 +126,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             desired_config_pkg_name = "ts_config_ocs"
             desired_config_env_name = desired_config_pkg_name.upper() + "_DIR"
             desird_config_pkg_dir = os.environ[desired_config_env_name]
-            desired_config_dir = pathlib.Path(desird_config_pkg_dir) / "Watcher/v4"
+            desired_config_dir = pathlib.Path(desird_config_pkg_dir) / "Watcher/v5"
             assert self.csc.get_config_pkg() == desired_config_pkg_name
             assert self.csc.config_dir == desired_config_dir
 
@@ -173,76 +172,85 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     async def test_escalation_service_down(self):
         await self.check_escalation(service_down=True)
 
-    async def test_escalation_create_fails(self):
-        await self.check_escalation(create_fails=True)
+    async def test_escalation_trigger_fails(self):
+        await self.check_escalation(trigger_fails=True)
 
-    async def test_escalation_close_fails(self):
-        await self.check_escalation(close_fails=True)
+    async def test_escalation_resolve_fails(self):
+        await self.check_escalation(resolve_fails=True)
 
     async def check_escalation(
-        self, service_down=False, create_fails=False, close_fails=False
+        self, service_down=False, trigger_fails=False, resolve_fails=False
     ):
-        """Run the watcher with a ConfiguredSeverity rule and make sure
-        the escalation fields look correct in the Alarm event.
+        """Check escalation fields in the alarm event.
+
+        Run the watcher with two TriggeredSeverity rules,
+        as specified by "critical,yaml", one with escalation, one without.
 
         Parameters
         ----------
         service_down : `bool`
-            Simulate the OpsGenie service being down.
-        create_fails : `bool`
-            Simulate the OpsGenie service rejecting the create attempt.
-        close_fails : `bool`
-            Simulate the OpsGenie service rejecting the close attempt.
+            Simulate the SquadCast service being down.
+        trigger_fails : `bool`
+            Simulate the SquadCast service rejecting the trigger attempt.
+        resolve_fails : `bool`
+            Simulate the SquadCast service rejecting the resolve attempt.
             This should still work, just log a warning.
         """
-        if service_down and create_fails:
-            raise ValueError("Cannot set both service_down and create_fails")
-        escalation_fails = service_down or create_fails
-        with utils.modify_environ(ESCALATION_KEY="anything"):
-            async with watcher.MockOpsGenie(port=0) as mock_opsgenie, self.make_csc(
+        if service_down and trigger_fails:
+            raise ValueError("Cannot set both service_down and trigger_fails")
+        escalation_fails = service_down or trigger_fails
+        escalation_key = "anything"
+        with utils.modify_environ(ESCALATION_KEY=escalation_key):
+            async with watcher.MockSquadCast(port=0) as mock_server, self.make_csc(
                 config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
             ):
                 await salobj.set_summary_state(
                     self.remote, state=salobj.State.ENABLED, override="critical.yaml"
                 )
-                # First test the URL from critical.yaml,
+                # First test the escalation URL set from critical.yaml,
                 # then overwrite it with a URL that has the correct port.
-                assert self.csc.model.config.escalation_url == "http://127.0.0.1:80"
+                assert self.csc.escalation_endpoint_url == (
+                    f"http://127.0.0.1:80/v2/incidents/api/{escalation_key}"
+                )
                 if service_down:
-                    # Try to connect to port 0, which is sure to fail.
-                    # Note: the reason we run the mock OpsGenie service
-                    # in this case is to simplify the code.
-                    self.csc.model.config.escalation_url = "http://127.0.0.1:0"
+                    # Try to connect somewhere else.
+                    # Technically we don't need to start a mock SquadCast
+                    # server for this case, but it simplifies the code
+                    # a bit to do so.
+                    self.csc.escalation_endpoint_url += "extra_garbage"
                 else:
-                    self.csc.model.config.escalation_url = mock_opsgenie.url
+                    self.csc.escalation_endpoint_url = mock_server.endpoint_url
 
-                if create_fails:
-                    mock_opsgenie.reject_next_request = True
+                if trigger_fails:
+                    mock_server.reject_next_request = True
 
-                alarm_name1 = "test.ConfiguredSeverities.ATDome"
-                alarm_name2 = "test.ConfiguredSeverities.ATCamera"
+                alarm_name1 = "test.TriggeredSeverities.ATDome"
+                alarm_name2 = "test.TriggeredSeverities.ATCamera"
                 assert list(self.csc.model.rules) == [alarm_name1, alarm_name2]
 
                 # Alarm 1 will be escalated because it has an escalation
                 # responder and the escalation delay is > 0.
-                alarm1 = self.csc.model.rules[alarm_name1].alarm
-                assert len(alarm1.escalation_responders) == 1
-                assert alarm1.escalation_delay == pytest.approx(0.01)
+                rule1 = self.csc.model.rules[alarm_name1]
+                alarm1 = rule1.alarm
+                assert alarm1.escalation_responder != ""
+                assert alarm1.escalation_delay == pytest.approx(0.1)
 
-                expected_escalate_to_alarm1 = json.dumps(
-                    [{"name": "stella", "type": "team"}]
-                )
+                expected_escalate_to_alarm1 = "stella"
 
                 # Alarm 2 will never be escalated because it has no
-                # escalation responders and the escalation delay is 0.
-                alarm2 = self.csc.model.rules[alarm_name2].alarm
-                assert len(alarm2.escalation_responders) == 0
+                # escalation responder and the escalation delay is 0.
+                rule2 = self.csc.model.rules[alarm_name2]
+                alarm2 = rule2.alarm
+                assert alarm2.escalation_responder == ""
                 assert alarm2.escalation_delay == 0
 
                 # Follow the severity sequence specified in critical.yaml,
                 # but expect one extra event from ATDome (alarm 1)
                 # when it goes critical, because the alarm is escalated
                 # after a very short delay.
+                # Note that all of alarm 2 state transitions should occur
+                # before any of alarm 1 state transitions.
+                rule1.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
@@ -251,18 +259,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     escalateTo=expected_escalate_to_alarm1,
                     timestampEscalate=0,
                 )
-                await self.assert_next_alarm(
-                    name=alarm_name2,
-                    severity=AlarmSeverity.SERIOUS,
-                    maxSeverity=AlarmSeverity.SERIOUS,
-                    escalatedId="",
-                    escalateTo="[]",
-                    timestampEscalate=0,
-                )
 
                 # When alarm 1 goes to CRITICAL it will be escalated
-                # after a very short time (well before the next
-                # severity is reported for alarm 2).
+                # after a very short time.
+                rule1.trigger_next_severity_event.set()
                 data = await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.CRITICAL,
@@ -291,27 +291,17 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 else:
                     assert not alarm1.escalated_id.startswith("Failed: ")
                 if escalation_fails:
-                    assert len(mock_opsgenie.alerts) == 0
+                    assert len(mock_server.incidents) == 0
                 else:
-                    assert len(mock_opsgenie.alerts) == 1
-                    alert = mock_opsgenie.alerts[alarm1.escalated_id]
-                    assert alert["status"] == "open"
-                    assert "ATDome" in alert["message"]
-                    assert alert["id"] == alarm1.escalated_id
-                    saved_alert_id = alarm1.escalated_id
-
-                # Finish the configured sequence of severities.
-                await self.assert_next_alarm(
-                    name=alarm_name2,
-                    severity=AlarmSeverity.CRITICAL,
-                    maxSeverity=AlarmSeverity.CRITICAL,
-                    escalatedId="",
-                    escalateTo="[]",
-                    timestampEscalate=0,
-                )
-                # Alarm 2 is not configured to be escalated,
-                # so its escalation timer should not be running.
-                assert alarm2.escalation_timer_task.done()
+                    assert len(mock_server.incidents) == 1
+                    incident = mock_server.incidents[alarm1.escalated_id]
+                    assert incident["event_id"] == alarm1.escalated_id
+                    assert incident["status"] == "trigger"
+                    assert "ATDome" in incident["message"]
+                    assert "ATDome" in incident["tags"]["alarm_name"]
+                    assert alarm1.escalation_responder == incident["tags"]["responder"]
+                    saved_incident_id = alarm1.escalated_id
+                rule1.trigger_next_severity_event.set()
                 data = await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
@@ -326,20 +316,44 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     assert alarm1.escalated_id.startswith("Failed: ")
                 else:
                     assert not alarm1.escalated_id.startswith("Failed: ")
+
+                # Run the configured sequence of severities for alarm 2.
+                rule2.trigger_next_severity_event.set()
+                await self.assert_next_alarm(
+                    name=alarm_name2,
+                    severity=AlarmSeverity.SERIOUS,
+                    maxSeverity=AlarmSeverity.SERIOUS,
+                    escalatedId="",
+                    escalateTo="",
+                    timestampEscalate=0,
+                )
+                rule2.trigger_next_severity_event.set()
+                await self.assert_next_alarm(
+                    name=alarm_name2,
+                    severity=AlarmSeverity.CRITICAL,
+                    maxSeverity=AlarmSeverity.CRITICAL,
+                    escalatedId="",
+                    escalateTo="",
+                    timestampEscalate=0,
+                )
+                # Alarm 2 is not configured to be escalated,
+                # so its escalation timer should not be running.
+                assert alarm2.escalation_timer_task.done()
+                rule2.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.NONE,
                     maxSeverity=AlarmSeverity.CRITICAL,
                     escalatedId="",
-                    escalateTo="[]",
+                    escalateTo="",
                     timestampEscalate=0,
                 )
 
                 # Acknowledge alarm 1. That should make the alarm
                 # be de-escalated (even though the alarm severity
                 # is not back to NONE).
-                if close_fails:
-                    mock_opsgenie.reject_next_request = True
+                if resolve_fails:
+                    mock_server.reject_next_request = True
                 await self.remote.cmd_acknowledge.set_start(
                     name=alarm_name1,
                     severity=AlarmSeverity.CRITICAL,
@@ -355,18 +369,19 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 )
                 # The escalated ID should have been cleared
                 # (even if de-escalation fails),
-                # so use the saved alert ID to access the alert.
+                # so use the saved incident ID to access the incident.
                 assert not alarm1.do_escalate
                 assert alarm1.escalated_id == ""
                 if not escalation_fails:
-                    assert len(mock_opsgenie.alerts) == 1
-                    alert = mock_opsgenie.alerts[saved_alert_id]
-                    if close_fails:
-                        assert alert["status"] == "open"
-                    else:
-                        assert alert["status"] == "closed"
-                    assert "ATDome" in alert["message"]
-                    assert alert["id"] == saved_alert_id
+                    assert len(mock_server.incidents) == 1
+                    incident = mock_server.incidents[saved_incident_id]
+                    assert incident["event_id"] == saved_incident_id
+                    assert (
+                        incident["status"] == "trigger" if resolve_fails else "resolve"
+                    )
+                    assert "ATDome" in incident["message"]
+                    assert "ATDome" in incident["tags"]["alarm_name"]
+                    assert alarm1.escalation_responder == incident["tags"]["responder"]
 
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
