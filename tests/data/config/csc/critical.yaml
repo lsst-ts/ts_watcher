@@ -1,22 +1,19 @@
 # Two alarms that go critical, one with escalation, one without.
 # severities are NONE=1, WARNING=2, SERIOUS=3, CRITICAL=4
 rules:
-- classname: test.ConfiguredSeverities
+- classname: test.TriggeredSeverities
   configs:
   - name: ATDome
-    interval: 0.2
     severities: [2, 4, 2]
     repeats: 1
   - name: ATCamera
-    interval: 0.2
-    delay: 1
     severities: [3, 4, 1]
     repeats: 1
 escalation:
-- alarms: [test.ConfiguredSeverities.ATDome]
+- alarms: [test.TriggeredSeverities.ATDome]
   responder: stella
-  delay: 0.01
-# This assumes the mock OpsGenie uses the standard port,
+  delay: 0.1
+# This assumes the mock squadcast uses the standard port,
 # but randomly assigned ports are safer.
 # If you use a random port, overwrite
 # `csc.model.escalation_url with the correct URL.

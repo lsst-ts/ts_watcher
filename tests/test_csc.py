@@ -181,8 +181,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     async def check_escalation(
         self, service_down=False, trigger_fails=False, resolve_fails=False
     ):
-        """Run the watcher with a ConfiguredSeverity rule and make sure
-        the escalation fields look correct in the Alarm event.
+        """Check escalation fields in the alarm event.
+
+        Run the watcher with two TriggeredSeverity rules,
+        as specified by "critical,yaml", one with escalation, one without.
 
         Parameters
         ----------
@@ -222,21 +224,23 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 if trigger_fails:
                     mock_server.reject_next_request = True
 
-                alarm_name1 = "test.ConfiguredSeverities.ATDome"
-                alarm_name2 = "test.ConfiguredSeverities.ATCamera"
+                alarm_name1 = "test.TriggeredSeverities.ATDome"
+                alarm_name2 = "test.TriggeredSeverities.ATCamera"
                 assert list(self.csc.model.rules) == [alarm_name1, alarm_name2]
 
                 # Alarm 1 will be escalated because it has an escalation
                 # responder and the escalation delay is > 0.
-                alarm1 = self.csc.model.rules[alarm_name1].alarm
+                rule1 = self.csc.model.rules[alarm_name1]
+                alarm1 = rule1.alarm
                 assert alarm1.escalation_responder != ""
-                assert alarm1.escalation_delay == pytest.approx(0.01)
+                assert alarm1.escalation_delay == pytest.approx(0.1)
 
                 expected_escalate_to_alarm1 = "stella"
 
                 # Alarm 2 will never be escalated because it has no
                 # escalation responder and the escalation delay is 0.
-                alarm2 = self.csc.model.rules[alarm_name2].alarm
+                rule2 = self.csc.model.rules[alarm_name2]
+                alarm2 = rule2.alarm
                 assert alarm2.escalation_responder == ""
                 assert alarm2.escalation_delay == 0
 
@@ -246,6 +250,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 # after a very short delay.
                 # Note that all of alarm 2 state transitions should occur
                 # before any of alarm 1 state transitions.
+                rule1.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
@@ -257,6 +262,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
                 # When alarm 1 goes to CRITICAL it will be escalated
                 # after a very short time.
+                rule1.trigger_next_severity_event.set()
                 data = await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.CRITICAL,
@@ -295,7 +301,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     assert "ATDome" in incident["tags"]["alarm_name"]
                     assert alarm1.escalation_responder == incident["tags"]["responder"]
                     saved_incident_id = alarm1.escalated_id
-
+                rule1.trigger_next_severity_event.set()
                 data = await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.WARNING,
@@ -311,7 +317,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 else:
                     assert not alarm1.escalated_id.startswith("Failed: ")
 
-                # Finish the configured sequence of severities.
+                # Run the configured sequence of severities for alarm 2.
+                rule2.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.SERIOUS,
@@ -320,7 +327,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     escalateTo="",
                     timestampEscalate=0,
                 )
-
+                rule2.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.CRITICAL,
@@ -332,6 +339,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 # Alarm 2 is not configured to be escalated,
                 # so its escalation timer should not be running.
                 assert alarm2.escalation_timer_task.done()
+                rule2.trigger_next_severity_event.set()
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.NONE,
