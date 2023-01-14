@@ -78,7 +78,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_operation(self):
         name = "ScriptQueue"
         index = 5
-        timeout = 0.2
+        timeout = 0.5
 
         watcher_config_dict = yaml.safe_load(
             f"""
@@ -116,8 +116,9 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
-                await asyncio.sleep(timeout * 2.5)
-                await alarm.assert_next_severity(AlarmSeverity.SERIOUS)
+                await alarm.assert_next_severity(
+                    AlarmSeverity.SERIOUS, timeout=timeout * 2.5
+                )
                 assert not alarm.nominal
                 await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
