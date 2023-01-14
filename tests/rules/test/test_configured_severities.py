@@ -28,6 +28,9 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import salobj
 from lsst.ts import watcher
 
+# Maximum time (seconds) to wait for the next severity to be reported.
+NEXT_SEVERITY_TIMEOUT = 1
+
 
 class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
     def make_config(self, name, interval, severities, **kwargs):
@@ -99,19 +102,26 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         assert config.repeats == 2
         rule = watcher.rules.test.ConfiguredSeverities(config=config)
 
+        expected_severities = severities * repeats
         read_severities = []
-        num_events_to_read = repeats * len(severities)
+        num_expected_severities = len(expected_severities)
         done_future = asyncio.Future()
 
         async def alarm_callback(alarm):
             nonlocal read_severities
             read_severities.append(alarm.severity)
-            if len(read_severities) >= num_events_to_read and not done_future.done():
+            if (
+                len(read_severities) >= num_expected_severities
+                and not done_future.done()
+            ):
                 done_future.set_result(None)
 
         rule.alarm.callback = alarm_callback
         rule.start()
-        await asyncio.wait_for(done_future, timeout=2)
+        await asyncio.wait_for(
+            done_future, timeout=NEXT_SEVERITY_TIMEOUT * num_expected_severities
+        )
+        # The rule's run_task should be done, or almost done.
+        await asyncio.wait_for(rule.run_task, timeout=NEXT_SEVERITY_TIMEOUT)
         rule.stop()
-        expected_severities = severities * repeats
         assert read_severities == expected_severities

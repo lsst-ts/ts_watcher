@@ -44,6 +44,13 @@ class ConfiguredSeverities(watcher.BaseRule):
         this method should never be called because the rule
         specifies topics to call it.
 
+    Attributes
+    ----------
+    run_task : `asyncio.Future` | `asyncio.Task`
+        The task used to run the `run` method.
+        Once started, you may check if this task is done to determine
+        that all repeats have run.
+
     Notes
     -----
     The alarm name is ``f"test.ConfiguredSeverities.{config.name}"``
@@ -55,7 +62,7 @@ class ConfiguredSeverities(watcher.BaseRule):
             name=f"test.ConfiguredSeverities.{config.name}",
             remote_info_list=[],
         )
-        self.run_timer = utils.make_done_future()
+        self.run_task = utils.make_done_future()
 
     @classmethod
     def get_schema(cls):
@@ -89,11 +96,11 @@ class ConfiguredSeverities(watcher.BaseRule):
         return yaml.safe_load(schema_yaml)
 
     def start(self):
-        self.run_timer.cancel()
-        self.run_timer = asyncio.ensure_future(self.run())
+        self.run_task.cancel()
+        self.run_task = asyncio.ensure_future(self.run())
 
     def stop(self):
-        self.run_timer.cancel()
+        self.run_task.cancel()
 
     async def run(self):
         """Run through the configured severities, repeatedly, forever."""
