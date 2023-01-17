@@ -122,7 +122,7 @@ properties:
           type: integer
         sensor_names:
           description: >-
-            Values of sensorName field to readfor the relativeHumidity
+            Values of sensorName field to read for the relativeHumidity
             telemetry topic.
           type: array
           minItems: 1
