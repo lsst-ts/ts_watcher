@@ -21,6 +21,7 @@
 
 from . import test
 from .atcamera_dewar import *
+from .base_ess_rule import *
 from .clock import *
 from .enabled import *
 from .heartbeat import *
