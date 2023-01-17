@@ -21,18 +21,12 @@
 
 __all__ = ["OverTemperature"]
 
-import asyncio
 import yaml
 
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import utils
-from lsst.ts import watcher
-
-# Name of temperature field in ESS telemetry topics for temperature sensors.
-ESSTemperatureField = "temperature"
+from .base_ess_rule import BaseEssRule
 
 
-class OverTemperature(watcher.PollingRule):
+class OverTemperature(BaseEssRule):
     """Check for something being too hot, such as hexapod struts.
 
     This rule only reads ESS telemetry topics.
@@ -54,49 +48,16 @@ class OverTemperature(watcher.PollingRule):
     """
 
     def __init__(self, config):
-        self.poll_loop_task = utils.make_done_future()
-
-        # Temperature field wrappers; computed in `setup`.
-        self.temperature_field_wrappers = watcher.FieldWrapperList()
-
-        self.threshold_handler = watcher.ThresholdHandler(
-            warning_level=getattr(config, "warning_level", None),
-            serious_level=getattr(config, "serious_level", None),
-            critical_level=getattr(config, "critical_level", None),
-            warning_msg=getattr(config, "warning_msg", ""),
-            serious_msg=getattr(config, "serious_msg", ""),
-            critical_msg=getattr(config, "critical_msg", ""),
-            hysteresis=config.hysteresis,
-            big_is_bad=True,
-            value_name="temperature",
-            units="C",
-            value_format="0.2f",
-        )
-
-        # Compute dict of (sal_name, sal_index): list of topic attribute names,
-        # in order to creat remote_info_list
-        topic_names_dict = dict()
-        sal_name = "ESS"
-        for sensor_info in config.temperature_sensors:
-            sal_index = sensor_info["sal_index"]
-            topic_attr_names = ["tel_temperature"]
-            sal_name_index = (sal_name, sal_index)
-            if sal_name_index not in topic_names_dict:
-                topic_names_dict[sal_name_index] = topic_attr_names
-
-        remote_info_list = [
-            watcher.RemoteInfo(
-                name=name,
-                index=index,
-                callback_names=None,
-                poll_names=topic_attr_names,
-            )
-            for (name, index), topic_attr_names in topic_names_dict.items()
-        ]
         super().__init__(
             config=config,
-            name=f"OverTemperature.{config.name}",
-            remote_info_list=remote_info_list,
+            rule_name=f"OverTemperature.{config.name}",
+            topic_attr_name="tel_temperature",
+            field_name="temperature",
+            sensor_info_name="temperature_sensors",
+            is_indexed=True,
+            big_is_bad=True,
+            units="C",
+            value_format="0.2f",
         )
 
     @classmethod
@@ -129,7 +90,7 @@ properties:
             type: object
             properties:
               sensor_name:
-                description: value of sensorName field.
+                description: Value of sensorName field.
                 type: string
               indices:
                 description: >-
@@ -200,74 +161,3 @@ required:
 additionalProperties: false
        """
         return yaml.safe_load(schema_yaml)
-
-    def setup(self, model):
-        """Create filtered topic wrappers."""
-        sal_name = "ESS"
-        for temperature_sensor_info in self.config.temperature_sensors:
-            sal_index = temperature_sensor_info["sal_index"]
-            remote = model.remotes[(sal_name, sal_index)]
-            topic = remote.tel_temperature
-            for sensor_info in temperature_sensor_info["sensor_info"]:
-                sensor_name = sensor_info["sensor_name"]
-                indices = sensor_info.get("indices", None)
-                if indices is not None:
-                    field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
-                        model=model,
-                        topic=topic,
-                        sensor_name=sensor_name,
-                        field_name=ESSTemperatureField,
-                        indices=indices,
-                    )
-                else:
-                    field_wrapper = watcher.FilteredEssFieldWrapper(
-                        model=model,
-                        topic=topic,
-                        sensor_name=sensor_name,
-                        field_name=ESSTemperatureField,
-                    )
-                self.temperature_field_wrappers.add_wrapper(field_wrapper)
-
-    def start(self):
-        self.poll_loop_task.cancel()
-        self.poll_loop_task = asyncio.create_task(self.poll_loop())
-
-    def stop(self):
-        self.poll_loop_task.cancel()
-
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        self.poll_start_tai = utils.current_tai()
-        while True:
-            severity, reason = self()
-            await self.alarm.set_severity(severity=severity, reason=reason)
-            await asyncio.sleep(self.config.poll_interval)
-
-    def __call__(self, data=None, topic_callback=None):
-        current_tai = utils.current_tai()
-        # List of (temperature, wrapper, index)
-        temperature_values = self.temperature_field_wrappers.get_data(
-            max_age=self.config.max_data_age
-        )
-        if not temperature_values:
-            poll_duration = current_tai - self.poll_start_tai
-            if poll_duration > self.config.max_data_age:
-                return (
-                    AlarmSeverity.SERIOUS,
-                    f"No temperature data seen for {self.config.max_data_age} seconds",
-                )
-            else:
-                return watcher.NoneNoReason
-
-        # We got data. Use the most pessimistic measured value.
-        temperature, temperature_wrapper, temperature_index = max(
-            temperature_values, key=lambda v: v[0]
-        )
-        source_descr = temperature_wrapper.get_value_descr(temperature_index)
-        return self.threshold_handler.get_severity_reason(
-            value=temperature,
-            current_severity=self.alarm.severity,
-            source_descr=source_descr,
-        )
