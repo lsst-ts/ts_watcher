@@ -1,0 +1,17 @@
+name: MT Widget
+pressure_sensors:
+  - sal_index: 1
+    sensor_info:
+      - sensor_name: upstairs
+      - sensor_name: downstairs
+        indices: [0, 2, 1, 3]
+  - sal_index: 5
+    sensor_info:
+      - sensor_name: inside
+warning_level: 29
+critical_level: 10
+warning_msg: "performance may be degraded"
+critical_msg: "disable the widget"
+hysteresis: 1
+poll_interval: 10
+max_data_age: 60
