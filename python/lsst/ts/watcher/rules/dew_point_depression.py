@@ -82,7 +82,7 @@ class DewPointDepression(watcher.PollingRule):
         )
 
         # Compute dict of (sal_name, sal_index): list of topic attribute names,
-        # in order to creat remote_info_list
+        # in order to create remote_info_list
         topic_names_dict = dict()
         sal_name = "ESS"
 
@@ -170,7 +170,7 @@ properties:
             type: object
             properties:
               sensor_name:
-                description: value of sensorName field.
+                description: Value of sensorName field.
                 type: string
               indices:
                 description: >-
@@ -232,7 +232,13 @@ additionalProperties: false
         return yaml.safe_load(schema_yaml)
 
     def setup(self, model):
-        """Create filtered topic wrappers."""
+        """Create filtered topic wrappers
+
+        Parameters
+        ----------
+        model : `Model`
+            The watcher model.
+        """
         sal_name = "ESS"
         for dew_point_sensor_info in self.config.dew_point_sensors:
             sal_index = dew_point_sensor_info["sal_index"]
