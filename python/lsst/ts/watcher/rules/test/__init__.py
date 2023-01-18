@@ -21,3 +21,4 @@
 
 from .configured_severities import *
 from .no_config import *
+from .triggered_severities import *

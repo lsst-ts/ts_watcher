@@ -1,0 +1,5 @@
+name: MT Widget
+pressure_sensors:
+    sensor_info:
+      - sensor_name: upstairs
+warning_level: 29

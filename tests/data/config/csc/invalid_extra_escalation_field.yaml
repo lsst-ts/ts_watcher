@@ -1,7 +1,5 @@
 escalation:
 - alarms: [Enabled.AT*]
-  responders:
-  - name: stella
-    type: team
+  responder: stella
   delay: 1
   extra_escalation_field: arbitrary_data

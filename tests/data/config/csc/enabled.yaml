@@ -10,13 +10,9 @@ rules:
   - name: ScriptQueue:2
 escalation:
 - alarms: ["Enabled.AT*"]
-  responders:
-  - name: stella
-    type: team
+  responder: stella
   delay: 0.11
   # This should be ignored because the previous rule handles it
 - alarms: [Enabled.ATCamera]
-  responders:
-  - name: someone@somewhere
-    type: user
+  responder: someone
   delay: 0.12

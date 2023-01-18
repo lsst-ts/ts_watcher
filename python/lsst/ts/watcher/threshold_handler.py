@@ -40,14 +40,16 @@ class ThresholdHandler:
 
     Parameters
     ----------
-    warning_level : `float` or `None`
+    warning_level : `float` | `None`
         Warning level. None to not use this level.
-    serious_level : `float`
+    serious_level : `float` | `None`
         Serious level. None to not use this level.
-    critical_level : `float`
+    critical_level : `float` | `None`
         Critical level. None to not use this level.
     hysteresis : `float`
-        Hysteresis.
+        The amount by which the measurement must decrease below
+        (or increase above if ``big_is_bad`` false) a severity level,
+        before alarm severity is decreased.
     big_is_bad : `bool`
         True if measured values larger than the specified levels are bad;
         examples include most humidity, temperature, and vacuum measurements.

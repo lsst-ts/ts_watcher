@@ -357,19 +357,19 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         # check that case does not have to match.
         esc_info12 = dict(
             alarms=["enabled.scriptqueue:*"],
-            responders=[dict(name="chaos", type="team")],
+            responder="chaos",
             delay=0.11,
         )
         # Escalation info for the next two rules
         esc_info34 = dict(
             alarms=["Enabled.Test:?"],
-            responders=[dict(name="stella", type="team")],
+            responder="stella",
             delay=0.12,
         )
         # Escalation info that does not match any alarm names
         esc_notused = dict(
             alarms=["Enabled.NoMatch"],
-            responders=[dict(name="someone@somewhere", type="user")],
+            responder="someone",
             delay=0.13,
         )
 
@@ -381,13 +381,13 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             alarms = [rule.alarm for rule in self.model.rules.values()]
             assert len(alarms) == len(remote_names)
             for alarm in alarms[0:2]:
-                assert alarm.escalation_responders == esc_info12["responders"]
+                assert alarm.escalation_responder == esc_info12["responder"]
                 assert alarm.escalation_delay == esc_info12["delay"]
             for alarm in alarms[2:4]:
-                assert alarm.escalation_responders == esc_info34["responders"]
+                assert alarm.escalation_responder == esc_info34["responder"]
                 assert alarm.escalation_delay == esc_info34["delay"]
             for alarm in alarms[4:]:
-                assert alarm.escalation_responders == []
+                assert alarm.escalation_responder == ""
                 assert alarm.escalation_delay == 0
             for alarm in alarms:
                 assert alarm.timestamp_escalate == 0
