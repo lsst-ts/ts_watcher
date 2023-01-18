@@ -13,6 +13,9 @@ Changes:
 
 * Escalate critical alarms to SquadCast instead of OpsGenie.
   This changed the config schema version from v4 to v5.
+* Add `rules.BaseEssRule` and modify `rules.Humidity` and `rules.OverTemperature` to inherit from it.
+* `rules.Humdity`: add optional ``warning_msg``, ``serious_msg``, and ``critical_msg`` to config.
+* Add `rules.UnderPressure`.
 * Add `rules.test.TriggeredSeverities` rule.
   This is only intended for unit tests, since it will not transition between severities on its own.
   It gives unit tests complete control over when to report the next severity.
