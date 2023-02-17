@@ -20,13 +20,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import pytest
 import types
 import unittest
 
+import pytest
+from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import watcher
 
 # Maximum time (seconds) to wait for the next severity to be reported.
 NEXT_SEVERITY_TIMEOUT = 1

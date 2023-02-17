@@ -21,8 +21,8 @@
 
 import types
 import unittest
-import pytest
 
+import pytest
 from lsst.ts import watcher
 
 

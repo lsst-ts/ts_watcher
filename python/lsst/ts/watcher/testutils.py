@@ -23,7 +23,7 @@ __all__ = ["MockModel", "write_and_wait"]
 
 import asyncio
 
-from .filtered_topic_wrapper import get_filtered_topic_wrapper_key, FilteredTopicWrapper
+from .filtered_topic_wrapper import FilteredTopicWrapper, get_filtered_topic_wrapper_key
 from .topic_callback import get_topic_key
 
 # Default time to write a SAL message and read and process it.

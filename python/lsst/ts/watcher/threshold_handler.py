@@ -28,7 +28,6 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 from .base_rule import NoneNoReason
 
-
 # Levels must be separated by hysteresis * HYSTERESIS_GROW_FACTOR,
 # to provide some buffer between levels.
 HYSTERESIS_GROW_FACTOR = 1.1

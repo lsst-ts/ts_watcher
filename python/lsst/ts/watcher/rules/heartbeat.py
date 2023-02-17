@@ -22,12 +22,10 @@
 __all__ = ["Heartbeat"]
 
 import asyncio
-import yaml
 
+import yaml
+from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import utils
-from lsst.ts import salobj
-from lsst.ts import watcher
 
 
 class Heartbeat(watcher.BaseRule):

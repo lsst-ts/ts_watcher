@@ -23,9 +23,8 @@ __all__ = ["BaseEssRule"]
 
 import asyncio
 
+from lsst.ts import utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import utils
-from lsst.ts import watcher
 
 
 class BaseEssRule(watcher.PollingRule):

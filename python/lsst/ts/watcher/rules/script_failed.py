@@ -22,10 +22,9 @@
 __all__ = ["ScriptFailed"]
 
 import yaml
-
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
 from lsst.ts.idl.enums.Script import ScriptState
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 
 class ScriptFailed(watcher.BaseRule):
@@ -83,7 +82,6 @@ class ScriptFailed(watcher.BaseRule):
         return yaml.safe_load(schema_yaml)
 
     def __call__(self, data, topic_callback):
-
         if topic_callback.attr_name == "evt_queue":
             self.queue_enabled = data.enabled
             self.queue_running = data.running

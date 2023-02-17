@@ -21,13 +21,12 @@
 
 import asyncio
 import contextlib
-import pytest
 import types
 import unittest
 
+import pytest
+from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import watcher
 
 # Timeout for normal operations (seconds)
 STD_TIMEOUT = 5
@@ -279,7 +278,6 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         remote_names = ["ScriptQueue:5", "Test:7"]
 
         async with self.make_model(names=remote_names, enable=True):
-
             assert len(self.model.rules) == 2
 
             # Enable the model and write ENABLED several times.
