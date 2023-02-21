@@ -20,12 +20,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import pytest
 import unittest
 
-from lsst.ts import salobj
-from lsst.ts import utils
-from lsst.ts import watcher
+import pytest
+from lsst.ts import salobj, utils, watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 LONG_TIMEOUT = 60  # Max Remote startup time (seconds)

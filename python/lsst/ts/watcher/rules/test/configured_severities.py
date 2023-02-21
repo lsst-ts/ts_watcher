@@ -22,10 +22,9 @@
 __all__ = ["ConfiguredSeverities"]
 
 import asyncio
-import yaml
 
-from lsst.ts import utils
-from lsst.ts import watcher
+import yaml
+from lsst.ts import utils, watcher
 
 
 class ConfiguredSeverities(watcher.BaseRule):

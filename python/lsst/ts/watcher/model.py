@@ -27,12 +27,12 @@ import inspect
 import re
 import types
 
-from lsst.ts import utils
-from lsst.ts import salobj
-from .remote_wrapper import RemoteWrapper
-from .topic_callback import get_topic_key, TopicCallback
-from .filtered_topic_wrapper import get_filtered_topic_wrapper_key, FilteredTopicWrapper
+from lsst.ts import salobj, utils
+
 from . import rules
+from .filtered_topic_wrapper import FilteredTopicWrapper, get_filtered_topic_wrapper_key
+from .remote_wrapper import RemoteWrapper
+from .topic_callback import TopicCallback, get_topic_key
 
 
 def get_rule_class(classname):

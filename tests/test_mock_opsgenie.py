@@ -24,9 +24,7 @@ import unittest
 from http import HTTPStatus
 
 import aiohttp
-
-from lsst.ts import utils
-from lsst.ts import watcher
+from lsst.ts import utils, watcher
 
 
 class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):

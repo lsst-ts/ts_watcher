@@ -24,10 +24,8 @@ import types
 import unittest
 
 import yaml
-
+from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 

@@ -22,10 +22,8 @@
 __all__ = ["Enabled"]
 
 import yaml
-
+from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import watcher
 
 
 class Enabled(watcher.BaseRule):

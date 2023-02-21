@@ -24,8 +24,8 @@ __all__ = ["Alarm"]
 import asyncio
 import inspect
 
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import utils
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 # Default timeout for Alarm.assert_next_severity
 DEFAULT_NEXT_SEVERITY_TIMEOUT = 10

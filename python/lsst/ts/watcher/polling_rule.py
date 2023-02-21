@@ -24,6 +24,7 @@ __all__ = ["PollingRule"]
 import asyncio
 
 from lsst.ts import utils
+
 from .base_rule import BaseRule
 
 

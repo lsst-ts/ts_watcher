@@ -20,14 +20,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import pytest
 import types
 import unittest
 
+import pytest
+from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import utils
-from lsst.ts import watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
@@ -205,7 +203,6 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             readonly=True,
             include=["summaryState"],
         ) as remote:
-
             model = watcher.MockModel(enabled=True)
 
             async with salobj.Controller(
