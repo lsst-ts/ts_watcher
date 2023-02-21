@@ -26,14 +26,11 @@ import collections
 import dataclasses
 import types
 import typing
-import yaml
 
 import numpy as np
-
+import yaml
+from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import utils
-from lsst.ts import watcher
 
 
 @dataclasses.dataclass

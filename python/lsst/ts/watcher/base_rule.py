@@ -24,6 +24,7 @@ __all__ = ["NoneNoReason", "BaseRule", "RuleDisabledError"]
 import abc
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+
 from . import alarm
 
 

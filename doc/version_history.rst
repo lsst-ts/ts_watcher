@@ -6,10 +6,23 @@
 Version History
 ###############
 
-v1.12.0
+v1.12.1
 -------
 
-Changes:
+* `DewPointDepression`: fix an error in the config schema.
+* pre-commit: update black to 23.1.0, isort to 5.12.0, mypy to 1.0.0, and pre-commit-hooks to v4.4.0.
+* ``Jenkinsfile``: do not run as root.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
+v1.12.0
+-------
 
 * Escalate critical alarms to SquadCast instead of OpsGenie.
   This changed the config schema version from v4 to v5.
@@ -33,8 +46,6 @@ Requires:
 v1.11.2
 -------
 
-Changes:
-
 * Remove some obsolete backwards compatibility code for ts_xml 11 and 12 (DM-35892).
   Version v1.11.0 already required ts_xml 13, due to other changes.
 
@@ -49,8 +60,6 @@ Requires:
 v1.11.1
 -------
 
-Changes:
-
 * Modernize pre-commit hooks and conda recipe.
 
 Requires:
@@ -63,8 +72,6 @@ Requires:
 
 v1.11.0
 -------
-
-Changes:
 
 * Update for ts_xml 13:
 
@@ -107,8 +114,6 @@ Requires:
 v1.10.1
 -------
 
-Changes:
-
 * Add new ScriptFailed rule, which monitors the ScriptQueue execution and set severity to WARNING if the current script failed.
 
 Requires:
@@ -121,8 +126,6 @@ Requires:
 
 v1.10.0
 -------
-
-Changes:
 
 * Escalate alarms to OpsGenie by using the REST API to create alerts.
 
@@ -154,8 +157,6 @@ Requires:
 v1.9.0
 ------
 
-Changes:
-
 * Delete the command_watcher.py command-line script.
 * Rename command-line scripts to remove ".py" suffix.
 * Update HeartbeatWriter, a subclass of WriteTopic, in a unit test, to be compatible with ts_sal 7.
@@ -178,8 +179,6 @@ Requires:
 v1.8.0
 ------
 
-Changes:
-
 * Update for ts_salobj 7, which is required.
   This also requires ts_xml 11.
 
@@ -193,8 +192,6 @@ Requires:
 
 v1.7.0
 ------
-
-Changes:
 
 * Use index_generator from ts_utils.
   This requires ts_utils 1.1 or later.
@@ -217,8 +214,6 @@ Requires:
 
 v1.6.0
 ------
-
-Changes:
 
 * Add rules (most of which require ts_xml 10.1):
 
@@ -263,8 +258,6 @@ Requires:
 v1.5.3
 ------
 
-Changes:
-
 * Use `unittest.IsolatedAsyncioTestCase` instead of the abandoned asynctest package.
 * Format the code with black 20.8b1.
 
@@ -279,8 +272,6 @@ Requires:
 v1.5.2
 ------
 
-Changes:
-
 * Add a Kapacitor rule for the summit and rename the rule for the NCSA test stand.
 
 Requires:
@@ -293,8 +284,6 @@ Requires:
 
 v1.5.1
 ------
-
-Changes:
 
 * Fix handling of missing version.py file.
 
@@ -309,8 +298,6 @@ Requires:
 v1.5.0
 ------
 
-Changes:
-
 * Store the CSC configuration schema in code.
   This requires ts_salobj 6.3.
 
@@ -324,8 +311,6 @@ Requires:
 
 v1.4.3
 ------
-
-Changes:
 
 * `WatcherCsc`: set ``version`` class variable.
   Test that this sets the cscVersion field of the softwareVersions event.
@@ -342,8 +327,6 @@ Requires:
 v1.4.2
 ------
 
-Changes:
-
 * Update Jenkinsfile.conda to use the shared library.
 * Pin the versions of ts_idl and ts_salobj in conda/meta.yaml.
 
@@ -358,8 +341,6 @@ Requires:
 v1.4.1
 ------
 
-Changes:
-
 * Fix ts-idl package name run dependency in conda recipe.
 * Minor updates to conda recipe.
 
@@ -373,8 +354,6 @@ Requires:
 
 v1.4.0
 ------
-
-Changes:
 
 * Update for ts_salobj 6.1, which is required.
 * Add `WatcherCsc` constructor argument ``settings_to_apply`` and set class variable ``require_settings = True``.
@@ -393,8 +372,6 @@ Requires:
 v1.3.3
 ------
 
-Changes:
-
 * Bug fix: Model mis-handled rules with no configuration.
 * Improved a unit test to catch ts_salobj bug `DM-27380 <https://jira.lsstcorp.org/browse/DM-27380>`_.
 
@@ -409,8 +386,6 @@ Requires:
 v1.3.2
 ------
 
-Changes:
-
 * Fix the requirements for 1.3.0 and 1.3.1 in the version history.
 
 Requires:
@@ -424,8 +399,6 @@ Requires:
 v1.3.1
 ------
 
-Changes:
-
 * Add the ``kapacitor`` directory to save Kapacitor alert scripts.
 
 Requires:
@@ -438,8 +411,6 @@ Requires:
 
 v1.3.0
 ------
-
-Changes:
 
 * Add configuration for escalation.
 * Set the escalated fields of Alarm events.
@@ -459,8 +430,6 @@ Requires:
 v1.2.0
 ------
 
-Changes:
-
 * Add `bin/command_watcher.py`: a Watcher commander.
 * Stop publishing ``alarm.timestampSeverityNewest``; it was causing too many unnecessary alarm messages.
 * Make the ``showAlarms`` command only work if the CSC is enabled.
@@ -477,8 +446,6 @@ Requires:
 v1.1.0
 ------
 
-Changes:
-
 * Update for compatibility with ts_salobj 6.
 
 Requires:
@@ -492,8 +459,6 @@ Requires:
 v1.0.3
 ------
 
-Changes:
-
 * Add conda package configuration file and Jenkinsfile script to manage build process.
 
 Requires:
@@ -506,8 +471,6 @@ Requires:
 
 v1.0.2
 ------
-
-Changes:
 
 * Add ``tests/test_black.py`` to verify that files are formatted with black.
   This requires ts_salobj 5.11 or later.

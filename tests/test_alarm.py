@@ -22,13 +22,11 @@
 import asyncio
 import copy
 import itertools
-import pytest
 import unittest
 
+import pytest
+from lsst.ts import utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import utils
-from lsst.ts import watcher
-
 
 STD_TIMEOUT = 2  # seconds
 

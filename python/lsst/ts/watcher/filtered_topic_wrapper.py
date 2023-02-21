@@ -27,7 +27,7 @@ __all__ = [
 import asyncio
 import collections
 
-from .topic_callback import get_topic_key, TopicCallback
+from .topic_callback import TopicCallback, get_topic_key
 
 
 def get_filtered_topic_wrapper_key(topic_key, filter_field):

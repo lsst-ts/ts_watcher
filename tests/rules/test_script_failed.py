@@ -25,13 +25,10 @@ import types
 import unittest
 
 import yaml
-
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts.idl.enums.ScriptQueue import ScriptProcessState
+from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Script import ScriptState
-
-from lsst.ts import salobj
-from lsst.ts import watcher
+from lsst.ts.idl.enums.ScriptQueue import ScriptProcessState
+from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
@@ -123,7 +120,6 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 rule.alarm.init_severity_queue()
 
                 for test_params in self.get_test_call_params():
-
                     await script_queue.evt_queue.set_write(
                         enabled=test_params.queue_enabled,
                         running=test_params.queue_running,

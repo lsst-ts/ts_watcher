@@ -22,10 +22,9 @@
 __all__ = ["TriggeredSeverities"]
 
 import asyncio
-import yaml
 
-from lsst.ts import watcher
-from lsst.ts import utils
+import yaml
+from lsst.ts import utils, watcher
 
 # Maximum time (seconds) to wait for the next severity to be reported.
 NEXT_SEVERITY_TIMEOUT = 1

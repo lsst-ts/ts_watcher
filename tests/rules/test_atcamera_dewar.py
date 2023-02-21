@@ -21,17 +21,14 @@
 
 import asyncio
 import pathlib
-import pytest
 import types
 import unittest
 
 import jsonschema
+import pytest
 import yaml
-
+from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import salobj
-from lsst.ts import utils
-from lsst.ts import watcher
 from lsst.ts.watcher.rules import ATCameraDewar
 
 # Standard timeout (seconds)

@@ -21,15 +21,13 @@
 
 import glob
 import pathlib
-import pytest
 import types
 import unittest
 
-import yaml
 import jsonschema
-
-from lsst.ts import salobj
-from lsst.ts import watcher
+import pytest
+import yaml
+from lsst.ts import salobj, watcher
 
 
 class WatcherSchemaTestCase(unittest.TestCase):

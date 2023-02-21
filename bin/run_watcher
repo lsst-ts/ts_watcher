@@ -20,5 +20,4 @@
 
 from lsst.ts.watcher import run_watcher
 
-
 run_watcher()

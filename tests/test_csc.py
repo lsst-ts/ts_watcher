@@ -22,14 +22,12 @@ import asyncio
 import glob
 import os
 import pathlib
-import pytest
 import sys
 import unittest
 
-from lsst.ts import salobj
+import pytest
+from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
-from lsst.ts import utils
-from lsst.ts import watcher
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
