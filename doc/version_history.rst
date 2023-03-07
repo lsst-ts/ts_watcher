@@ -6,6 +6,20 @@
 Version History
 ###############
 
+v1.12.2
+-------
+
+* Fix outdated references to OpsGenie in documentation and code, changing them to SquadCast.
+* Expand the user guide to describe the ESCALATION_KEY environment variable.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.12.1
 -------
 
