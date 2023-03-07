@@ -123,10 +123,10 @@ properties:
           type: number
           exclusiveMinimum: 0
   escalation_url:
-    description: URL to OpsGenie escalation service.
+    description: URL to SquadCast escalation service.
     type: string
   escalation_timeout:
-    description: Timeout (seconds) for OpsGenie requests.
+    description: Timeout (seconds) for SquadCast requests.
     type: number
     exclusiveMinimum: 0
 """

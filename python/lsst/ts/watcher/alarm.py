@@ -65,7 +65,7 @@ class Alarm:
         Who or what to escalate the alarm to.
         If blank, the alarm will not be escalated.
     escalated_id : `str`
-        ID of the OpsGenie escalation alert. "" if not escalated.
+        ID of the SquadCast escalation alert. "" if not escalated.
         Set to "Failed: {reason}" if escalation failed.
         This is set to "" by `reset`, and intended to be set to
         non-empty values by the alarm callback.
