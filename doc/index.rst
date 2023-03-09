@@ -32,21 +32,19 @@ Each rule has one alarm, and it is the logic in the rule, operating on the state
 Severity Levels
 ---------------
 
-Alarms have the following available severity levels:
+Alarms have the following available severity levels (though most alarms only use a subset):
 
-* CRITICAL: Equipment is in danger; phone calls will be made, or texts or emails sent, if not acknowledged in time (a feature that is planned but not yet implemented).
+* CRITICAL: Equipment is in danger. Critical alarms can be configured to be escalated to SquadCast if not acknowledged in time.
 * SERIOUS: Something is broken.
 * WARNING: Something is wrong but we can probably keep operating.
 * NONE: No alarm condition present.
-
-Note that most alarms will only use one or two of the severity levels higher than NONE.
 
 Each alarm has two severity fields:
 
 * severity: the current severity, as reported by the rule.
 * max_severity: the maximum severity seen since the alarm was last acknowledged.
 
-Keeping track of max_severity makes sure that transient problems are seen, acknowledged, and (if so configured) escalated to OpsGenie.
+Keeping track of max_severity makes sure that transient problems are seen and acknowledged, or, if so configured, escalated to SquadCast.
 
 User Guide
 ==========
@@ -65,8 +63,19 @@ The configuration of the Watcher specifies:
 
 * Which of the available rules it will run.
 * The configuration for each rule.
-* Escalation: which rules (if any) will be escalated as OpsGenie alerts if something goes seriously wrong.
+* Escalation: which rules (if any) will be escalated as SquadCast alerts if critical alarms are not acknowledged in time.
 * Automatic acknowledgement and unacknowledgement of alarms.
+
+In order to escalate alarms to SquadCast you must define secret environment variable ESCALATION_KEY.
+You can obtain this key from the SquadCast web site as follows:
+
+* Click on Service in the left column.
+* Click on the "Expand All" icon above and to the right of the table (3 thick horizontal bars).
+* Click Add in the Alert Sources panel.
+* Type Incident Webhook in the search box.
+* Click on the Incident Webhook icon (it should have a green "Added" label on it).
+* In the panel that is exposed copy the Webhook URL.
+* The value for ESCALATION_KEY is the hexadecimal value after ".../v2/incidents/api/".
 
 Configuration
 -------------
@@ -81,20 +90,20 @@ Rules that use a disabled SAL component are not loaded.
 Escalation
 ----------
 
-It is possible to configure rules to escalate to OpsGenie, which can text or phone people who are on call.
+It is possible to configure rules to escalate to SquadCast, which can text or phone people who are on call.
 See the escalation section of the configuration schema for the format.
 
-A Watcher alarm is escalated by creating an OpsGenie alert if all of the following are true:
+A Watcher alarm is escalated by creating an SquadCast alert, if all of the following are true:
 
-* The alarm is configured for escalation, meaning escalation delay > 0 and at least one escalation responder is specified, and the top-level configuration field ``opsgenie_url`` is not blank.
+* The alarm is configured for escalation, meaning escalation delay > 0 and an escalation responder is specified, and the top-level configuration field ``escalation_url`` is not blank.
 * The alarm reaches CRITICAL severity (even if only briefly).
 * The alarm is not acknowledged before the escalation delay elapses.
 
-If OpsGenie accepts the request to create an alert then the Watcher sets the alarm's ``escalated_id`` field to the ID of the OpsGenie alert.
-This ID allows you to track the status of the alert in OpsGenie.
-If the attempt to create an OpsGenie alart fails, ``escalated_id`` is set to an explanatory message that starts with "Failed: ".
+If SquadCast accepts the request to create an alert then the Watcher sets the alarm's ``escalated_id`` field to the ID of the SquadCast alert.
+This ID allows you to track the status of the alert in SquadCast.
+If the attempt to create an SquadCast alert fails, ``escalated_id`` is set to an explanatory message that starts with "Failed: ".
 
-If an escalated Watcher alarm is acknowledged, the Watcher will try to close the OpsGenie alert, and will always set the alarm's ``escalation_id`` field back to an empty string.
+If an escalated Watcher alarm is acknowledged, the Watcher will try to close the SquadCast alert, and will always set the alarm's ``escalation_id`` field back to an empty string.
 This occurs regardless of the current severity of the alarm.
 
 Subtleties:
@@ -104,9 +113,9 @@ Subtleties:
 * If a given rule has no escalation configuration (a very common case) then it will never be escalated.
 * Escalation and de-escalation are done on a "best effort" basis.
   The watcher will log a warning if anything goes obviously wrong.
-* OpsGenie's API operates in two phases.
+* SquadCast's API operates in two phases.
   First it responds to a request with 202=ACCEPTED, or an error code if the request is rejected.
-  The ACCEPTED message includes an ID you can use to poll OpsGenie to find out if the request eventually succeeds or fails.
+  The ACCEPTED message includes an ID you can use to poll SquadCast to find out if the request eventually succeeds or fails.
   However, the CSC only ever listens for the initial response, because there is nothing much it can do if the request eventually fails.
 
 Auto Acknowledge and Unacknowledge
@@ -120,13 +129,6 @@ An alarm will be automatically acknowledged only if its current severity stays N
 
 An alarm will be automatically unacknowledged only if the condition does not get worse than the level at which it was ackowledged,
 and does not get resolved (go to NONE), during the full ``auto_unacknowledge_delay`` period after being acknowledged.
-
-
-Escalation
-----------
-
-The watcher can be configured to escalate specific critical alarms to SquadCast if they are not acknowledged in time.
-SquadCast can be configured to contact people who can help.
 
 SquadCast Notes
 ===============
