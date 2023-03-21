@@ -25,6 +25,8 @@ import yaml
 import json
 import lsst.daf.butler as dafButler
 import salobj
+import asyncio
+import concurrent.futures
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -99,7 +101,8 @@ class CpVerifyAlarm(watcher.BaseRule):
         # Get the dictionary with cp_verify stats, from the butler.
         # It might be slow, so use `run_in_executor`
         loop = asyncio.get_running_loop()
-        verify_stats = await loop.run_in_executor(None, self.get_cp_verify_stats(response))
+        verify_stats = await loop.run_in_executor(concurrent.futures.ThreadPoolExecutor(max_workers=3),
+                                                  self.get_cp_verify_stats(response))
         # boolean: did verification fail?
         return self.check_response(response, verify_stats)
 
