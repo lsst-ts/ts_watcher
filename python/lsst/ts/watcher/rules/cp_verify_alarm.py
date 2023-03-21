@@ -77,11 +77,15 @@ class CpVerifyAlarm(watcher.BaseRule):
                     description: >-
                         Alarm calibration type: BIAS, DARK, or FLAT.
                     type: string
+                    enum: ['BIAS', 'DARK', 'FLAT']
                 ocps_index:
-                    OCPS index (e.g., OCPS:1: LATISS; OCPS:2: LSSTComCam).
+                    type: integer
+                    enum: [1, 2]
+                    description: >-
+                        OCPS index (e.g., OCPS:1: LATISS; OCPS:2: LSSTComCam).
                 verification_threshold:
                     type: integer
-                    descriptor: Maximum number of failures per detector per test type.
+                    description: Maximum number of failures per detector per test type.
                 default: 8
             required: [calibration_type, ocps_index]
             additionalProperties: false
@@ -93,7 +97,9 @@ class CpVerifyAlarm(watcher.BaseRule):
         # OCPS response after calling the pipetask
         response = json.loads(msg.result)
         # Get the dictionary with cp_verify stats, from the butler.
-        verify_stats = self.get_cp_verify_stats(response)
+        # It might be slow, so use `run_in_executor`
+        loop = asyncio.get_running_loop()
+        verify_stats = await loop.run_in_executor(None, self.get_cp_verify_stats(response))
         # boolean: did verification fail?
         return self.check_response(response, verify_stats)
 
