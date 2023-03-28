@@ -36,19 +36,25 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name):
+    def make_config(self, calibration_type, ocps_index, verification_threshold):
         """Make a config for the Cp Verify rule.
 
         Parameters
         ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
+        calibration_type : `str`
+            Alarm calibration type: BIAS, DARK, or FLAT.
+        ocps_index : `int`
+            OCPS index (e.g., OCPS:1: LATISS; OCPS:2: LSSTComCam).
+        verification_threshold: `int`
+            Maximum number of failures per detector per test type
+            in `base_make_calibrations.py` after runnign `cp_verify`.
         """
         schema = watcher.rules.CpVerifyAlarm.get_schema()
         validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name)
-
+        config_dict = dict(calibration_type=calibration_type,
+                           ocps_index=ocps_index,
+                           verification_threshold=verification_threshold
+                           )
         full_config_dict = validator.validate(config_dict)
         config = types.SimpleNamespace(**full_config_dict)
         for key in config_dict:
@@ -59,11 +65,14 @@ class CpVerifyTestCase(unittest.IsolatedAsyncioTestCase):
         schema = watcher.rules.CpVerifyAlarm.get_schema()
         assert schema is not None
         name = "OCPS"
-        config = self.make_config(name=name)
+        calibration_type = 'BIAS'
+        verification_threshold = 8
         # OCPS index 1: LATISS
         ocps_index = 1
         desired_rule_name = f"CpVerifyAlarm.{ocps_index}.{name}"
-
+        config = self.make_config(calibration_type=calibration_type,
+                                  ocps_index=ocps_index,
+                                  verification_threshold=verification_threshold)
         rule = watcher.rules.CpVerifyAlarm(config=config)
         assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)

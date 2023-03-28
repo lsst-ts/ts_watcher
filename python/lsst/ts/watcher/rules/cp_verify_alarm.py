@@ -88,7 +88,7 @@ class CpVerifyAlarm(watcher.BaseRule):
                 verification_threshold:
                     type: integer
                     description: Maximum number of failures per detector per test type.
-                default: 8
+                    default: 8
             required:
               - calibration_type
               - ocps_index
@@ -156,9 +156,9 @@ class CpVerifyAlarm(watcher.BaseRule):
         verify_stats : `dict`
             Statistics from cp_verify.
         max_number_failures_per_detector_per_test : `int`
-            Minimum number of verification tests per detector per
-            exposure per test type that should pass to certify the
-            combined calibration.
+            Maximum number of verification tests per detector per
+            exposure per test type that are tolerated in order to
+            certify the combined calibration.
 
         Returns
         -------
