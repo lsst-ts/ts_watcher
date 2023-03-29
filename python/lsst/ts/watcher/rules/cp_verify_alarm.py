@@ -26,7 +26,7 @@ import json
 import lsst.daf.butler as dafButler
 import salobj
 import asyncio
-import concurrent.futures
+import collections
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -211,12 +211,9 @@ class CpVerifyAlarm(watcher.BaseRule):
                 fail_count = [
                     stg.split(" ")[-1] for stg in verify_stats[exposure]["FAILURES"]
                 ]
-                counter = {}
+                counter = collections.defaultdict(lambda: 0)
                 for test in fail_count:
-                    if test in counter:
-                        counter[test] += 1
-                    else:
-                        counter[test] = 1
+                    counter[test] += 1
                 total_counter_failed_tests[exposure] = counter
             else:
                 continue
