@@ -1,15 +1,75 @@
-{'jobId': 'def62fc0cc6645d089edee4eb797e3f1', 'runId':
-'832761836', 'ownerId': '', 'phase': 'completed', 'creationTime': '2022-09-2915:02:22+00:00', 'startTime': '2022-09-29 15:02:22+00:00', 'endTime':
-'2022-09-29 15:05:10+00:00', 'executionDuration': 168.0, 'destruction': None,
-'parameters': {'command': ['/bin/bash', '-c', 'cd $JOB_SOURCE_DIR && bashbin/pipetask.sh'], 'environment': [{'name': 'JOB_SOURCE_DIR', 'value':
-'/uws/jobs/def62fc0cc6645d089edee4eb797e3f1/src'}, {'name': 'SRC_GIT_URL',
-'value': 'https://github.com/lsst-dm/uws_scripts'}, {'name': 'GIT_COMMIT_REF',
-'value': 'main'}, {'name': 'JOB_OUTPUT_DIR', 'value':
-'/uws/jobs/def62fc0cc6645d089edee4eb797e3f1/out'}, {'name': 'JOB_ID', 'value':'def62fc0cc6645d089edee4eb797e3f1'}, {'name': 'IMAGE_TAG', 'value': None},
-{'name': 'PIPELINE_URL', 'value':
-'${CP_PIPE_DIR}/pipelines/Latiss/VerifyBias.yaml'}, {'name': 'BUTLER_REPO', 'value':
-'/repo/LATISS'}, {'name': 'RUN_OPTIONS', 'value': '-i LATISS/raw/all -j 8 -i LATISS/calib --register-dataset-types  -c isr:doDefect=False'}, {'name':
-'OUTPUT_GLOB', 'value': '*'}, {'name': 'DATA_QUERY', 'value':
-"instrument='LATISS' AND detector IN (0) AND exposure IN (2022092900004,2022092900005, 2022092900006, 2022092900007, 2022092900008, 2022092900009,2022092900010, 2022092900011, 2022092900012, 2022092900013, 2022092900014,2022092900015, 2022092900016, 2022092900017, 2022092900018, 2022092900019,2022092900020, 2022092900021, 2022092900022, 2022092900023)"}],
-              
-}, 'results': [{'id': 24, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasProc_LATISS_empty~holo4_003_AT_O_20220929_000016_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.fits'}, {'id': 25, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasProc_LATISS_empty~holo4_003_AT_O_20220929_000015_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.fits'},{'id': 26, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000011_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 27, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000018_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 28, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000010_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},{'id': 29, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000006_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 30, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000013_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 31, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000012_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},{'id': 32, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000007_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 61, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000019_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 62, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasStats_LATISS_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 63, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000020_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 64, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000004_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}, {'id': 65, 'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000017_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}] }
+{'creationTime': '2022-09-2915:02:22+00:00',
+ 'destruction': 'None',
+ 'endTime': '2022-09-29 15:05:10+00:00',
+ 'executionDuration': 168.0,
+ 'jobId': 'def62fc0cc6645d089edee4eb797e3f1',
+ 'ownerId': '',
+ 'parameters': {'command': ['/bin/bash',
+                            '-c',
+                            'cd $JOB_SOURCE_DIR && bashbin/pipetask.sh'],
+                'environment': [{'name': 'JOB_SOURCE_DIR',
+                                 'value': '/uws/jobs/def62fc0cc6645d089edee4eb797e3f1/src'},
+                                {'name': 'SRC_GIT_URL',
+                                 'value': 'https://github.com/lsst-dm/uws_scripts'},
+                                {'name': 'GIT_COMMIT_REF', 'value': 'main'},
+                                {'name': 'JOB_OUTPUT_DIR',
+                                 'value': '/uws/jobs/def62fc0cc6645d089edee4eb797e3f1/out'},
+                                {'name': 'JOB_ID',
+                                 'value': 'def62fc0cc6645d089edee4eb797e3f1'},
+                                {'name': 'IMAGE_TAG', 'value': 'None'},
+                                {'name': 'PIPELINE_URL',
+                                 'value': '${CP_PIPE_DIR}/pipelines/Latiss/VerifyBias.yaml'},
+                                {'name': 'BUTLER_REPO',
+                                 'value': '/repo/LATISS'},
+                                {'name': 'RUN_OPTIONS',
+                                 'value': '-i LATISS/raw/all -j 8 -i '
+                                          'LATISS/calib '
+                                          '--register-dataset-types  -c '
+                                          'isr:doDefect=False'},
+                                {'name': 'OUTPUT_GLOB', 'value': '*'},
+                                {'name': 'DATA_QUERY',
+                                 'value': "instrument='LATISS' AND detector IN "
+                                          '(0) AND exposure IN '
+                                          '(2022092900004,2022092900005, '
+                                          '2022092900006, 2022092900007, '
+                                          '2022092900008, '
+                                          '2022092900009,2022092900010, '
+                                          '2022092900011, 2022092900012, '
+                                          '2022092900013, '
+                                          '2022092900014,2022092900015, '
+                                          '2022092900016, 2022092900017, '
+                                          '2022092900018, '
+                                          '2022092900019,2022092900020, '
+                                          '2022092900021, 2022092900022, '
+                                          '2022092900023)'}]},
+ 'phase': 'completed',
+ 'results': [{'id': 24,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasProc_LATISS_empty~holo4_003_AT_O_20220929_000016_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.fits'},
+             {'id': 25,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasProc_LATISS_empty~holo4_003_AT_O_20220929_000015_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.fits'},
+             {'id': 26,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000011_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 27,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000018_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 28,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000010_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 29,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000006_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 30,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000013_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 31,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000012_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 32,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasExpStats_LATISS_white_empty~holo4_003_AT_O_20220929_000007_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 61,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000019_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 62,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasStats_LATISS_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 63,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000020_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 64,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000004_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'},
+             {'id': 65,
+              'uri': '/uws/jobs/85f23b5af0ba44cf967f183c59b1073e/out/verifyBiasDetStats_LATISS_empty~holo4_003_AT_O_20220929_000017_RXX_S00_u_ocps_85f23b5af0ba44cf967f183c59b1073e_run.yaml'}],
+ 'runId': '832761836',
+ 'startTime': '2022-09-29 15:02:22+00:00'}
