@@ -27,6 +27,7 @@ import lsst.daf.butler as dafButler
 import salobj
 import asyncio
 import collections
+from dataclasses import dataclass
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts import watcher
@@ -136,9 +137,11 @@ class CpVerifyAlarm(watcher.BaseRule):
         job_id_verify = ocps_result["job_id"]
 
         if verify_stats["SUCCESS"] is False:
-            (verify_pass, _, thresholds,) = self.count_failed_verification_tests(
+            verification_tests = self.count_failed_verification_tests(
                 verify_stats, self.config.verification_threshold
             )
+            verify_pass = verification_tests.certify_calib
+            thresholds = verification_tests.thresholds
 
         if verify_pass:
             return watcher.NoneNoReason
@@ -150,6 +153,15 @@ class CpVerifyAlarm(watcher.BaseRule):
                 f"{n_exp_failed} exposures failed majority of tests, n_exposure"
                 f" threshold: {n_exp_threshold}."
             )
+
+    @dataclass
+    class VerificationTests:
+        """Class for storing the output of
+           'count_failed_verification_tests'.
+        """
+        certify_calib : bool
+        total_counter_failed_tests : dict
+        thresholds : dict
 
     def count_failed_verification_tests(
         self, verify_stats, max_number_failures_per_detector_per_test
@@ -167,17 +179,19 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         Returns
         -------
-        certify_calib : `bool`
-            Boolean assessing whether the calibration should be certified.
-        total_counter_failed_tests : `dict`[`str`][`str`] or `None`.
-            Dictionary with the total number of tests failed per exposure and
-            per cp_verify test type. If there are not any tests that failed,
-            `None` will be returned.
-        thresholds : `dict`[`str`][`int`] or `None`
-            Dictionary reporting the different thresholds used to decide
-            whether a calibration should be certified or not (see `Notes`
-            below). If there are not any tests that failed,
-            `None` will be returned.
+        verification_tests : `VerificationTests dataclass`
+            Dataclass containing:
+            certify_calib : `bool`
+                Boolean assessing whether the calibration should be certified.
+            total_counter_failed_tests : `dict`[`str`][`str`] or `None`.
+                Dictionary with the total number of tests failed per exposure
+                and per cp_verify test type. If there are not any tests that
+                failed, `None` will be returned.
+            thresholds : `dict`[`str`][`int`] or `None`
+                Dictionary reporting the different thresholds used to decide
+                whether a calibration should be certified or not (see `Notes`
+                below). If there are not any tests that failed,
+                `None` will be returned.
 
         Notes
         -----
@@ -252,8 +266,8 @@ class CpVerifyAlarm(watcher.BaseRule):
             "MAX_FAILED_EXPOSURES_THRESHOLD": max_number_failed_exposures,
             "FINAL_NUMBER_OF_FAILED_EXPOSURES": failed_exposures_counter,
         }
-
-        return certify_calib, total_counter_failed_tests, thresholds
+        verification_tests = self.VerificationTests(certify_calib, total_counter_failed_tests, thresholds)
+        return verification_tests
 
     def get_cp_verify_stats(self, response_verify):
         """Get cp_verify statistics from the butler.
