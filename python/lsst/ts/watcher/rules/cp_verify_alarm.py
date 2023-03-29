@@ -116,7 +116,6 @@ class CpVerifyAlarm(watcher.BaseRule):
         ----------
         response_verify : `dict`
             OCPS call response.
-
         verify_stats: `dict`
             Dictionary with statistics after running ``cp_verify``.
 
@@ -126,6 +125,13 @@ class CpVerifyAlarm(watcher.BaseRule):
             Alarm severity.
         reason : `str`
             Reason for the alarm severity.
+
+        Notes
+        -----
+            Examples of the OCPS call response and the ``cp_verify``
+            statistics can be found in cp_verify_bias_stats.yaml,
+            ocps_bias_verify_response.yaml, in
+            ts_watcher/tests/rules/data/cp_verify_alarm.
         """
         verify_pass = True
         job_id_verify = response_verify["job_id"]
