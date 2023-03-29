@@ -97,24 +97,23 @@ class CpVerifyAlarm(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, topic_callback):
-        msg = topic_callback.get()
+    def __call__(self, data, topic_callback):
         # OCPS response after calling the pipetask
-        response = json.loads(msg.result)
+        ocps_result = json.loads(data.result)
         # Get the dictionary with cp_verify stats, from the butler.
         # It might be slow, so use `run_in_executor`
         loop = asyncio.get_running_loop()
         verify_stats = await loop.run_in_executor(concurrent.futures.ThreadPoolExecutor(max_workers=3),
-                                                  self.get_cp_verify_stats(response))
+                                                  self.get_cp_verify_stats(ocps_result))
         # boolean: did verification fail?
-        return self.check_response(response, verify_stats)
+        return self.check_response(ocps_result, verify_stats)
 
-    def check_response(self, response_verify, verify_stats):
+    def check_response(self, ocps_result, verify_stats):
         """Determine if cp_verify tests passed from OCPS response.
 
         Parameters
         ----------
-        response_verify : `dict`
+        ocps_result : `dict`
             OCPS call response.
         verify_stats: `dict`
             Dictionary with statistics after running ``cp_verify``.
@@ -128,13 +127,13 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         Notes
         -----
-            Examples of the OCPS call response and the ``cp_verify``
+            Examples of the OCPS call result and the ``cp_verify``
             statistics can be found in cp_verify_bias_stats.yaml,
             ocps_bias_verify_response.yaml, in
             ts_watcher/tests/rules/data/cp_verify_alarm.
         """
         verify_pass = True
-        job_id_verify = response_verify["job_id"]
+        job_id_verify = ocps_result["job_id"]
 
         if verify_stats["SUCCESS"] is False:
             (verify_pass, _, thresholds,) = self.count_failed_verification_tests(
