@@ -285,22 +285,19 @@ class CpVerifyAlarm(watcher.BaseRule):
         job_id_verify = response_verify["job_id"]
         # Loop over the entries of the 'results' list
         # and look for the adecuate dataset type.
+        verify_stats_string = None
         for entry in response_verify["results"]:
-            if "verifyBiasStats" in entry["uri"]:
-                verify_stats_string = "verifyBiasStats"
-                break
-            elif "verifyDarkStats" in entry["uri"]:
-                verify_stats_string = "verifyDarkStats"
-                break
-            elif "verifyFlatStats" in entry["uri"]:
-                verify_stats_string = "verifyFlatStats"
-                break
-            else:
-                # This is not a response from cp_verify
-                # bias, dark, or flat.
-                raise salobj.ExpectedError(
-                    f"Job {job_id_verify} is not a recognizable cp_verify run."
-                )
+            uri = entry["uri"]
+            for substr in ("verifyBiasStats", "verifyDarkStats", "verifyFlatStats"):
+                if substr in uri:
+                    verify_stats_string = substr
+                    break
+        if verify_stats_string is None:
+            # This is not a response from cp_verify
+            # bias, dark, or flat.
+            raise salobj.ExpectedError(
+                f"Job {job_id_verify} is not a recognizable cp_verify run."
+            )
 
         # Find repo and instrument
         if len(response_verify["parameters"]["environment"]):
