@@ -103,8 +103,8 @@ class CpVerifyAlarm(watcher.BaseRule):
         # Get the dictionary with cp_verify stats, from the butler.
         # It might be slow, so use `run_in_executor`
         loop = asyncio.get_running_loop()
-        verify_stats = await loop.run_in_executor(concurrent.futures.ThreadPoolExecutor(max_workers=3),
-                                                  self.get_cp_verify_stats(ocps_result))
+        verify_stats = await loop.run_in_executor(None,
+                                                  self.get_cp_verify_stats, ocps_result)
         # boolean: did verification fail?
         return self.check_response(ocps_result, verify_stats)
 
