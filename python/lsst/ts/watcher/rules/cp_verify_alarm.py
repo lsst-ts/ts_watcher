@@ -146,13 +146,24 @@ class CpVerifyAlarm(watcher.BaseRule):
         if verify_pass:
             return watcher.NoneNoReason
         else:
-            n_exp_failed = thresholds["FINAL_NUMBER_OF_FAILED_EXPOSURES"]
-            n_exp_threshold = thresholds["MAX_FAILED_EXPOSURES_THRESHOLD"]
+            n_exp_failed = thresholds.failed_exposures_counter
+            n_exp_threshold = thresholds.max_number_failed_exposures
             return AlarmSeverity.WARNING, (
                 f"cp_verify run {job_id_verify} failed verification threshold. "
                 f"{n_exp_failed} exposures failed majority of tests, n_exposure"
                 f" threshold: {n_exp_threshold}."
             )
+
+    @dataclass
+    class VerificationThresholds:
+        """Class contatining verification
+           thresholds.
+        """
+        max_number_failures_per_detector_per_test : int
+        max_number_failed_detectors : int
+        failure_threshold_exposure : int
+        max_number_failed_exposures : int
+        failed_exposures_counter : int
 
     @dataclass
     class VerificationTests:
@@ -161,7 +172,7 @@ class CpVerifyAlarm(watcher.BaseRule):
         """
         certify_calib : bool
         total_counter_failed_tests : dict
-        thresholds : dict
+        thresholds : VerificationThresholds()
 
     def count_failed_verification_tests(
         self, verify_stats, max_number_failures_per_detector_per_test
@@ -187,8 +198,8 @@ class CpVerifyAlarm(watcher.BaseRule):
                 Dictionary with the total number of tests failed per exposure
                 and per cp_verify test type. If there are not any tests that
                 failed, `None` will be returned.
-            thresholds : `dict`[`str`][`int`] or `None`
-                Dictionary reporting the different thresholds used to decide
+            thresholds : `VerificationThresholds dataclass`
+                Dataclass reporting the different thresholds used to decide
                 whether a calibration should be certified or not (see `Notes`
                 below). If there are not any tests that failed,
                 `None` will be returned.
@@ -257,15 +268,13 @@ class CpVerifyAlarm(watcher.BaseRule):
         if failed_exposures_counter >= max_number_failed_exposures:
             certify_calib = False
 
-        # Return a dictionary with the thresholds to report
+        # Return a dataclass with the thresholds to report
         # them if verification fails.
-        thresholds = {
-            "MAX_FAILURES_PER_DETECTOR_PER_TEST_TYPE_THRESHOLD": max_number_failures_per_detector_per_test,
-            "MAX_FAILED_DETECTORS_THRESHOLD": max_number_failed_detectors,
-            "MAX_FAILED_TESTS_PER_EXPOSURE_THRESHOLD": failure_threshold_exposure,
-            "MAX_FAILED_EXPOSURES_THRESHOLD": max_number_failed_exposures,
-            "FINAL_NUMBER_OF_FAILED_EXPOSURES": failed_exposures_counter,
-        }
+        thresholds = self.VerificationThresholds(max_number_failures_per_detector_per_test,
+                                                 max_number_failed_detectors,
+                                                 failure_threshold_exposure,
+                                                 max_number_failed_exposures,
+                                                 failed_exposures_counter)
         verification_tests = self.VerificationTests(certify_calib, total_counter_failed_tests, thresholds)
         return verification_tests
 
