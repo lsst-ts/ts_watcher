@@ -27,6 +27,7 @@ import lsst.daf.butler as dafButler
 import salobj
 import asyncio
 import collections
+import functools
 from dataclasses import dataclass
 
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -104,8 +105,9 @@ class CpVerifyAlarm(watcher.BaseRule):
         # Get the dictionary with cp_verify stats, from the butler.
         # It might be slow, so use `run_in_executor`
         loop = asyncio.get_running_loop()
-        verify_stats = await loop.run_in_executor(None,
-                                                  self.get_cp_verify_stats, ocps_result)
+        verify_stats = await loop.run_in_executor(
+            None, self.get_cp_verify_stats, ocps_result
+        )
         # boolean: did verification fail?
         return self.check_response(ocps_result, verify_stats)
 
@@ -157,22 +159,24 @@ class CpVerifyAlarm(watcher.BaseRule):
     @dataclass
     class VerificationThresholds:
         """Class contatining verification
-           thresholds.
+        thresholds.
         """
-        max_number_failures_per_detector_per_test : int
-        max_number_failed_detectors : int
-        failure_threshold_exposure : int
-        max_number_failed_exposures : int
-        failed_exposures_counter : int
+
+        max_number_failures_per_detector_per_test: int
+        max_number_failed_detectors: int
+        failure_threshold_exposure: int
+        max_number_failed_exposures: int
+        failed_exposures_counter: int
 
     @dataclass
     class VerificationTests:
         """Class for storing the output of
-           'count_failed_verification_tests'.
+        'count_failed_verification_tests'.
         """
-        certify_calib : bool
-        total_counter_failed_tests : dict
-        thresholds : VerificationThresholds()
+
+        certify_calib: bool
+        total_counter_failed_tests: dict
+        thresholds: VerificationThresholds
 
     def count_failed_verification_tests(
         self, verify_stats, max_number_failures_per_detector_per_test
@@ -270,12 +274,16 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         # Return a dataclass with the thresholds to report
         # them if verification fails.
-        thresholds = self.VerificationThresholds(max_number_failures_per_detector_per_test,
-                                                 max_number_failed_detectors,
-                                                 failure_threshold_exposure,
-                                                 max_number_failed_exposures,
-                                                 failed_exposures_counter)
-        verification_tests = self.VerificationTests(certify_calib, total_counter_failed_tests, thresholds)
+        thresholds = self.VerificationThresholds(
+            max_number_failures_per_detector_per_test,
+            max_number_failed_detectors,
+            failure_threshold_exposure,
+            max_number_failed_exposures,
+            failed_exposures_counter,
+        )
+        verification_tests = self.VerificationTests(
+            certify_calib, total_counter_failed_tests, thresholds
+        )
         return verification_tests
 
     def get_cp_verify_stats(self, response_verify):
@@ -324,7 +332,19 @@ class CpVerifyAlarm(watcher.BaseRule):
 
         # Collection name containing the verification outputs.
         verify_collection = f"u/ocps/{job_id_verify}"
-        butler = dafButler.Butler(repo, collections=[verify_collection])
-        verify_stats = butler.get(verify_stats_string, instrument=instrument_name)
+
+        loop = asyncio.get_running_loop()
+        butler = await loop.run_in_executor(
+            None,
+            functools.partial(dafButler.Butler, repo, collections=[verify_collection]),
+        )
+
+        loop = asyncio.get_running_loop()
+        verify_stats = await loop.run_in_executor(
+            None,
+            functools.partial(
+                butler.get, repo, verify_stats_string, instrument=instrument_name
+            ),
+        )
 
         return verify_stats
