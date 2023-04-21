@@ -368,7 +368,8 @@ class Alarm:
         severity = AlarmSeverity(severity)
         if severity == AlarmSeverity.NONE and self.nominal:
             # Ignore NONE severity when the alarm is already nominal
-            # (meaning severity and max_severity are both NONE).
+            # (meaning severity and max_severity are both NONE),
+            # except queue the severity if there is a queue.
             if self.severity_queue is not None:
                 self.severity_queue.put_nowait(severity)
             return False
