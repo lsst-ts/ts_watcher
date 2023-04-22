@@ -113,7 +113,7 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
         rule : `rules.EnabledRule`
             The constructed EnabledRule
         """
-        config = types.SimpleNamespace(name=f"Test:{self.index}")
+        config = watcher.rules.Enabled.make_config(name=f"Test:{self.index}")
         rule = watcher.rules.Enabled(config=config)
         rule.alarm.init_severity_queue()
         return rule

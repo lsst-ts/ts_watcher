@@ -20,11 +20,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import types
 import unittest
 
 import pytest
-from lsst.ts import salobj, watcher
+from lsst.ts import watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 # Maximum time (seconds) to wait for the next severity to be reported.
@@ -32,38 +31,15 @@ NEXT_SEVERITY_TIMEOUT = 1
 
 
 class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
-    def make_config(self, name, interval, severities, **kwargs):
-        """Make a config for the TestConfiguredSeverities rule.
-
-        Parameters
-        ----------
-        name : `str`
-            Rule name (one field in a longer name).
-        interval : `float`
-            Interval between severities (seconds).
-        severities : `list` [`lsst.ts.idl.enums.Watcher.AlarmSeverity`]
-            A list of severities.
-        **kwargs : `dict`
-            Optional config parameters.
-        """
-        schema = watcher.rules.test.ConfiguredSeverities.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, interval=interval, severities=severities)
-        config_dict.update(kwargs)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
     async def test_basics(self):
         schema = watcher.rules.test.ConfiguredSeverities.get_schema()
         assert schema is not None
         name = "arulename"
         interval = 1.23
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
-        config = self.make_config(name=name, interval=interval, severities=severities)
+        config = watcher.rules.test.ConfiguredSeverities.make_config(
+            name=name, interval=interval, severities=severities
+        )
         # Check default config parameters
         assert config.delay == 0
         assert config.repeats == 0
@@ -90,7 +66,7 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
             AlarmSeverity.SERIOUS,
             AlarmSeverity.NONE,
         ]
-        config = self.make_config(
+        config = watcher.rules.test.ConfiguredSeverities.make_config(
             name="arbitrary",
             interval=interval,
             severities=severities,

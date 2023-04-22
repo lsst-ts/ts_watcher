@@ -34,30 +34,11 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name):
-        """Make a config for the Enabled rule.
-
-        Parameters
-        ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
-        """
-        schema = watcher.rules.Enabled.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
-    async def test_basics(self):
+    def test_basics(self):
         schema = watcher.rules.Enabled.get_schema()
         assert schema is not None
         name = "ScriptQueue"
-        config = self.make_config(name=name)
+        config = watcher.rules.Enabled.make_config(name=name)
         desired_rule_name = f"Enabled.{name}:0"
 
         rule = watcher.rules.Enabled(config=config)

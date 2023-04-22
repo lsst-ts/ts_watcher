@@ -32,33 +32,14 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name, timeout):
-        """Make a config for the Heartbeat rule.
-
-        Parameters
-        ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
-        timeout : `float`
-            Maximum allowed time between heartbeat events (sec).
-        """
-        schema = watcher.rules.Heartbeat.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, timeout=timeout)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
-    async def test_basics(self):
+    def test_basics(self):
         schema = watcher.rules.Heartbeat.get_schema()
         assert schema is not None
         name = "ScriptQueue"
         timeout = 1.2
-        config = self.make_config(name=name, timeout=timeout)
+        config = watcher.rules.Heartbeat.make_config(
+            name=name, timeout=timeout, alarm_severity=3
+        )
         desired_rule_name = f"Heartbeat.{name}:0"
 
         rule = watcher.rules.Heartbeat(config=config)

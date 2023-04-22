@@ -54,29 +54,11 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, index):
-        """Make a config for the rule.
-
-        Parameters
-        ----------
-        index : `int`
-            Index of the ScriptQueue.
-        """
-        schema = watcher.rules.ScriptFailed.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(index=index)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
     async def test_basics(self):
         schema = watcher.rules.ScriptFailed.get_schema()
         assert schema is not None
         index = 1
-        config = self.make_config(index=1)
+        config = watcher.rules.ScriptFailed.make_config(index=1)
         desired_rule_name = f"ScriptFailed.ScriptQueue:{index}"
 
         rule = watcher.rules.ScriptFailed(config=config)

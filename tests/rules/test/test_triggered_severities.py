@@ -20,11 +20,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import types
 import unittest
 
 import pytest
-from lsst.ts import salobj, watcher
+from lsst.ts import watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 # Maximum time (seconds) to wait for the next severity to be reported.
@@ -32,35 +31,14 @@ NEXT_SEVERITY_TIMEOUT = 1
 
 
 class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
-    def make_config(self, name, severities, **kwargs):
-        """Make a config for the TestTriggeredSeverities rule.
-
-        Parameters
-        ----------
-        name : `str`
-            Rule name (one field in a longer name).
-        severities : `list` [`lsst.ts.idl.enums.Watcher.AlarmSeverity`]
-            A list of severities.
-        **kwargs : `dict`
-            Optional config parameters.
-        """
-        schema = watcher.rules.test.TriggeredSeverities.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, severities=severities)
-        config_dict.update(kwargs)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
     async def test_basics(self):
         schema = watcher.rules.test.TriggeredSeverities.get_schema()
         assert schema is not None
         name = "arulename"
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
-        config = self.make_config(name=name, severities=severities)
+        config = watcher.rules.test.TriggeredSeverities.make_config(
+            name=name, severities=severities
+        )
         assert config.repeats == 0  # The default value.
 
         desired_rule_name = f"test.TriggeredSeverities.{name}"
@@ -84,7 +62,7 @@ class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
             AlarmSeverity.SERIOUS,
             AlarmSeverity.NONE,
         ]
-        config = self.make_config(
+        config = watcher.rules.test.TriggeredSeverities.make_config(
             name="arbitrary",
             severities=severities,
             repeats=repeats,

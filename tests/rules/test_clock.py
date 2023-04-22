@@ -72,33 +72,12 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name, threshold):
-        """Make a config for the Clock rule.
-
-        Parameters
-        ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
-        threshold : `float`
-            Maximum allowed time between heartbeat events (sec).
-        """
-        schema = watcher.rules.Clock.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, threshold=threshold)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
     async def test_basics(self):
         schema = watcher.rules.Clock.get_schema()
         assert schema is not None
         name = "ScriptQueue"
         threshold = 1.2
-        config = self.make_config(name=name, threshold=threshold)
+        config = watcher.rules.Clock.make_config(name=name, threshold=threshold)
         desired_rule_name = f"Clock.{name}:0"
 
         rule = watcher.rules.Clock(config=config)
