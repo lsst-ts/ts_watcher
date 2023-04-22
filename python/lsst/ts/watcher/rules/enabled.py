@@ -59,7 +59,29 @@ class Enabled(watcher.BaseRule):
 
     @classmethod
     def get_schema(cls):
-        schema_yaml = """
+        def make_severity_property(state, default_severity):
+            """Make all the data for one {state}_severity property.
+
+            Parameters
+            ----------
+            state : `salobj.State`
+                The state
+            default_severity : `AlarmSeverity`
+                The default alarm severity for this state.
+            """
+            indent = "                "
+            return f"""{indent}{state.name.lower()}_severity:
+{indent}    description: alarm severity for state {state.name}
+{indent}    type: integer
+{indent}    default: {default_severity.value}
+{indent}    enum:
+""" + "\n".join(
+                f"{indent}    - {severity.value}"
+                for severity in AlarmSeverity
+                if severity != AlarmSeverity.NONE
+            )
+
+        schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#
             description: Configuration for Enabled
             type: object
@@ -69,21 +91,29 @@ class Enabled(watcher.BaseRule):
                         CSC name and index in the form `name` or `name:index`.
                         The default index is 0.
                     type: string
-
-            required: [name]
+{make_severity_property(salobj.State.DISABLED, AlarmSeverity.WARNING)}
+{make_severity_property(salobj.State.STANDBY, AlarmSeverity.WARNING)}
+{make_severity_property(salobj.State.OFFLINE, AlarmSeverity.SERIOUS)}
+{make_severity_property(salobj.State.FAULT, AlarmSeverity.SERIOUS)}
+            required:
+            - name
+            - disabled_severity
+            - standby_severity
+            - offline_severity
+            - fault_severity
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
 
     def __call__(self, data, topic_callback=None):
         state = data.summaryState
+        try:
+            state_name = salobj.State(state).name
+            severity = getattr(self.config, f"{state_name.lower()}_severity")
+        except Exception:
+            state_name = f"{state} unknown"
+            severity = self.config.fault_severity
+
         if state == salobj.State.ENABLED:
             return watcher.NoneNoReason
-        elif state == salobj.State.FAULT:
-            return AlarmSeverity.SERIOUS, "FAULT state"
-        else:
-            try:
-                state_name = salobj.State(state).name
-            except Exception:
-                state_name = str(state)
-            return AlarmSeverity.WARNING, f"{state_name} state"
+        return severity, f"{state_name} state"
