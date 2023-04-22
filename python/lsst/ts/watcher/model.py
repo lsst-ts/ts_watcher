@@ -25,7 +25,6 @@ import asyncio
 import fnmatch
 import inspect
 import re
-import types
 
 from lsst.ts import salobj, utils
 
@@ -108,25 +107,9 @@ class Model:
         for ruledata in self.config.rules:
             ruleclassname = ruledata["classname"]
             ruleclass = get_rule_class(ruleclassname)
-            try:
-                ruleschema = ruleclass.get_schema()
-                if ruleschema is None:
-                    validator = None
-                else:
-                    validator = salobj.DefaultingValidator(ruleschema)
-            except Exception as e:
-                raise ValueError(
-                    f"Schema for rule class {ruleclassname} not valid"
-                ) from e
             for i, ruleconfig_dict in enumerate(ruledata["configs"]):
                 try:
-                    if validator is None:
-                        if ruleconfig_dict:
-                            raise ValueError("Rule config dict must be empty")
-                        full_ruleconfig_dict = dict()
-                    else:
-                        full_ruleconfig_dict = validator.validate(ruleconfig_dict)
-                    ruleconfig = types.SimpleNamespace(**full_ruleconfig_dict)
+                    ruleconfig = ruleclass.make_config(**ruleconfig_dict)
                 except Exception as e:
                     raise ValueError(
                         f"Config {i+1} for rule class {ruleclassname} not valid: "
