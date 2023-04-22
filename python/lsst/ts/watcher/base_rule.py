@@ -22,7 +22,9 @@
 __all__ = ["NoneNoReason", "BaseRule", "RuleDisabledError"]
 
 import abc
+import types
 
+from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 from . import alarm
@@ -108,6 +110,37 @@ class BaseRule(abc.ABC):
 
         """
         raise NotImplementedError("Subclasses must override")
+
+    @classmethod
+    def make_config(cls, **kwargs):
+        """Make a config from keyword arguments, after applying defaults.
+
+        Parameters
+        ----------
+        kwargs
+            The configuration, as a dict of property: name. The allowed
+            properties and values are specified by the rule's config schema.
+
+        Returns
+        -------
+        config : `types.SimpleNamespace`
+            The rule configuration, with defaults applied as needed.
+
+        Raises
+        ------
+        jsonschema.ValidationError
+            If the provided kwargs are incorrect (missing keys,
+            misspelled keys, incorrect data types...).
+        """
+        schema = cls.get_schema()
+        if schema is None:
+            if kwargs:
+                raise ValueError("Rule has no schema, so the config dict must be empty")
+            return types.SimpleNamespace()
+        else:
+            validator = salobj.DefaultingValidator(schema)
+            full_config_dict = validator.validate(kwargs)
+            return types.SimpleNamespace(**full_config_dict)
 
     @property
     def name(self):
