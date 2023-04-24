@@ -417,8 +417,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
-                severity=AlarmSeverity.SERIOUS,
-                maxSeverity=AlarmSeverity.SERIOUS,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
                 acknowledged=False,
                 acknowledgedBy="",
             )
@@ -426,13 +426,13 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             user = "test_operation"
             await self.remote.cmd_acknowledge.set_start(
                 name=atdome_alarm_name,
-                severity=AlarmSeverity.SERIOUS,
+                severity=AlarmSeverity.CRITICAL,
                 acknowledgedBy=user,
             )
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
-                severity=AlarmSeverity.SERIOUS,
-                maxSeverity=AlarmSeverity.SERIOUS,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
                 acknowledged=True,
                 acknowledgedBy=user,
             )

@@ -186,8 +186,8 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
                 summaryState=salobj.State.FAULT, force_output=True
             )
             await bad_rule.assert_next_num_callbacks(2)
-            await rule2.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
-            await rule3.alarm.assert_next_severity(AlarmSeverity.SERIOUS)
+            await rule2.alarm.assert_next_severity(AlarmSeverity.CRITICAL)
+            await rule3.alarm.assert_next_severity(AlarmSeverity.CRITICAL)
 
     async def test_add_wrapper(self):
         filter_field = "int0"
