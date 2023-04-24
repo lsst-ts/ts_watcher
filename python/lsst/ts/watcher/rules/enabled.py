@@ -65,7 +65,7 @@ class Enabled(watcher.BaseRule):
             Parameters
             ----------
             state : `salobj.State`
-                The state
+                The state.
             default_severity : `AlarmSeverity`
                 The default alarm severity for this state.
             """
@@ -94,7 +94,7 @@ class Enabled(watcher.BaseRule):
 {make_severity_property(salobj.State.DISABLED, AlarmSeverity.WARNING)}
 {make_severity_property(salobj.State.STANDBY, AlarmSeverity.WARNING)}
 {make_severity_property(salobj.State.OFFLINE, AlarmSeverity.SERIOUS)}
-{make_severity_property(salobj.State.FAULT, AlarmSeverity.SERIOUS)}
+{make_severity_property(salobj.State.FAULT, AlarmSeverity.CRITICAL)}
             required:
             - name
             - disabled_severity

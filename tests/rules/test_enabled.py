@@ -64,7 +64,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
         assert minimal_config.disabled_severity == AlarmSeverity.WARNING
         assert minimal_config.standby_severity == AlarmSeverity.WARNING
         assert minimal_config.offline_severity == AlarmSeverity.SERIOUS
-        assert minimal_config.fault_severity == AlarmSeverity.SERIOUS
+        assert minimal_config.fault_severity == AlarmSeverity.CRITICAL
 
         # Check all values specified
         good_config_dict = dict(
@@ -72,7 +72,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_severity=AlarmSeverity.SERIOUS,
             standby_severity=AlarmSeverity.SERIOUS,
             offline_severity=AlarmSeverity.CRITICAL,
-            fault_severity=AlarmSeverity.CRITICAL,
+            fault_severity=AlarmSeverity.SERIOUS,
         )
         good_config = watcher.rules.Enabled.make_config(**good_config_dict)
         for key, value in good_config_dict.items():
