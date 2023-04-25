@@ -52,15 +52,9 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
         self.num_valid_pressures = 6
 
     def get_config(self, filepath):
-        schema = UnderPressure.get_schema()
-        validator = salobj.DefaultingValidator(schema)
         with open(filepath, "r") as f:
             config_dict = yaml.safe_load(f)
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
+        return UnderPressure.make_config(**config_dict)
 
     async def test_validation(self):
         for filepath in self.configpath.glob("good_*.yaml"):

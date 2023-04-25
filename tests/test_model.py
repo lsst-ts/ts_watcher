@@ -337,16 +337,16 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             for name, rule in self.model.rules.items():
                 assert not rule.alarm.nominal
                 assert rule.alarm.severity == AlarmSeverity.WARNING
-                assert rule.alarm.max_severity == AlarmSeverity.SERIOUS
+                assert rule.alarm.max_severity == AlarmSeverity.CRITICAL
                 assert self.read_severities[name] == [
                     AlarmSeverity.WARNING,
-                    AlarmSeverity.SERIOUS,
+                    AlarmSeverity.CRITICAL,
                     AlarmSeverity.WARNING,
                 ]
                 assert self.read_max_severities[name] == [
                     AlarmSeverity.WARNING,
-                    AlarmSeverity.SERIOUS,
-                    AlarmSeverity.SERIOUS,
+                    AlarmSeverity.CRITICAL,
+                    AlarmSeverity.CRITICAL,
                 ]
 
     async def test_escalation(self):

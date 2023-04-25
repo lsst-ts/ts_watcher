@@ -23,6 +23,8 @@ import asyncio
 import types
 import unittest
 
+import jsonschema
+import pytest
 import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -32,33 +34,14 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name, timeout):
-        """Make a config for the Heartbeat rule.
-
-        Parameters
-        ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
-        timeout : `float`
-            Maximum allowed time between heartbeat events (sec).
-        """
-        schema = watcher.rules.Heartbeat.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name, timeout=timeout)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
-    async def test_basics(self):
+    def test_basics(self):
         schema = watcher.rules.Heartbeat.get_schema()
         assert schema is not None
         name = "ScriptQueue"
         timeout = 1.2
-        config = self.make_config(name=name, timeout=timeout)
+        config = watcher.rules.Heartbeat.make_config(
+            name=name, timeout=timeout, alarm_severity=3
+        )
         desired_rule_name = f"Heartbeat.{name}:0"
 
         rule = watcher.rules.Heartbeat(config=config)
@@ -73,10 +56,39 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         assert name in repr(rule)
         assert "Heartbeat" in repr(rule)
 
+    def test_config_validation(self):
+        # Check defaults
+        minimal_config_dict = dict(name="MTMount")
+        minimal_config = watcher.rules.Heartbeat.make_config(**minimal_config_dict)
+        assert minimal_config.name == minimal_config_dict["name"]
+        assert minimal_config.timeout == 5
+        assert minimal_config.alarm_severity == AlarmSeverity.CRITICAL
+
+        # Check all values specified
+        good_config_dict = dict(
+            name="ScriptQueue", timeout=1, alarm_severity=AlarmSeverity.SERIOUS
+        )
+        good_config = watcher.rules.Heartbeat.make_config(**good_config_dict)
+        for key, value in good_config_dict.items():
+            assert getattr(good_config, key) == value
+
+        for bad_sub_config in (
+            dict(timeout="not_a_number"),
+            dict(alarm_severity=AlarmSeverity.NONE),
+            dict(alarm_severity=AlarmSeverity.CRITICAL + 1),
+            dict(alarm_severity="not_a_number"),
+            dict(no_such_field=5),
+        ):
+            bad_config_dict = minimal_config_dict.copy()
+            bad_config_dict.update(bad_sub_config)
+            with pytest.raises(jsonschema.ValidationError):
+                watcher.rules.Heartbeat.make_config(**bad_config_dict)
+
     async def test_operation(self):
         name = "ScriptQueue"
         index = 5
-        timeout = 0.5
+        timeout = 0.9
+        alarm_severity = AlarmSeverity.CRITICAL
 
         watcher_config_dict = yaml.safe_load(
             f"""
@@ -88,6 +100,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
               configs:
               - name: {name}:{index}
                 timeout: {timeout}
+                alarm_severity: {alarm_severity}
             escalation: []
             """
         )
@@ -105,20 +118,27 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = rule.alarm
                 alarm.init_severity_queue()
 
+                # Write a heartbeat event and check severity=None.
                 await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
+                # Write a heartbeat event well before the timer expires,
+                # and check severity=None.
                 await asyncio.sleep(timeout / 2)
                 await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert alarm.nominal
 
-                await alarm.assert_next_severity(
-                    AlarmSeverity.SERIOUS, timeout=timeout * 2.5
-                )
+                # Wait until the alarm occurs.
+                await alarm.assert_next_severity(alarm_severity, timeout=timeout * 2.5)
                 assert not alarm.nominal
+                assert alarm.max_severity == alarm_severity
+
+                # Write a heartbeat event and check that severity is None
+                # but that max_severity is still high (since the alarm
+                # has not been acknowledged).
                 await controller.evt_heartbeat.write()
                 await alarm.assert_next_severity(AlarmSeverity.NONE)
                 assert not alarm.nominal
-                assert alarm.max_severity == AlarmSeverity.SERIOUS
+                assert alarm.max_severity == alarm_severity
