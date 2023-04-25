@@ -20,9 +20,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import itertools
 import types
 import unittest
 
+import jsonschema
+import pytest
 import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -34,30 +37,11 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def make_config(self, name):
-        """Make a config for the Enabled rule.
-
-        Parameters
-        ----------
-        name : `str`
-            CSC name and index in the form `name` or `name:index`.
-            The default index is 0.
-        """
-        schema = watcher.rules.Enabled.get_schema()
-        validator = salobj.DefaultingValidator(schema)
-        config_dict = dict(name=name)
-
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        for key in config_dict:
-            assert getattr(config, key) == config_dict[key]
-        return config
-
-    async def test_basics(self):
+    def test_basics(self):
         schema = watcher.rules.Enabled.get_schema()
         assert schema is not None
         name = "ScriptQueue"
-        config = self.make_config(name=name)
+        config = watcher.rules.Enabled.make_config(name=name)
         desired_rule_name = f"Enabled.{name}:0"
 
         rule = watcher.rules.Enabled(config=config)
@@ -72,10 +56,50 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
         assert name in repr(rule)
         assert "Enabled" in repr(rule)
 
+    def test_config_validation(self):
+        # Check defaults
+        minimal_config_dict = dict(name="MTMount")
+        minimal_config = watcher.rules.Enabled.make_config(**minimal_config_dict)
+        assert minimal_config.name == minimal_config_dict["name"]
+        assert minimal_config.disabled_severity == AlarmSeverity.WARNING
+        assert minimal_config.standby_severity == AlarmSeverity.WARNING
+        assert minimal_config.offline_severity == AlarmSeverity.SERIOUS
+        assert minimal_config.fault_severity == AlarmSeverity.CRITICAL
+
+        # Check all values specified
+        good_config_dict = dict(
+            name="ScriptQueue",
+            disabled_severity=AlarmSeverity.SERIOUS,
+            standby_severity=AlarmSeverity.SERIOUS,
+            offline_severity=AlarmSeverity.CRITICAL,
+            fault_severity=AlarmSeverity.SERIOUS,
+        )
+        good_config = watcher.rules.Enabled.make_config(**good_config_dict)
+        for key, value in good_config_dict.items():
+            assert getattr(good_config, key) == value
+
+        for state, bad_value in itertools.product(
+            salobj.State,
+            ("not a number", AlarmSeverity.NONE, AlarmSeverity.CRITICAL + 1),
+        ):
+            if state == salobj.State.ENABLED:
+                continue
+            bad_config_dict = minimal_config_dict.copy()
+            bad_config_dict[f"{state.name.lower()}_severity"] = bad_value
+            with pytest.raises(jsonschema.ValidationError):
+                watcher.rules.Enabled.make_config(**bad_config_dict)
+
     async def test_call(self):
         name = "ScriptQueue"
         index = 5
 
+        # Use semi-realistic, but disparate, values for state severities.
+        state_severity_dict = {
+            salobj.State.DISABLED: AlarmSeverity.WARNING,
+            salobj.State.STANDBY: AlarmSeverity.WARNING,
+            salobj.State.OFFLINE: AlarmSeverity.SERIOUS,
+            salobj.State.FAULT: AlarmSeverity.CRITICAL,
+        }
         watcher_config_dict = yaml.safe_load(
             f"""
             disabled_sal_components: []
@@ -85,6 +109,10 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
             - classname: Enabled
               configs:
               - name: {name}:{index}
+                disabled_severity: {state_severity_dict[salobj.State.DISABLED].value}
+                standby_severity: {state_severity_dict[salobj.State.STANDBY].value}
+                offline_severity: {state_severity_dict[salobj.State.OFFLINE].value}
+                fault_severity: {state_severity_dict[salobj.State.FAULT].value}
             escalation: []
             """
         )
@@ -115,10 +143,8 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                 ):
                     if state == salobj.State.ENABLED:
                         expected_severity = AlarmSeverity.NONE
-                    elif state == salobj.State.FAULT:
-                        expected_severity = AlarmSeverity.SERIOUS
                     else:
-                        expected_severity = AlarmSeverity.WARNING
+                        expected_severity = state_severity_dict[state]
 
                     await controller.evt_summaryState.set_write(
                         summaryState=state, force_output=True

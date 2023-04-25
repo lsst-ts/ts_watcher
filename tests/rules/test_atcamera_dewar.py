@@ -47,16 +47,11 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
         )
 
     def get_config(self, filepath):
-        schema = ATCameraDewar.get_schema()
-        validator = salobj.DefaultingValidator(schema)
         with open(filepath, "r") as f:
             config_dict = yaml.safe_load(f)
-        full_config_dict = validator.validate(config_dict)
-        config = types.SimpleNamespace(**full_config_dict)
-        if config_dict:
-            for key in config_dict:
-                assert getattr(config, key) == config_dict[key]
-        return config
+        if config_dict is None:
+            config_dict = dict()
+        return ATCameraDewar.make_config(**config_dict)
 
     async def test_validation(self):
         for filepath in self.configpath.glob("good_*.yaml"):

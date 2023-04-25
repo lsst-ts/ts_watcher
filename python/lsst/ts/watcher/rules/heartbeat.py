@@ -62,8 +62,11 @@ class Heartbeat(watcher.BaseRule):
 
     @classmethod
     def get_schema(cls):
-        schema_yaml = """
-            $schema: http://json-schema.org/draft-07/schema#
+        # NOTE: another option is to have separate time limits for
+        # warning, serious and critical. But this requires up to 3 timers
+        # for each CSC, which adds many more tasks that the CSC has to manage.
+        schema_yaml = f"""
+            $schema: 'http://json-schema.org/draft-07/schema#'
             description: Configuration for Heartbeat
             type: object
             properties:
@@ -75,9 +78,23 @@ class Heartbeat(watcher.BaseRule):
                 timeout:
                     description: Maximum allowed time between heartbeat events (sec).
                     type: number
-                    default: 3
-
-            required: [name]
+                    default: 5
+                alarm_severity:
+                    description: >-
+                        Alarm severity if the time is exceeded. One of:
+                        * {AlarmSeverity.WARNING.value} for warning
+                        * {AlarmSeverity.SERIOUS.value} for serious
+                        * {AlarmSeverity.CRITICAL.value} for critical
+                    type: integer
+                    enum:
+                    - {AlarmSeverity.WARNING.value}
+                    - {AlarmSeverity.SERIOUS.value}
+                    - {AlarmSeverity.CRITICAL.value}
+                    default: {AlarmSeverity.CRITICAL.value}
+            required:
+            - name
+            - timeout
+            - alarm_severity
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
@@ -90,7 +107,7 @@ class Heartbeat(watcher.BaseRule):
         """Heartbeat timer."""
         await asyncio.sleep(self.config.timeout)
         await self.alarm.set_severity(
-            severity=AlarmSeverity.SERIOUS,
+            severity=self.config.alarm_severity,
             reason=f"Heartbeat event not seen in {self.config.timeout} seconds",
         )
 

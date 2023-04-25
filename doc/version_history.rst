@@ -6,6 +6,17 @@
 Version History
 ###############
 
+v1.13.0
+-------
+
+* `BaseRule`: add ``make_config`` class method, and update code to use it.
+* `rules.Enabled`: make alarm severity configurable per state, and set the default severity for FAULT state to CRITICAL.
+* `rules.Heartbeat`: make alarm severity configurable and set the default severity to CRITICAL.
+  Also increase the default timeout from 3 to 5 seconds, to reduce unnecessary alarms.
+* Use ts_pre_commit_config.
+* Jenkinsfile: use the shared library.
+* Remove scons support.
+
 v1.12.2
 -------
 
