@@ -468,6 +468,78 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
+    async def test_ess_operation_after_standby(self):
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ), salobj.Controller(name="ESS", index=1, write_only=True) as ess_1:
+            await salobj.set_summary_state(
+                self.remote,
+                state=salobj.State.ENABLED,
+                override="over_temperature.yaml",
+            )
+
+            over_temperature_alarm_name = "OverTemperature.TestOverTemperature"
+            assert list(self.csc.model.rules.keys()) == [over_temperature_alarm_name]
+            alarm_config = self.csc.model.rules[over_temperature_alarm_name].config
+            warning_level = alarm_config.warning_level
+            assert len(alarm_config.temperature_sensors) == 1
+            assert alarm_config.temperature_sensors[0]["sal_index"] == 1
+            assert len(alarm_config.temperature_sensors[0]["sensor_info"]) == 1
+            sensor_name = alarm_config.temperature_sensors[0]["sensor_info"][0][
+                "sensor_name"
+            ]
+            ess_1.tel_temperature.set(
+                sensorName=sensor_name, numChannels=1, location="some location"
+            )
+
+            async def send_temperature_data(temperature):
+                ess_1.tel_temperature.data.temperature[0] = temperature
+                await ess_1.tel_temperature.write()
+
+            await send_temperature_data(warning_level + 1)
+
+            await self.assert_next_alarm(
+                name=over_temperature_alarm_name,
+                severity=AlarmSeverity.WARNING,
+                maxSeverity=AlarmSeverity.WARNING,
+                acknowledged=False,
+                acknowledgedBy="",
+                timeout=5,
+            )
+
+            await send_temperature_data(warning_level - 1)
+
+            await self.assert_next_alarm(
+                name=over_temperature_alarm_name,
+                severity=AlarmSeverity.NONE,
+                maxSeverity=AlarmSeverity.WARNING,
+                acknowledged=False,
+                acknowledgedBy="",
+                timeout=5,
+            )
+
+            # Send CSC to standby and enabled and try again.
+            await salobj.set_summary_state(
+                remote=self.remote, state=salobj.State.STANDBY
+            )
+            assert self.csc.model is None
+            await salobj.set_summary_state(
+                remote=self.remote,
+                state=salobj.State.ENABLED,
+                override="over_temperature.yaml",
+            )
+
+            await send_temperature_data(warning_level + 1)
+
+            await self.assert_next_alarm(
+                name=over_temperature_alarm_name,
+                severity=AlarmSeverity.WARNING,
+                maxSeverity=AlarmSeverity.WARNING,
+                acknowledged=False,
+                acknowledgedBy="",
+                timeout=5,
+            )
+
     async def test_auto_acknowledge_unacknowledge(self):
         user = "chaos"
         async with self.make_csc(

@@ -1,0 +1,13 @@
+rules:
+- classname: OverTemperature
+  configs:
+  - name: TestOverTemperature
+    temperature_sensors:
+      - sal_index: 1
+        sensor_info:
+          - sensor_name: upstairs
+    warning_level: 19
+    # Short to speed up the unit test
+    poll_interval: 0.1
+
+    
