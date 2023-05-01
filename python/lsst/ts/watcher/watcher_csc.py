@@ -69,6 +69,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self, config_dir=None, initial_state=salobj.State.STANDBY, override=""
     ):
         # the Watcher model is created when the CSC is configured
+        # and reset to None when the Watcher goes to standby.
         self.model = None
         self.http_client = aiohttp.ClientSession()
         super().__init__(
@@ -95,12 +96,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def configure(self, config):
         if self.model is not None:
-            # this should not happen, but in case it does shut down
-            # the old model (disable alarms first because that is synchronous
-            # and may avoid old alarms appearing due to a race condition)
-            self.log.warning("self.model unexpectedly present in configure method")
-            self.model.disable()
-            asyncio.ensure_future(self.model.close())
+            # The model should be None, but if not, close it to get rid
+            # of the old alarms.
+            self.log.warning(
+                "Model unexpectedly present while configuring the CSC. "
+                "Closing the old model and building a new."
+            )
+            await self.model.close()
+            self.model = None
 
         self.model = Model(
             domain=self.domain, config=config, alarm_callback=self.output_alarm
@@ -117,14 +120,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
 
         await self.model.start_task
-        self._enable_or_disable_model()
-
-    def _enable_or_disable_model(self):
-        """Enable or disable the model based on the summary state."""
-        if self.summary_state == salobj.State.ENABLED:
-            self.model.enable()
-        elif self.model is not None:
-            self.model.disable()
 
     async def escalate_alarm(self, alarm):
         """Escalate an alarm by creating a SquadCast incident.
@@ -274,7 +269,24 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
 
     async def handle_summary_state(self):
-        self._enable_or_disable_model()
+        if self.summary_state == salobj.State.ENABLED:
+            if self.model is None:
+                raise RuntimeError(
+                    "Bug: state is ENABLED but there is no model. "
+                    "Please restart the software and file a JIRA ticket."
+                )
+            self.model.enable()
+        elif self.summary_state == salobj.State.DISABLED:
+            if self.model is None:
+                raise RuntimeError(
+                    "Bug: state is DISABLED but there is no model. "
+                    "Please restart the software and file a JIRA ticket."
+                )
+            self.model.disable()
+        else:
+            if self.model is not None:
+                await self.model.close()
+                self.model = None
 
     async def do_acknowledge(self, data):
         self.assert_enabled()
