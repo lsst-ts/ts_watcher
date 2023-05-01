@@ -449,6 +449,25 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
+            # Go all the way to standby and back. Alarms should still work.
+            await salobj.set_summary_state(
+                remote=self.remote, state=salobj.State.STANDBY
+            )
+            assert self.csc.model is None
+            await salobj.set_summary_state(
+                remote=self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
+            )
+            await atdome.evt_summaryState.set_write(
+                summaryState=salobj.State.DISABLED, force_output=True
+            )
+            await self.assert_next_alarm(
+                name=atdome_alarm_name,
+                severity=AlarmSeverity.WARNING,
+                maxSeverity=AlarmSeverity.WARNING,
+                acknowledged=False,
+                acknowledgedBy="",
+            )
+
     async def test_auto_acknowledge_unacknowledge(self):
         user = "chaos"
         async with self.make_csc(
