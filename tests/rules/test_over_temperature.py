@@ -174,8 +174,6 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             Watcher model.
         rule : `rules.OverTemperature`
             over-temperature rule.
-        dew_point_topics : `dict` of ``str`: write topic
-            Dict of filter_value: controller topic that writes dew point.
         temperature_topics : `dict` of `str`: (write topic, indices)
             Dict of filter_value: (controller topic, indices)
             where the topic writes temperature, and indices indicates
