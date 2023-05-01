@@ -9,6 +9,8 @@ pytest_session.txt
 __pycache__
 tests/.tests
 python/lsst/ts/watcher/version.py
+*.egg
+*.egg-info
 .pre-commit-config.yaml
 .flake8
 .isort.cfg
