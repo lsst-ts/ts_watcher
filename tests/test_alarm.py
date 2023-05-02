@@ -829,11 +829,29 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             else:
                 assert alarm.timestamp_escalate > 0
                 assert not alarm.escalation_timer_task.done()
+                assert not alarm.do_escalate
+
+                # Mute the alarm and make sure the escalation timer
+                # is cancelled. Then unmute and make sure it starts again.
+                await alarm.mute(
+                    duration=1, severity=AlarmSeverity.CRITICAL, user="muter"
+                )
+                await self.next_queued_alarm(expected_alarm=alarm)
+                assert alarm.escalation_timer_task.done()
+                assert not alarm.do_escalate
+                assert alarm.muted
+
+                # Wait for the alarm to unmute itself
+                await self.next_queued_alarm(expected_alarm=alarm)
+                assert not alarm.muted
+                assert not alarm.escalation_timer_task.done()
+                assert not alarm.do_escalate
+
                 # Wait for the alarm to call back when the escalation timer
                 # fires. Then check the escalation fields set by Alarm.
                 await self.next_queued_alarm(expected_alarm=alarm)
-                assert alarm.do_escalate
                 assert alarm.escalation_timer_task.done()
+                assert alarm.do_escalate
 
                 # Acknowledging the alarm should clear do_escalate.
                 await alarm.acknowledge(

@@ -292,6 +292,8 @@ class Alarm:
     async def mute(self, duration, severity, user):
         """Mute this alarm for a specified duration and severity.
 
+        Muting also cancels the escalation timer.
+
         Parameters
         ----------
         duration : `float`
@@ -320,6 +322,7 @@ class Alarm:
         if severity == AlarmSeverity.NONE:
             raise ValueError(f"severity={severity!r} must be > NONE")
         self._cancel_unmute()
+        self._cancel_escalation_timer()
         self.muted_by = user
         self.muted_severity = severity
         self.timestamp_unmute = utils.current_tai() + duration
@@ -329,6 +332,8 @@ class Alarm:
     async def unmute(self):
         """Unmute this alarm."""
         self._cancel_unmute()
+        if self.max_severity == AlarmSeverity.CRITICAL and not self.acknowledged:
+            self._start_escalation_timer()
         await self._run_callback()
 
     def reset(self):
