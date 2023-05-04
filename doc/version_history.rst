@@ -6,6 +6,27 @@
 Version History
 ###############
 
+v1.13.1
+-------
+
+* `WatcherCsc`:
+
+  * Improve behavior when going to standby and back to enabled.
+    Close the model and reconstruct it.
+  * Delay escalation while muted.
+    Cancel the escalation timer when muting begins, then start it again when muting ends, if appropriate.
+
+* `Model`: make the close method close rules (instead of just stoppping alarms).
+* Add missing ``bin/command_watcher`` script.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 13 and ts_sal 7.
+
 v1.13.0
 -------
 
