@@ -74,6 +74,21 @@ class Alarm:
         Defaults to None. If a unit test sets this
         to an asyncio.Queue then `__call__` will
         queue a severity every time it runs successfully.
+    auto_acknowledge_task :  : `asyncio.Future`
+        A task that monitors the automatic acknowledge timer.
+    auto_unacknowledge_task :  : `asyncio.Future`
+        A task that monitors the automatic unacknowledge timer.
+    escalating_task : `asyncio.Future`
+        A task that monitors the process of escalating an alarm to a
+        notification service such as SquadCast. This timer is managed
+        by WatcherCsc, because it knows how to communicate with the
+        notification service.
+    escalation_timer_task : `asyncio.Future`
+        A task that monitors the escalation timer. When this timer fires,
+        it sets do_escalate to true and calls the callback. It is then
+        up the CSC to actually escalate the alarm (see escalating_task).
+    unmute_task :  : `asyncio.Future`
+        A task that monitors the unmute timer.
     """
 
     # Field to ignore when testing for equality.
@@ -277,6 +292,8 @@ class Alarm:
     async def mute(self, duration, severity, user):
         """Mute this alarm for a specified duration and severity.
 
+        Muting also cancels the escalation timer.
+
         Parameters
         ----------
         duration : `float`
@@ -305,6 +322,7 @@ class Alarm:
         if severity == AlarmSeverity.NONE:
             raise ValueError(f"severity={severity!r} must be > NONE")
         self._cancel_unmute()
+        self._cancel_escalation_timer()
         self.muted_by = user
         self.muted_severity = severity
         self.timestamp_unmute = utils.current_tai() + duration
@@ -314,6 +332,8 @@ class Alarm:
     async def unmute(self):
         """Unmute this alarm."""
         self._cancel_unmute()
+        if self.max_severity == AlarmSeverity.CRITICAL and not self.acknowledged:
+            self._start_escalation_timer()
         await self._run_callback()
 
     def reset(self):
@@ -433,14 +453,17 @@ class Alarm:
         """Unacknowledge the alarm. Basically a no-op if nominal
         or not acknowledged.
 
+        Parameters
+        ----------
+        escalate : `bool`, optional
+            Escalate the alarm, if max_severity is critical? Defaults to true.
+            Only set false if automatically unacknowledging the alarm.
+
         Returns
         -------
         updated : `bool`
             True if the alarm state changed (i.e. if any fields were modified),
             False otherwise.
-        escalate : `bool`, optional
-            Restart the escalation timer?
-            Only relevant if max_severity is CRITICAL.
         """
         self._cancel_auto_unacknowledge()
 
