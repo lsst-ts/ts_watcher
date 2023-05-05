@@ -164,9 +164,10 @@ class Model:
         await self.enable_task
 
     async def _enable_impl(self):
-        """Implement of the enable method.
+        """Implementation of the enable method.
 
-        A separate method to simplify management of self.enable_task.
+        The implementation is separate, in order to simplify management
+        of self.enable_task.
         """
         if self._enabled:
             return
@@ -180,6 +181,12 @@ class Model:
             data = topic.get()
             if data is not None:
                 await topic._run_callback(data)
+
+        # For alarms that are still nominal, write that state
+        # (non-nominal alarms have already been written).
+        for rule in self.rules.values():
+            if rule.alarm.nominal:
+                await rule.alarm.run_callback()
 
     def disable(self):
         """Disable the model. A no-op if already disabled."""
