@@ -113,7 +113,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             rule.alarm.init_severity_queue()
             assert rule.alarm.nominal
 
-            model.enable()
+            await model.enable()
 
             # A dict of sensor name: write topic.
             # The content must match the rule configuration.

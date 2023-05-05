@@ -126,8 +126,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         ]
         await asyncio.gather(self.model.start_task, *controller_start_tasks)
         if enable:
-            self.model.enable()
-            await self.model.enable_task
+            await self.model.enable()
 
         for rule in self.model.rules.values():
             assert rule.alarm.nominal
@@ -283,8 +282,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             # Enable the model and write ENABLED several times.
             # This triggers the rule callback but that does not
             # change the state of the alarm.
-            self.model.enable()
-            await self.model.enable_task
+            await self.model.enable()
             for index in range(len(remote_names)):
                 await self.write_states(
                     index=index,
@@ -318,8 +316,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             # the current state of the event (STANDBY).
             # Note that the earlier FAULT event is is ignored
             # because it arrived while disabled.
-            self.model.enable()
-            await self.model.enable_task
+            await self.model.enable()
             for name, rule in self.model.rules.items():
                 await rule.alarm.assert_next_severity(AlarmSeverity.WARNING)
                 assert not rule.alarm.nominal

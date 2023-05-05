@@ -275,7 +275,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
                     "Bug: state is ENABLED but there is no model. "
                     "Please restart the software and file a JIRA ticket."
                 )
-            self.model.enable()
+            await self.model.enable()
         elif self.summary_state == salobj.State.DISABLED:
             if self.model is None:
                 raise RuntimeError(
