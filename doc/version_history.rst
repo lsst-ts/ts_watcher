@@ -6,6 +6,36 @@
 Version History
 ###############
 
+v1.13.2
+-------
+
+* `WatcherCsc`:
+
+    * When enabling the CSC, print alarm events for all alarms, even those in nominal state.
+      Most alarms will usually be in nominal state.
+    * ``showAlarms`` command: print an alarm event for all events, even those in nominal state.
+
+* `Model`:
+
+    * Make the ``enable`` method call the alarm callback for all alarms, even those in nominal state.
+      This causes the CSC to publish alarm events for all events when going to enabled state.
+    * Make the ``enable`` method asynchronous.
+      This simplifies calling alarm callbacks and reduces the number of tasks created.
+
+* Fix a few unit test warnings.
+* Note: ts_xml 16 defines a new ``notification`` event for Watcher.
+  This is intended as a stateless notification of a problem ("stateless" meaning it does not require or allow acknowledgement).
+  ``notification`` is very much like the ``logMessage`` event, but intended to be displayed in a special window in LOVE.
+  Rules should now feel free to output this event.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 16 and ts_sal 7.
+
 v1.13.1
 -------
 
