@@ -307,24 +307,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def do_showAlarms(self, data):
         """Show all alarms."""
         self.assert_enabled()
-        # Make a list of active (not nominal) alarms and iterate over it,
-        # reporting alarm events and yielding the event loop.
-        # Using our own list assures that what we are iterating over
-        # will not change, even if alarms change state during this command.
-        # Note: alarms may change state while this command is running.
-        # There are two cases:
-        # * An alarm becomes inactive: we check for this and skip it.
-        # * An alarm becomes active: the alarm is not in our list,
-        #   but the state change triggers an alarm event,
-        #   (though not from this command) so the user sees it.
-        active_alarms = [
-            rule.alarm for rule in self.model.rules.values() if not rule.alarm.nominal
-        ]
-        for alarm in active_alarms:
-            if alarm.nominal:
-                # The alarm became inactive while this command was running.
-                continue
-            await self.output_alarm(alarm)
+        for rule in self.model.rules.values():
+            await self.output_alarm(rule.alarm)
             await asyncio.sleep(0.001)
 
     async def do_unacknowledge(self, data):
