@@ -37,7 +37,8 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def test_basics(self):
+    # Note: making this method async eliminates a warning in ts_utils.
+    async def test_basics(self):
         schema = watcher.rules.Enabled.get_schema()
         assert schema is not None
         name = "ScriptQueue"
