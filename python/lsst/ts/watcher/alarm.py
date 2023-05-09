@@ -286,7 +286,7 @@ class Alarm:
         self.timestamp_acknowledged = curr_tai
         self.timestamp_max_severity = curr_tai
 
-        await self._run_callback()
+        await self.run_callback()
         return True
 
     async def mute(self, duration, severity, user):
@@ -327,21 +327,23 @@ class Alarm:
         self.muted_severity = severity
         self.timestamp_unmute = utils.current_tai() + duration
         self.unmute_task = asyncio.create_task(self._unmute_timer(duration=duration))
-        await self._run_callback()
+        await self.run_callback()
 
     async def unmute(self):
         """Unmute this alarm."""
         self._cancel_unmute()
         if self.max_severity == AlarmSeverity.CRITICAL and not self.acknowledged:
             self._start_escalation_timer()
-        await self._run_callback()
+        await self.run_callback()
 
     def reset(self):
         """Reset the alarm to nominal state.
 
         Do not call the callback function.
+        This is designed to be called by Model.enable,
+        which first resets alarms and then feeds them data
+        before writing alarm state.
 
-        This is designed to be called when enabling the model.
         It sets too many fields to be called by set_severity.
         """
         self.severity = AlarmSeverity.NONE
@@ -446,7 +448,7 @@ class Alarm:
 
         if self.severity_queue is not None:
             self.severity_queue.put_nowait(severity)
-        await self._run_callback()
+        await self.run_callback()
         return True
 
     async def unacknowledge(self, escalate=True):
@@ -477,7 +479,7 @@ class Alarm:
         if escalate and self.max_severity == AlarmSeverity.CRITICAL:
             self._start_escalation_timer()
 
-        await self._run_callback()
+        await self.run_callback()
         return True
 
     def assert_equal(self, other, ignore_attrs=()):
@@ -658,7 +660,7 @@ class Alarm:
         """Wait, then escalate this alarm."""
         await asyncio.sleep(self.escalation_delay)
         self.do_escalate = True
-        await self._run_callback()
+        await self.run_callback()
 
     async def _unmute_timer(self, duration):
         """Unmute this alarm after a specified duration.
@@ -695,7 +697,7 @@ class Alarm:
         self.timestamp_unmute = 0
         self.unmute_task.cancel()
 
-    async def _run_callback(self):
+    async def run_callback(self):
         """Run the callback function, if present."""
         if self._callback:
             await self._callback(self)

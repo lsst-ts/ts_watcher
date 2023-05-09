@@ -98,7 +98,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
 
-            model.enable()
+            await model.enable()
 
             # Nominal values, based on good_full.yaml,
             # translated to topic field names.
@@ -189,7 +189,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
 
-            model.enable()
+            await model.enable()
 
             # Nominal values, based on good_full.yaml,
             # translated to topic field names.

@@ -122,7 +122,7 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
             heartbeat_writer = HeartbeatWriter(salinfo=salinfo)
             await salinfo.start()
             async with watcher.Model(domain=domain, config=watcher_config) as model:
-                model.enable()
+                await model.enable()
 
                 assert len(model.rules) == 1
                 rule_name = f"Clock.{name}:{index}"

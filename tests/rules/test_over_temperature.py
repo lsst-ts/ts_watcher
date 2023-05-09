@@ -110,7 +110,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             rule.alarm.init_severity_queue()
             assert rule.alarm.nominal
 
-            model.enable()
+            await model.enable()
 
             # The keys are based on the rule configuration
             temperature_topics = dict(
