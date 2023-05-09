@@ -155,23 +155,38 @@ class Model:
 
     @property
     def enabled(self):
-        """Get or set the enabled state of the Watcher model."""
+        """Get the enabled state of the Watcher model."""
         return self._enabled
 
-    def enable(self):
+    async def enable(self):
         """Enable the model. A no-op if already enabled."""
+        self.enable_task = asyncio.create_task(self._enable_impl())
+        await self.enable_task
+
+    async def _enable_impl(self):
+        """Implementation of the enable method.
+
+        The implementation is separate, in order to simplify management
+        of self.enable_task.
+        """
         if self._enabled:
             return
         self._enabled = True
-        callback_coros = []
         for rule in self.rules.values():
             rule.alarm.reset()
             rule.start()
+
+        # Feed available data to the rules.
         for topic in self._topics_with_callbacks:
             data = topic.get()
             if data is not None:
-                callback_coros.append(topic._run_callback(data))
-        self.enable_task = asyncio.ensure_future(asyncio.gather(*callback_coros))
+                await topic._run_callback(data)
+
+        # For alarms that are still nominal, write that state
+        # (non-nominal alarms have already been written).
+        for rule in self.rules.values():
+            if rule.alarm.nominal:
+                await rule.alarm.run_callback()
 
     def disable(self):
         """Disable the model. A no-op if already disabled."""

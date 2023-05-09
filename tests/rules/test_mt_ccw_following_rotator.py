@@ -64,7 +64,7 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
-                model.enable()
+                await model.enable()
 
                 assert len(model.rules) == 1
                 rule = model.rules["MTCCWFollowingRotator"]

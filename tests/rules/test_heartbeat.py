@@ -34,7 +34,8 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
-    def test_basics(self):
+    # Note: making this method async eliminates a warning in ts_utils.
+    async def test_basics(self):
         schema = watcher.rules.Heartbeat.get_schema()
         assert schema is not None
         name = "ScriptQueue"
@@ -110,7 +111,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
-                model.enable()
+                await model.enable()
 
                 assert len(model.rules) == 1
                 rule_name = f"Heartbeat.{name}:{index}"
