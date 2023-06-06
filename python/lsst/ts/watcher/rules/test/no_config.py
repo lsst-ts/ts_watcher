@@ -22,6 +22,7 @@
 __all__ = ["NoConfig"]
 
 from lsst.ts import watcher
+from lsst.ts.salobj import BaseMsgType
 
 
 class NoConfig(watcher.BaseRule):
@@ -54,5 +55,7 @@ class NoConfig(watcher.BaseRule):
     def get_schema(cls):
         return None
 
-    def __call__(self, data=None, topic_callback=None):
+    async def __call__(
+        self, data: BaseMsgType, topic_callback: watcher.TopicCallback | None
+    ) -> None:
         raise RuntimeError("This should never be called")

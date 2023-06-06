@@ -33,6 +33,7 @@ from .filtered_topic_wrapper import *
 from .mock_opsgenie import *
 from .mock_pagerduty import *
 from .mock_squadcast import *
+from .one_alarm_callback_rule import *
 from .polling_rule import *
 from .remote_info import *
 from .remote_wrapper import *

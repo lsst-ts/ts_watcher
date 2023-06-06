@@ -27,7 +27,7 @@ from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 
-class Clock(watcher.BaseRule):
+class Clock(watcher.OneAlarmCallbackRule):
     """Monitor the system clock of a SAL component using the ``heartbeat``
     event.
 
@@ -92,7 +92,11 @@ class Clock(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data, topic_callback=None):
+    def compute_alarm_severity(
+        self,
+        data: salobj.BaseMsgType,
+        topic_callback: watcher.TopicCallback | None = None,
+    ) -> watcher.AlarmSeverityReasonType:
         clock_error = data.private_rcvStamp - data.private_sndStamp
         if self.n_clock_errors < self.clock_errors.shape[0]:
             self.clock_errors[self.n_clock_errors] = clock_error

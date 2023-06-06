@@ -38,6 +38,6 @@ class TestNoConfigTestCase(unittest.IsolatedAsyncioTestCase):
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
         with pytest.raises(RuntimeError):
-            rule(topic_callback=None)
+            await rule(data=types.SimpleNamespace(), topic_callback=None)
         assert rule.name in repr(rule)
         assert desired_rule_name in repr(rule)

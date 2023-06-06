@@ -25,6 +25,7 @@ import asyncio
 
 import yaml
 from lsst.ts import utils, watcher
+from lsst.ts.salobj import BaseMsgType
 
 
 class ConfiguredSeverities(watcher.BaseRule):
@@ -115,5 +116,7 @@ class ConfiguredSeverities(watcher.BaseRule):
             if self.config.repeats > 0 and repeat >= self.config.repeats:
                 break
 
-    def __call__(self, topic_callback):
+    async def __call__(
+        self, data: BaseMsgType, topic_callback: watcher.TopicCallback | None
+    ) -> None:
         raise RuntimeError("This should never be called")

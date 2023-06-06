@@ -64,7 +64,7 @@ class MeasurementInfo:
         self.units = "temperature" if self.is_temperature else "Torr"
 
 
-class ATCameraDewar(watcher.BaseRule):
+class ATCameraDewar(watcher.OneAlarmCallbackRule):
     """Monitor ATCamera dewar temperatures and vacuum.
 
     Parameters
@@ -350,11 +350,11 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def __call__(
+    def compute_alarm_severity(
         self,
         data: salobj.BaseMsgType,
-        topic_callback: watcher.TopicCallback | None = None,
-    ) -> AlarmSeverity:
+        topic_callback: watcher.TopicCallback,
+    ) -> watcher.AlarmSeverityReasonType:
         self.restart_no_data_timer()
         self.data_queue.append(data)
         curr_tai = utils.current_tai()

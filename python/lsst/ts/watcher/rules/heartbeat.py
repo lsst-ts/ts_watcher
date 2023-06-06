@@ -28,7 +28,7 @@ from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 
-class Heartbeat(watcher.BaseRule):
+class Heartbeat(watcher.OneAlarmCallbackRule):
     """Monitor the heartbeat event from a SAL component.
 
     Set alarm severity NONE whenever a heartbeat event arrives
@@ -99,7 +99,11 @@ class Heartbeat(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(
+        self,
+        data: salobj.BaseMsgType,
+        topic_callback: watcher.TopicCallback | None = None,
+    ) -> watcher.AlarmSeverityReasonType:
         self.restart_timer()
         return watcher.NoneNoReason
 

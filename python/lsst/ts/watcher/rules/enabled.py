@@ -26,7 +26,7 @@ from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 
-class Enabled(watcher.BaseRule):
+class Enabled(watcher.OneAlarmCallbackRule):
     """Monitor the summary state of a CSC.
 
     Set alarm severity NONE if the CSC is in the ENABLED state,
@@ -105,7 +105,11 @@ class Enabled(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data, topic_callback=None):
+    def compute_alarm_severity(
+        self,
+        data: salobj.BaseMsgType,
+        topic_callback: watcher.TopicCallback | None = None,
+    ) -> watcher.AlarmSeverityReasonType:
         state = data.summaryState
         try:
             state_name = salobj.State(state).name

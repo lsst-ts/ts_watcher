@@ -25,6 +25,7 @@ import asyncio
 
 import yaml
 from lsst.ts import utils, watcher
+from lsst.ts.salobj import BaseMsgType
 
 # Maximum time (seconds) to wait for the next severity to be reported.
 NEXT_SEVERITY_TIMEOUT = 1
@@ -118,5 +119,7 @@ class TriggeredSeverities(watcher.BaseRule):
     def stop(self):
         self.run_task.cancel()
 
-    def __call__(self, topic_callback):
+    async def __call__(
+        self, data: BaseMsgType, topic_callback: watcher.TopicCallback | None
+    ) -> None:
         raise RuntimeError("This should never be called")

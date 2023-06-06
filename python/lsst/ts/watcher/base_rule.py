@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -23,11 +25,15 @@ __all__ = ["NoneNoReason", "BaseRule", "RuleDisabledError"]
 
 import abc
 import types
+import typing
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 from . import alarm
+
+if typing.TYPE_CHECKING:
+    from .topic_callback import TopicCallback
 
 
 class RuleDisabledError(Exception):
@@ -222,13 +228,16 @@ class BaseRule(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def __call__(self, topic_callback):
+    def __call__(self, data: salobj.BaseMsgType, topic_callback: TopicCallback | None):
         """Run the rule and return the severity and reason.
 
         Parameters
         ----------
-        topic_callback : `TopicCallback`
+        data : `salobj.BaseMsgType`
+            Message from the topic described by topic_callback.
+        topic_callback : `TopicCallback` | None
             Topic callback wrapper.
+            None simplifies unit tests for rules that ignore this argument.
 
         Returns
         -------
