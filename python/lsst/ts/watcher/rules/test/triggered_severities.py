@@ -46,7 +46,7 @@ class TriggeredSeverities(watcher.BaseRule):
     Raises
     ------
     RuntimeError
-        If ``__call__`` is called. When used as a normal rule
+        If `compute_alarm_severity` is called. When used as a normal rule
         this method should never be called because the rule
         specifies topics to call it.
 
@@ -118,5 +118,5 @@ class TriggeredSeverities(watcher.BaseRule):
     def stop(self):
         self.run_task.cancel()
 
-    def __call__(self, topic_callback):
+    def compute_alarm_severity(self) -> None:
         raise RuntimeError("This should never be called")

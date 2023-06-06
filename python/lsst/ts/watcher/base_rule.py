@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -19,15 +21,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["NoneNoReason", "BaseRule", "RuleDisabledError"]
+__all__ = ["AlarmSeverityReasonType", "NoneNoReason", "BaseRule", "RuleDisabledError"]
 
 import abc
 import types
+import typing
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 from . import alarm
+
+if typing.TYPE_CHECKING:
+    from .model import Model
+
+# Type alias for (alarm severity, reason str)
+AlarmSeverityReasonType: typing.TypeAlias = tuple[AlarmSeverity, str]
 
 
 class RuleDisabledError(Exception):
@@ -36,7 +45,8 @@ class RuleDisabledError(Exception):
     pass
 
 
-# __call__ may return this if the alarm severity is NONE
+# `BaseRule.compute_alarm_severity` may return this constant
+# if the alarm severity is NONE.
 NoneNoReason = (AlarmSeverity.NONE, "")
 
 
@@ -84,8 +94,8 @@ class BaseRule(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_schema(cls):
-        """Return a jsonschema to validate configuration, as a `dict`.
+    def get_schema(cls) -> dict[str, typing.Any]:
+        """Return a jsonschema as a `dict`, to validate configuration.
 
         Notes
         -----
@@ -112,7 +122,7 @@ class BaseRule(abc.ABC):
         raise NotImplementedError("Subclasses must override")
 
     @classmethod
-    def make_config(cls, **kwargs):
+    def make_config(cls, **kwargs: str) -> types.SimpleNamespace:
         """Make a config from keyword arguments, after applying defaults.
 
         Parameters
@@ -147,7 +157,7 @@ class BaseRule(abc.ABC):
         """Get the rule name."""
         return self.alarm.name
 
-    def is_usable(self, disabled_sal_components):
+    def is_usable(self, disabled_sal_components: set[tuple[str, int]]) -> bool:
         """Return True if rule can be used, despite disabled SAL components.
 
         The default implementation returns true if all remotes used by this
@@ -165,7 +175,7 @@ class BaseRule(abc.ABC):
         """
         return self.remote_keys.isdisjoint(disabled_sal_components)
 
-    def setup(self, model):
+    def setup(self, model: Model) -> None:
         """Perform post-constructor setup.
 
         Called after the remotes are constructed and populated with topics,
@@ -191,7 +201,7 @@ class BaseRule(abc.ABC):
         """
         pass
 
-    def start(self):
+    def start(self) -> None:
         """Start any background tasks, such as a polling loop.
 
         This is called when the watcher goes into the enabled state.
@@ -205,7 +215,7 @@ class BaseRule(abc.ABC):
         """
         pass
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop all background tasks.
 
         This is called when the watcher goes out of the enabled state,
@@ -221,14 +231,23 @@ class BaseRule(abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
-    def __call__(self, topic_callback):
-        """Run the rule and return the severity and reason.
+    async def update_alarm_severity(self, **kwargs: typing.Any) -> None:
+        """Compute and set alarm severity and reason.
+
+        This must run quickly. If computing alarm severity is expensive,
+        override this method to start a thread that computes the data
+        and create a background task to manage the thread, then return.
 
         Parameters
         ----------
-        topic_callback : `TopicCallback`
-            Topic callback wrapper.
+        **kwargs : `dict` [`str`, `typing.Any`]
+            Keyword arguments. If called by `TopicCallback`,
+            the arguments will be as follows:
+
+            * data : `salobj.BaseMsgType`
+              Message from the topic described by topic_callback.
+            * topic_callback : `TopicCallback`
+              Topic callback wrapper.
 
         Returns
         -------
@@ -246,15 +265,43 @@ class BaseRule(abc.ABC):
         Notes
         -----
         You may return `NoneNoReason` if the alarm states is ``NONE``.
+        """
+        severity, reason = self.compute_alarm_severity(**kwargs)
+        await self.alarm.set_severity(severity=severity, reason=reason)
 
-        To defer setting the alarm state, start a task that calls
-        ``self.alarm.set_severity`` later. For example the heartbeat rule's
-        ``__call__`` method is called when the heartbeat event is seen,
-        and this restarts a timer and returns `NoneNoReason`. If the timer
-        finishes, meaning the next heartbeat event was not seen in time,
-        the timer sets alarm severity > ``NONE``.
+    @abc.abstractmethod
+    def compute_alarm_severity(self, **kwargs: typing.Any) -> AlarmSeverityReasonType:
+        """Compute and set alarm severity and reason.
+
+        Parameters
+        ----------
+        **kwargs : `dict` [`str`, `typing.Any`]
+            Keyword arguments. If triggered by `TopicCallback` calling
+            `update_alarm_severity`, the arguments will be as follows:
+
+            * data : `salobj.BaseMsgType`
+              Message from the topic described by topic_callback.
+            * topic_callback : `TopicCallback`
+              Topic callback wrapper.
+
+        Returns
+        -------
+        A tuple of two values:
+
+        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+            The new alarm severity.
+        reason : `str`
+            Detailed reason for the severity, e.g. a string describing
+            what value is out of range, and what the range is.
+            If ``severity`` is ``NONE`` then this value is ignored (but still
+            required) and the old reason is retained until the alarm is reset
+            to ``nominal`` state.
+
+        Notes
+        -----
+        You may return `NoneNoReason` if the alarm states is ``NONE``.
         """
         raise NotImplementedError("Subclasses must override")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name})"

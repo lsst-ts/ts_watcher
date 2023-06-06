@@ -147,9 +147,9 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             # other than those the rule is listening to.
             # This should not affect the rule.
             await send_ess_data(dew_point_depression=-1, use_other_filter_values=True)
-            # Give the rule time to deal with all of the new data.
-            severity, reason = await rule.poll_once(set_poll_start_tai=True)
-            assert severity == AlarmSeverity.NONE
+            rule.poll_start_tai = utils.current_tai()
+            await rule.update_alarm_severity()
+            assert rule.alarm.severity == AlarmSeverity.NONE
             assert rule.alarm.nominal
 
             # Check a sequence of dew points
@@ -158,8 +158,8 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(dew_point_depression=dew_point_depression)
-                severity, reason = await rule.poll_once(set_poll_start_tai=True)
-                assert severity == expected_severity
+                await rule.update_alarm_severity()
+                assert rule.alarm.severity == expected_severity
 
             # Check that no data for max_data_age triggers severity=SERIOUS.
             # Resume polling first.

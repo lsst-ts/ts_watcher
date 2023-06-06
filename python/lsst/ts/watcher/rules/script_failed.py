@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -21,10 +23,15 @@
 
 __all__ = ["ScriptFailed"]
 
+import typing
+
 import yaml
 from lsst.ts import watcher
 from lsst.ts.idl.enums.Script import ScriptState
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+
+if typing.TYPE_CHECKING:
+    from lsst.ts.salobj import BaseMsgType
 
 
 class ScriptFailed(watcher.BaseRule):
@@ -81,7 +88,10 @@ class ScriptFailed(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data, topic_callback):
+    def compute_alarm_severity(
+        self, data: BaseMsgType, topic_callback: watcher.TopicCallback | None
+    ) -> watcher.AlarmSeverityReasonType:
+        assert topic_callback is not None
         if topic_callback.attr_name == "evt_queue":
             self.queue_enabled = data.enabled
             self.queue_running = data.running

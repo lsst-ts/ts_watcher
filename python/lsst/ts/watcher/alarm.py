@@ -71,9 +71,8 @@ class Alarm:
         non-empty values by the alarm callback.
     severity_queue : `asyncio.Queue` or `None`
         Intended only for unit tests.
-        Defaults to None. If a unit test sets this
-        to an asyncio.Queue then `__call__` will
-        queue a severity every time it runs successfully.
+        Defaults to None. If a unit test sets this to an `asyncio.Queue`,
+        `set_severity` will queue the severity every time it returns True.
     auto_acknowledge_task :  : `asyncio.Future`
         A task that monitors the automatic acknowledge timer.
     auto_unacknowledge_task :  : `asyncio.Future`
