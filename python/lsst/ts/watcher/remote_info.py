@@ -66,6 +66,10 @@ class RemoteInfo:
         but do not trigger a rule callback. If None then no such topics.
         Each name must include prefix ``evt_`` or ``tel_``
         for event or telemetry.
+    index_required : `bool`, optional
+        If the component is indexed, is a non-zero index required?
+        Defaults to True, since it is rare for a rule to be able to
+        handle more than one instance of a CSC.
 
     Attributes
     ----------
@@ -95,11 +99,14 @@ class RemoteInfo:
         If ``index`` cannot be cast to an `int`.
     """
 
-    def __init__(self, name, index, callback_names=None, poll_names=None):
+    def __init__(
+        self, name, index, callback_names=None, poll_names=None, index_required=True
+    ):
         self.name = name
         self.index = int(index)
         self.callback_names = as_tuple(callback_names)
         self.poll_names = as_tuple(poll_names)
+        self.index_required = index_required
         all_names = self.topic_names
         if not all_names:
             raise ValueError("No topic names found callback_names or poll_names")
