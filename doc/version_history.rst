@@ -6,6 +6,17 @@
 Version History
 ###############
 
+v1.14.0
+-------
+
+* Allow rules to have 0 or more alarms.
+* Added `OneAlarmCallbackRule`: a base class for rules with a single alarm that use topic callback data.
+  Most rules that inherited from `BaseRule` should now inherit from `OneAlarmCallbackRule`, instead.
+  Fur such rules rename ``__call__`` to ``compute_alarm_severity`` (which is still synchronous).
+* `BaseRule`: change ``__call__`` to return None and to be async.
+  This allows rules to support multiple alarms.
+
+
 v1.13.3
 -------
 
