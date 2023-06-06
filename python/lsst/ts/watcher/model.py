@@ -234,12 +234,13 @@ class Model:
         Raises
         ------
         ValueError
-            If a rule by this name already exists
+            If a rule by this name already exists.
         RuntimeError
             If the rule uses a remote for which no IDL file is available
             in the ts_idl package.
-        RuntimeEror:
-            If the rule references a topic that does not exist.
+            Or if the rule references a topic that does not exist.
+            Or if a RemoteInfo specifies index=0 for an indexed SAL component
+            and index_required is true.
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
@@ -261,6 +262,15 @@ class Model:
                     start=False,
                 )
                 self.remotes[remote_info.key] = remote
+            if (
+                remote_info.index_required
+                and remote_info.index == 0
+                and remote.salinfo.indexed
+            ):
+                raise RuntimeError(
+                    f"Rule {rule.name} requires remote {remote_info.name} "
+                    "to have index != 0 (for an indexed SAL component)."
+                )
             wrapper = RemoteWrapper(remote=remote, topic_names=remote_info.topic_names)
             setattr(rule, wrapper.attr_name, wrapper)
             for topic_name in remote_info.callback_names:
