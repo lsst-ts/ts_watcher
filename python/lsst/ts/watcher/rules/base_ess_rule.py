@@ -171,6 +171,7 @@ class BaseEssRule(watcher.PollingRule):
             name=rule_name,
             remote_info_list=remote_info_list,
         )
+        self.alarm = self.alarms[0]
 
     def setup(self, model):
         """Create filtered topic wrappers
@@ -222,17 +223,7 @@ class BaseEssRule(watcher.PollingRule):
     def stop(self):
         self.poll_loop_task.cancel()
 
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        is_first = True
-        while True:
-            await self.poll_once(set_poll_start_tai=is_first)
-            is_first = False
-            await asyncio.sleep(self.config.poll_interval)
-
-    async def poll_once(self, set_poll_start_tai):
+    async def poll_once(self):
         """Poll the alarm once.
 
         Parameters
@@ -244,13 +235,10 @@ class BaseEssRule(watcher.PollingRule):
         -------
         severity, reason
         """
-        if set_poll_start_tai:
-            self.poll_start_tai = utils.current_tai()
-        severity, reason = self()
+        severity, reason = self.compute_alarm_severity()
         await self.alarm.set_severity(severity=severity, reason=reason)
-        return severity, reason
 
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(self):
         current_tai = utils.current_tai()
         # List of (reported_value, field_wrapper, index)
         reported_values = self.field_wrappers.get_data(max_age=self.config.max_data_age)

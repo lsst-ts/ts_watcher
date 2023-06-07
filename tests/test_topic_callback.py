@@ -51,6 +51,7 @@ class BadEnabledRule(watcher.rules.Enabled):
         self.num_callbacks_queue = asyncio.Queue()
         super().__init__(**kwargs)
         self.alarm.name = "Bad" + self.alarm.name
+        self.name = self.alarm.name
 
     def __call__(self, data=None, topic_callback=None):
         self.num_callbacks += 1
@@ -181,6 +182,7 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Modify the name of rule3 and try again. This should work.
             rule3.alarm.name = rule3.alarm.name + "modified"
+            rule3.name = rule3.alarm.name
             topic_callback.add_rule(rule3)
             await controller.evt_summaryState.set_write(
                 summaryState=salobj.State.FAULT, force_output=True

@@ -137,6 +137,11 @@ class TopicCallback:
         ----------
         rule : `BaseRule`
             Rule to add.
+
+        Raises
+        ------
+        ValueError
+            If a rule by this name already exists.
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")

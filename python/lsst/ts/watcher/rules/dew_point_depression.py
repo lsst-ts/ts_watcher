@@ -113,6 +113,7 @@ class DewPointDepression(watcher.PollingRule):
             name=f"DewPointDepression.{config.name}",
             remote_info_list=remote_info_list,
         )
+        self.alarm = self.alarms[0]
 
     @classmethod
     def get_schema(cls):

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -21,11 +23,18 @@
 
 __all__ = ["PollingRule"]
 
+import abc
 import asyncio
+import types
+import typing
 
 from lsst.ts import utils
 
 from .base_rule import BaseRule
+
+if typing.TYPE_CHECKING:
+    from .alarm import Alarm
+    from .remote_info import RemoteInfo
 
 
 class PollingRule(BaseRule):
@@ -46,9 +55,13 @@ class PollingRule(BaseRule):
         so that groups of related alarms can be acknowledged.
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
+    alarm_list : `list` [`Alarm`]
 
     Attributes
     ----------
+    poll_start_tai : `float`
+        The time at which polling began after most recently starting the rule.
+        TAI (unix seconds). 0 when first constructed.
     alarm : `Alarm`
         The alarm associated with this rule.
     remote_keys : `frozenset` [`tuple` [`str`, `int`]]
@@ -56,54 +69,49 @@ class PollingRule(BaseRule):
 
         * SAL component name (e.g. "ATPtg")
         * SAL index
-
-    Notes
-    -----
-    `Model.add_rule` adds an attribute
-    ``{lowerremotename}_{index} = `` `RemoteWrapper`
-    to the rule for each remote in `remote_info_list`, where
-    ``lowerremotename`` is the name of the SAL component cast to lowercase,
-    and ``index`` is the SAL index (0 if not an indexed component).
-    For example: ``atdome_0`` for ATDome (which is not indexed).
-    This gives each rule ready access to its remote wrappers.
     """
 
-    def __init__(self, config, name, remote_info_list):
-        self.poll_start_tai = utils.current_tai()
+    def __init__(
+        self,
+        config: types.SimpleNamespace,
+        name: str,
+        remote_info_list: list[RemoteInfo],
+        alarm_list: list[Alarm] | None = None,
+    ):
+        self.poll_start_tai = 0
         self.poll_loop_task = utils.make_done_future()
-        super().__init__(config=config, name=name, remote_info_list=remote_info_list)
+        super().__init__(
+            config=config,
+            name=name,
+            remote_info_list=remote_info_list,
+            alarm_list=alarm_list,
+        )
 
-    def start(self):
+    def start(self) -> None:
         self.poll_loop_task.cancel()
         self.poll_loop_task = asyncio.create_task(self.poll_loop())
 
-    def stop(self):
+    def stop(self) -> None:
         self.poll_loop_task.cancel()
 
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        is_first = True
+    async def poll_loop(self) -> None:
+        self.poll_start_tai = utils.current_tai()
         while True:
-            await self.poll_once(set_poll_start_tai=is_first)
-            is_first = False
+            await self.poll_once()
             await asyncio.sleep(self.config.poll_interval)
 
-    async def poll_once(self, set_poll_start_tai):
+    @abc.abstractmethod
+    async def poll_once(self, is_first: bool) -> None:
         """Poll the alarm once.
 
         Parameters
         ----------
-        set_poll_start_tai : `bool`
-            If true then set self.poll_start_tai to the current TAI.
+        is_first : `bool`
+            True if this is the first time poll_once has been called
+            since the rule was started.
 
         Returns
         -------
         severity, reason
         """
-        if set_poll_start_tai:
-            self.poll_start_tai = utils.current_tai()
-        severity, reason = self()
-        await self.alarm.set_severity(severity=severity, reason=reason)
-        return severity, reason
+        raise NotImplementedError()

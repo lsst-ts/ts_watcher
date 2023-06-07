@@ -78,12 +78,16 @@ class OneAlarmCallbackRule(BaseRule):
 
     def __init__(self, config, name, remote_info_list):
         super().__init__(config=config, name=name, remote_info_list=remote_info_list)
+        # Save the sole alarm as self.alarms
+        self.alarm = self.alarms[0]
 
     @abc.abstractmethod
     def compute_alarm_severity(
         self, data: BaseMsgType, topic_callback: TopicCallback | None
     ) -> AlarmSeverityReasonType:
         """Compute and return alarm severity, reason.
+
+        Unlike `__call__` this method is synchronous.
 
         Parameters
         ----------
@@ -107,14 +111,7 @@ class OneAlarmCallbackRule(BaseRule):
 
         Notes
         -----
-        You may return `NoneNoReason` if the alarm states is ``NONE``.
-
-        To defer setting the alarm state, start a task that calls
-        ``self.alarm.set_severity`` later. For example the heartbeat rule's
-        ``__call__`` method is called when the heartbeat event is seen,
-        and this restarts a timer and returns `NoneNoReason`. If the timer
-        finishes, meaning the next heartbeat event was not seen in time,
-        the timer sets alarm severity > ``NONE``.
+        See the notes for `BaseRule.__call__` for more information.
         """
         raise NotImplementedError()
 

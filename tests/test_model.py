@@ -395,29 +395,29 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             for alarm in alarms:
                 assert alarm.timestamp_escalate == 0
 
-    async def test_get_rules(self):
+    async def test_get_alarms(self):
         remote_names = ["ScriptQueue:1", "ScriptQueue:2", "Test:1", "Test:2", "Test:52"]
 
         async with self.make_model(names=remote_names, enable=False):
-            rules = self.model.get_rules("NoSuchName")
-            assert len(list(rules)) == 0
+            alarms = self.model.get_alarms("NoSuchName")
+            assert len(list(alarms)) == 0
 
             # Search starts at beginning, so Enabled.foo works
             # but foo does not.
-            rules = self.model.get_rules("ScriptQueue")
-            assert len(list(rules)) == 0
+            alarms = self.model.get_alarms("ScriptQueue")
+            assert len(list(alarms)) == 0
 
-            rules = self.model.get_rules(".*")
-            assert len(list(rules)) == len(remote_names)
+            alarms = self.model.get_alarms(".*")
+            assert len(list(alarms)) == len(remote_names)
 
-            rules = self.model.get_rules("Enabled")
-            assert len(list(rules)) == len(remote_names)
+            alarms = self.model.get_alarms("Enabled")
+            assert len(list(alarms)) == len(remote_names)
 
-            rules = self.model.get_rules("Enabled.ScriptQueue")
-            assert len(list(rules)) == 2
+            alarms = self.model.get_alarms("Enabled.ScriptQueue")
+            assert len(list(alarms)) == 2
 
-            rules = self.model.get_rules("Enabled.Test")
-            assert len(list(rules)) == 3
+            alarms = self.model.get_alarms("Enabled.Test")
+            assert len(list(alarms)) == 3
 
     async def test_mute_full_name(self):
         """Test mute and unmute by full alarm name."""

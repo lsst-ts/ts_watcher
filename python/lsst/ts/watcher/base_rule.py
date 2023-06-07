@@ -34,6 +34,7 @@ from . import alarm
 
 if typing.TYPE_CHECKING:
     from .model import Model
+    from .remote_info import RemoteInfo
     from .topic_callback import TopicCallback
 
 
@@ -60,6 +61,12 @@ class BaseRule(abc.ABC):
         so that groups of related alarms can be acknowledged.
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
+    alarms : `list` [`alarm.Alarm`] | None, optional
+        List of 0 or more alarms managed by this rule.
+        None (the default) results in a single alarm with ``name=name``;
+        this is a very common case.
+        An empty list is appropriate if the rule only writes the
+        ``notification`` event and not the ``alarm`` event.
 
     Attributes
     ----------
@@ -82,12 +89,22 @@ class BaseRule(abc.ABC):
     This gives each rule ready access to its remote wrappers.
     """
 
-    def __init__(self, config, name, remote_info_list):
+    def __init__(
+        self,
+        config: types.SimpleNamespace,
+        name: str,
+        remote_info_list: list[RemoteInfo],
+        alarms: list[alarm.Alarm] | None = None,
+    ) -> None:
         self.config = config
+        self.name = name
         self.remote_info_list = remote_info_list
         self.remote_keys = frozenset(info.key for info in remote_info_list)
         # The model sets the callback and auto delays
-        self.alarm = alarm.Alarm(name=name)
+
+        if alarms is None:
+            alarms = [alarm.Alarm(name=name)]
+        self.alarms = alarms
 
     @classmethod
     @abc.abstractmethod
@@ -148,11 +165,6 @@ class BaseRule(abc.ABC):
             validator = salobj.DefaultingValidator(schema)
             full_config_dict = validator.validate(kwargs)
             return types.SimpleNamespace(**full_config_dict)
-
-    @property
-    def name(self):
-        """Get the rule name."""
-        return self.alarm.name
 
     def is_usable(self, disabled_sal_components: set[tuple[str, int]]) -> bool:
         """Return True if rule can be used, despite disabled SAL components.
@@ -232,7 +244,10 @@ class BaseRule(abc.ABC):
     def __call__(
         self, data: salobj.BaseMsgType, topic_callback: TopicCallback | None
     ) -> None:
-        """Run the rule and return the severity and reason.
+        """Run the rule.
+
+        This should set the severity of one or more alarms and/or write a
+        ``notification`` event, as appropriate.
 
         Parameters
         ----------
@@ -259,12 +274,12 @@ class BaseRule(abc.ABC):
         -----
         You may return `NoneNoReason` if the alarm states is ``NONE``.
 
-        To defer setting the alarm state, start a task that calls
-        ``self.alarm.set_severity`` later. For example the heartbeat rule's
+        To defer setting an alarm state, start a task that calls
+        ``set_severity`` later. For example the Heartbeat rule's
         ``__call__`` method is called when the heartbeat event is seen,
-        and this restarts a timer and returns `NoneNoReason`. If the timer
-        finishes, meaning the next heartbeat event was not seen in time,
-        the timer sets alarm severity > ``NONE``.
+        and this restarts a timer. If the timer finishes
+        (meaning the next heartbeat event was not seen in time),
+        the timer set the alarm severity > ``NONE``.
         """
         raise NotImplementedError("Subclasses must override")
 

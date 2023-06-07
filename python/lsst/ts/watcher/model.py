@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -25,6 +27,7 @@ import asyncio
 import fnmatch
 import inspect
 import re
+import typing
 
 from lsst.ts import salobj, utils
 
@@ -32,6 +35,12 @@ from . import rules
 from .filtered_topic_wrapper import FilteredTopicWrapper, get_filtered_topic_wrapper_key
 from .remote_wrapper import RemoteWrapper
 from .topic_callback import TopicCallback, get_topic_key
+
+if typing.TYPE_CHECKING:
+    from lsst.ts.idl.enums.Watcher import AlarmSeverity
+
+    from .alarm import Alarm
+    from .base_rule import BaseRule
 
 
 def get_rule_class(classname):
@@ -93,7 +102,10 @@ class Model:
         self.filtered_topic_wrappers = dict()
 
         # Dict of rule_name: Rule
-        self.rules = dict()
+        self.rules: dict[str, BaseRule] = dict()
+
+        # Dict of alarm_name: Alarm
+        self.alarms: dict[str, Alarm] = dict()
 
         # Convert disabled_sal_components
         # from a list of names in the form ``name`` or ``name:index``
@@ -131,7 +143,7 @@ class Model:
                         self._topics_with_callbacks.append(topic)
 
         # Set escalation information in the alarms.
-        remaining_names = set(self.rules)
+        remaining_names = set(self.alarms)
         for escalation_item in config.escalation:
             for name_glob in escalation_item["alarms"]:
                 name_regex = fnmatch.translate(name_glob)
@@ -141,7 +153,7 @@ class Model:
                 ]
                 remaining_names = remaining_names.difference(matched_names)
                 for name in matched_names:
-                    alarm = self.rules[name].alarm
+                    alarm = self.alarms[name]
                     alarm.configure_escalation(
                         escalation_responder=escalation_item["responder"],
                         escalation_delay=escalation_item["delay"],
@@ -172,8 +184,9 @@ class Model:
         if self._enabled:
             return
         self._enabled = True
+        for alarm in self.alarms.values():
+            alarm.reset()
         for rule in self.rules.values():
-            rule.alarm.reset()
             rule.start()
 
         # Feed available data to the rules.
@@ -184,9 +197,9 @@ class Model:
 
         # For alarms that are still nominal, write that state
         # (non-nominal alarms have already been written).
-        for rule in self.rules.values():
-            if rule.alarm.nominal:
-                await rule.alarm.run_callback()
+        for alarm in self.alarms.values():
+            if alarm.nominal:
+                await alarm.run_callback()
 
     def disable(self):
         """Disable the model. A no-op if already disabled."""
@@ -201,8 +214,9 @@ class Model:
 
     async def close(self):
         """Stop rules and close remotes."""
+        for alarm in self.alarms.values():
+            alarm.close()
         for rule in self.rules.values():
-            rule.alarm.close()
             rule.stop()
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
@@ -220,8 +234,8 @@ class Model:
         user : `str`
             Name of user; used to set acknowledged_by.
         """
-        for rule in self.get_rules(name):
-            await rule.alarm.acknowledge(severity=severity, user=user)
+        for alarm in self.get_alarms(name):
+            await alarm.acknowledge(severity=severity, user=user)
 
     def add_rule(self, rule):
         """Add a rule.
@@ -234,7 +248,8 @@ class Model:
         Raises
         ------
         ValueError
-            If a rule by this name already exists.
+            If a rule by this name already exists, or if any alarm in the rule
+            has a name that already exists.
         RuntimeError
             If the rule uses a remote for which no IDL file is available
             in the ts_idl package.
@@ -244,11 +259,18 @@ class Model:
         """
         if rule.name in self.rules:
             raise ValueError(f"A rule named {rule.name} already exists")
-        rule.alarm.configure_basics(
-            callback=self.alarm_callback,
-            auto_acknowledge_delay=self.config.auto_acknowledge_delay,
-            auto_unacknowledge_delay=self.config.auto_unacknowledge_delay,
-        )
+        for alarm in rule.alarms:
+            if alarm.name in self.alarms:
+                raise ValueError(
+                    f"An alarm named {alarm.name} already exists; "
+                    f"The duplicate was found in rule {rule.name}."
+                )
+            self.alarms[alarm.name] = alarm
+            alarm.configure_basics(
+                callback=self.alarm_callback,
+                auto_acknowledge_delay=self.config.auto_acknowledge_delay,
+                auto_unacknowledge_delay=self.config.auto_unacknowledge_delay,
+            )
         # Create remotes and add callbacks.
         for remote_info in rule.remote_info_list:
             remote = self.remotes.get(remote_info.key, None)
@@ -309,8 +331,8 @@ class Model:
         )
         return self.filtered_topic_wrappers[key]
 
-    def get_rules(self, name_regex):
-        """Get all rules whose name matches the specified regular expression.
+    def get_alarms(self, name_regex: str) -> tuple[Alarm]:
+        """Get all alarms whose name matches the specified regular expression.
 
         Parameters
         ----------
@@ -319,13 +341,13 @@ class Model:
 
         Returns
         -------
-        rules : `generator`
-            An iterator over rules.
+        alarms : `generator`
+            An iterator over alarms.
         """
         compiled_re = re.compile(name_regex)
         return (
-            rule
-            for name, rule in self.rules.items()
+            alarm
+            for name, alarm in self.alarms.items()
             if compiled_re.match(name) is not None
         )
 
@@ -362,7 +384,9 @@ class Model:
             )
         return wrapper
 
-    async def mute_alarm(self, name, duration, severity, user):
+    async def mute_alarm(
+        self, name: str, duration: float, severity: AlarmSeverity, user: str
+    ) -> None:
         """Mute one or more alarms for a specified duration.
 
         Parameters
@@ -377,10 +401,10 @@ class Model:
         user : `str`
             Name of user; used to set acknowledged_by.
         """
-        for rule in self.get_rules(name):
-            await rule.alarm.mute(duration=duration, severity=severity, user=user)
+        for alarm in self.get_alarms(name):
+            await alarm.mute(duration=duration, severity=severity, user=user)
 
-    async def unacknowledge_alarm(self, name):
+    async def unacknowledge_alarm(self, name: str) -> None:
         """Unacknowledge one or more alarms.
 
         Parameters
@@ -388,10 +412,10 @@ class Model:
         name : `str`
             Regular expression for alarm name(s) to unacknowledge.
         """
-        for rule in self.get_rules(name):
-            await rule.alarm.unacknowledge()
+        for alarm in self.get_alarms(name):
+            await alarm.unacknowledge()
 
-    async def unmute_alarm(self, name):
+    async def unmute_alarm(self, name: str) -> None:
         """Unmute one or more alarms.
 
         Parameters
@@ -399,8 +423,8 @@ class Model:
         name : `str`
             Regular expression for alarm name(s) to unmute.
         """
-        for rule in self.get_rules(name):
-            await rule.alarm.unmute()
+        for alarm in self.get_alarms(name):
+            await alarm.unmute()
 
     async def __aenter__(self):
         await self.start_task
