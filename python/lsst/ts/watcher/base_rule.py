@@ -33,6 +33,7 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from . import alarm
 
 if typing.TYPE_CHECKING:
+    from .model import Model
     from .topic_callback import TopicCallback
 
 
@@ -90,8 +91,8 @@ class BaseRule(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_schema(cls):
-        """Return a jsonschema to validate configuration, as a `dict`.
+    def get_schema(cls) -> dict[str, typing.Any]:
+        """Return a jsonschema as a `dict`, to validate configuration.
 
         Notes
         -----
@@ -118,7 +119,7 @@ class BaseRule(abc.ABC):
         raise NotImplementedError("Subclasses must override")
 
     @classmethod
-    def make_config(cls, **kwargs):
+    def make_config(cls, **kwargs: str) -> types.SimpleNamespace:
         """Make a config from keyword arguments, after applying defaults.
 
         Parameters
@@ -153,7 +154,7 @@ class BaseRule(abc.ABC):
         """Get the rule name."""
         return self.alarm.name
 
-    def is_usable(self, disabled_sal_components):
+    def is_usable(self, disabled_sal_components: set[tuple[str, int]]) -> bool:
         """Return True if rule can be used, despite disabled SAL components.
 
         The default implementation returns true if all remotes used by this
@@ -171,7 +172,7 @@ class BaseRule(abc.ABC):
         """
         return self.remote_keys.isdisjoint(disabled_sal_components)
 
-    def setup(self, model):
+    def setup(self, model: Model) -> None:
         """Perform post-constructor setup.
 
         Called after the remotes are constructed and populated with topics,
@@ -197,7 +198,7 @@ class BaseRule(abc.ABC):
         """
         pass
 
-    def start(self):
+    def start(self) -> None:
         """Start any background tasks, such as a polling loop.
 
         This is called when the watcher goes into the enabled state.
@@ -211,7 +212,7 @@ class BaseRule(abc.ABC):
         """
         pass
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop all background tasks.
 
         This is called when the watcher goes out of the enabled state,
@@ -228,7 +229,9 @@ class BaseRule(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def __call__(self, data: salobj.BaseMsgType, topic_callback: TopicCallback | None):
+    def __call__(
+        self, data: salobj.BaseMsgType, topic_callback: TopicCallback | None
+    ) -> None:
         """Run the rule and return the severity and reason.
 
         Parameters
@@ -265,5 +268,5 @@ class BaseRule(abc.ABC):
         """
         raise NotImplementedError("Subclasses must override")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name})"
