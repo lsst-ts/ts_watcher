@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -21,8 +23,13 @@
 
 __all__ = ["MTCCWFollowingRotator"]
 
+import typing
+
 from lsst.ts import watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+
+if typing.TYPE_CHECKING:
+    from lsst.ts.salobj import BaseMsgType
 
 
 class MTCCWFollowingRotator(watcher.BaseRule):
@@ -58,7 +65,9 @@ class MTCCWFollowingRotator(watcher.BaseRule):
     def get_schema(cls):
         return None
 
-    def __call__(self, data, topic_callback=None):
+    def compute_alarm_severity(
+        self, data: BaseMsgType, **kwargs: typing.Any
+    ) -> watcher.AlarmSeverityReasonType:
         enabled = data.enabled
         if enabled:
             return watcher.NoneNoReason

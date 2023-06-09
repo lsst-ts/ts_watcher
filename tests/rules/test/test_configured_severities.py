@@ -52,7 +52,7 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
         with pytest.raises(RuntimeError):
-            rule(topic_callback=None)
+            await rule.update_alarm_severity()
         assert name in repr(rule)
         assert "test.ConfiguredSeverities" in repr(rule)
 

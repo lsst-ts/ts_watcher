@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This file is part of ts_watcher.
 #
 # Developed for Vera C. Rubin Observatory Telescope and Site Systems.
@@ -22,6 +24,12 @@
 __all__ = ["get_topic_key", "TopicCallback"]
 
 import asyncio
+import typing
+
+if typing.TYPE_CHECKING:
+    from lsst.ts.salobj import BaseMsgType
+
+    from .base_rule import BaseRule
 
 
 def get_topic_key(topic):
@@ -122,7 +130,7 @@ class TopicCallback:
         """
         self.topic_wrappers.append(wrapper)
 
-    def add_rule(self, rule):
+    def add_rule(self, rule: BaseRule) -> None:
         """Add a rule.
 
         Parameters
@@ -134,7 +142,7 @@ class TopicCallback:
             raise ValueError(f"A rule named {rule.name} already exists")
         self.rules[rule.name] = rule
 
-    async def __call__(self, data):
+    async def __call__(self, data: BaseMsgType) -> None:
         if not self.model.enabled:
             return
         for wrapper in self.topic_wrappers:
@@ -147,8 +155,7 @@ class TopicCallback:
                 pass
         for rule in self.rules.values():
             try:
-                severity, reason = rule(data=data, topic_callback=self)
-                await rule.alarm.set_severity(severity=severity, reason=reason)
+                await rule.update_alarm_severity(data=data, topic_callback=self)
             except Exception:
                 self._topic.log.exception(
                     f"Error calling rule {rule} with data {data!s}"

@@ -39,7 +39,7 @@ class ConfiguredSeverities(watcher.BaseRule):
     Raises
     ------
     RuntimeError
-        If ``__call__`` is called. When used as a normal rule
+        If `compute_alarm_severity` is called. When used as a normal rule
         this method should never be called because the rule
         specifies topics to call it.
 
@@ -115,5 +115,5 @@ class ConfiguredSeverities(watcher.BaseRule):
             if self.config.repeats > 0 and repeat >= self.config.repeats:
                 break
 
-    def __call__(self, topic_callback):
+    def compute_alarm_severity(self) -> None:
         raise RuntimeError("This should never be called")

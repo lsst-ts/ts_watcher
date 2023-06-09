@@ -98,13 +98,23 @@ class BaseEssRule(watcher.PollingRule):
         without a leading colon, e.g. "0.2f"
 
 
+    Attributes
+    ----------
+    PollingRule attributes
+        All attributes from `PollingRule`, plus:
+    field_wrappers : `watcher.FieldWrapperList`
+        Wrappers for ESS telemetry fields.
+    sensors : `dict`
+        Sensor configuration (the config field specified by
+        ``sensor_field_info_name``).
+    threshold_handler : `watcher.ThresholdHandler`
+        Threshold handler for ESS data.
+
     Notes
     -----
-    Like most rules based on data from the ESS CSC: this uses
-    `FilteredTopicField` and its ilk, because a given topic may be output
-    for more than one sensor (e.g. there may be two humidity sensors
-    or two 4-channel temperature sensors connected to the same CSC)
-    where the data is differentiated by the value of the sensorName field.
+    This uses `FilteredEssFieldWrapper` and its kin, because ESS data must be
+    filtered by the value of the ``sensorName`` field (and index, if the data
+    is array-valued).
     """
 
     def __init__(
@@ -125,9 +135,7 @@ class BaseEssRule(watcher.PollingRule):
         self.is_indexed = is_indexed
         self.sensors = getattr(config, sensor_info_name)
 
-        self.poll_loop_task = utils.make_done_future()
-
-        # Humidity field wrappers; computed in `setup`.
+        # Field wrappers; computed in `setup`.
         self.field_wrappers = watcher.FieldWrapperList()
 
         self.threshold_handler = watcher.ThresholdHandler(
@@ -222,35 +230,7 @@ class BaseEssRule(watcher.PollingRule):
     def stop(self):
         self.poll_loop_task.cancel()
 
-    async def poll_loop(self):
-        # Keep track of when polling begins
-        # in order to avoid confusing "no data ever seen"
-        # with "all data is older than max_data_age"
-        is_first = True
-        while True:
-            await self.poll_once(set_poll_start_tai=is_first)
-            is_first = False
-            await asyncio.sleep(self.config.poll_interval)
-
-    async def poll_once(self, set_poll_start_tai):
-        """Poll the alarm once.
-
-        Parameters
-        ----------
-        set_poll_start_tai : `bool`
-            If true then set self.poll_start_tai to the current TAI.
-
-        Returns
-        -------
-        severity, reason
-        """
-        if set_poll_start_tai:
-            self.poll_start_tai = utils.current_tai()
-        severity, reason = self()
-        await self.alarm.set_severity(severity=severity, reason=reason)
-        return severity, reason
-
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(self):
         current_tai = utils.current_tai()
         # List of (reported_value, field_wrapper, index)
         reported_values = self.field_wrappers.get_data(max_age=self.config.max_data_age)

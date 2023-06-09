@@ -350,11 +350,9 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def __call__(
-        self,
-        data: salobj.BaseMsgType,
-        topic_callback: watcher.TopicCallback | None = None,
-    ) -> AlarmSeverity:
+    def compute_alarm_severity(
+        self, data: salobj.BaseMsgType, **kwargs
+    ) -> watcher.AlarmSeverityReasonType:
         self.restart_no_data_timer()
         self.data_queue.append(data)
         curr_tai = utils.current_tai()
