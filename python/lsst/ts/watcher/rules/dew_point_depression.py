@@ -273,7 +273,7 @@ additionalProperties: false
                     )
                 self.temperature_field_wrappers.add_wrapper(field_wrapper)
 
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(self):
         current_tai = utils.current_tai()
         # List of (dew_point, wrapper, index)
         dew_points = self.dew_point_field_wrappers.get_data(

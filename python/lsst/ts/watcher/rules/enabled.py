@@ -21,6 +21,8 @@
 
 __all__ = ["Enabled"]
 
+import typing
+
 import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -105,7 +107,9 @@ class Enabled(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data, topic_callback=None):
+    def compute_alarm_severity(
+        self, data: salobj.BaseMsgType, **kwargs: typing.Any
+    ) -> watcher.AlarmSeverityReasonType:
         state = data.summaryState
         try:
             state_name = salobj.State(state).name

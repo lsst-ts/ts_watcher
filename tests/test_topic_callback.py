@@ -21,6 +21,7 @@
 
 import asyncio
 import types
+import typing
 import unittest
 
 import pytest
@@ -33,10 +34,11 @@ index_gen = utils.index_generator()
 
 
 class BadEnabledRule(watcher.rules.Enabled):
-    """A variant of the Enabled rule that raises in `__call__`.
+    """A variant of the Enabled rule that raises in `compute_alarm_severity`.
 
     Do not try to use the alarm's severity_queue attribute, because
-    the exception in `__call__` prevents severities from being added to it.
+    the exception in `compute_alarm_severity` prevents severities
+    from being added to it.
 
     Attributes
     ----------
@@ -46,20 +48,20 @@ class BadEnabledRule(watcher.rules.Enabled):
         A queue of the number of callbacks.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: typing.Any) -> None:
         self.num_callbacks = 0
         self.num_callbacks_queue = asyncio.Queue()
         super().__init__(**kwargs)
         self.alarm.name = "Bad" + self.alarm.name
 
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(self, **kwargs: typing.Any) -> None:
         self.num_callbacks += 1
         self.num_callbacks_queue.put_nowait(self.num_callbacks)
-        raise RuntimeError("BadEnabledRule.__call__ intentionally raises")
+        raise RuntimeError("BadEnabledRule.compute_alarm_severity intentionally raises")
 
     async def assert_next_num_callbacks(
-        self, expected_num_callbacks, timeout=STD_TIMEOUT
-    ):
+        self, expected_num_callbacks: int, timeout: float = STD_TIMEOUT
+    ) -> None:
         """Wait for the functor to be called and check num_callbacks."""
         num_callbacks = await asyncio.wait_for(
             self.num_callbacks_queue.get(), timeout=timeout

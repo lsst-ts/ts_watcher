@@ -134,10 +134,9 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             # other than those the rule is listening to.
             # This should not affect the rule.
             await send_ess_data(temperature=100, use_other_filter_values=True)
-            # Give the rule time to deal with all of the new data.
-            await asyncio.sleep(poll_interval)
-            severity, reason = await rule.poll_once(set_poll_start_tai=True)
-            assert severity == AlarmSeverity.NONE
+            rule.poll_start_tai = utils.current_tai()
+            await rule.update_alarm_severity()
+            assert rule.alarm.severity == AlarmSeverity.NONE
             assert rule.alarm.nominal
 
             # Check a sequence of temperatures
@@ -146,8 +145,8 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
                 await send_ess_data(temperature=temperature)
-                severity, reason = await rule.poll_once(set_poll_start_tai=True)
-                assert severity == expected_severity
+                await rule.update_alarm_severity()
+                assert rule.alarm.severity == expected_severity
 
             # Check that no data for max_data_age triggers severity=SERIOUS.
             rule.start()

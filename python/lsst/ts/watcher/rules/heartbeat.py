@@ -22,6 +22,7 @@
 __all__ = ["Heartbeat"]
 
 import asyncio
+import typing
 
 import yaml
 from lsst.ts import salobj, utils, watcher
@@ -99,7 +100,9 @@ class Heartbeat(watcher.BaseRule):
         """
         return yaml.safe_load(schema_yaml)
 
-    def __call__(self, data=None, topic_callback=None):
+    def compute_alarm_severity(
+        self, data: salobj.BaseMsgType, **kwargs: typing.Any
+    ) -> watcher.AlarmSeverityReasonType:
         self.restart_timer()
         return watcher.NoneNoReason
 

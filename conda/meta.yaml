@@ -45,4 +45,3 @@ requirements:
     - aiohttp >=3.8,<4.0
     - ts-idl {{ idl_version }}
     - ts-salobj {{ salobj_version }}
-    - ts-salobj
