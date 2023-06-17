@@ -21,8 +21,6 @@
 
 __all__ = ["BaseEssRule"]
 
-import asyncio
-
 from lsst.ts import utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
@@ -79,7 +77,7 @@ class BaseEssRule(watcher.PollingRule):
           This should say what the operators should do.
 
 
-    rule_name : `str`
+    name : `str`
         The name of the rule.
     topic_attr_name : `str`
         The attr name of the ESS telemetry topic, e.g. "tel_temperature"
@@ -121,7 +119,7 @@ class BaseEssRule(watcher.PollingRule):
         self,
         *,
         config,
-        rule_name,
+        name,
         topic_attr_name,
         field_name,
         sensor_info_name,
@@ -176,7 +174,7 @@ class BaseEssRule(watcher.PollingRule):
         ]
         super().__init__(
             config=config,
-            name=rule_name,
+            name=name,
             remote_info_list=remote_info_list,
         )
 
@@ -222,13 +220,6 @@ class BaseEssRule(watcher.PollingRule):
                         field_name=self.field_name,
                     )
                     self.field_wrappers.add_wrapper(field_wrapper)
-
-    def start(self):
-        self.poll_loop_task.cancel()
-        self.poll_loop_task = asyncio.create_task(self.poll_loop())
-
-    def stop(self):
-        self.poll_loop_task.cancel()
 
     def compute_alarm_severity(self):
         current_tai = utils.current_tai()

@@ -53,7 +53,7 @@ class Humidity(BaseEssRule):
 
         super().__init__(
             config=config,
-            rule_name=f"Humidity.{config.name}",
+            name=f"Humidity.{config.name}",
             topic_attr_name="tel_relativeHumidity",
             field_name="relativeHumidity",
             sensor_info_name="humidity_sensors",
