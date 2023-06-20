@@ -96,7 +96,11 @@ For each topic: decide whether you want to be called back when data is received,
 * High bandwidth telemetry: always poll, to avoid overwhelming the Watcher.
 * Low-bandwidth telemetry: either is fine.
 
-Use this information to construct a `RemoteInfo` for each remote your rule listens to and pass a list of these to the `BaseRule.__init__`
+Use this information to construct a `RemoteInfo` for each SAL component your rule listens to, and pass a list of these to the `BaseRule.__init__`.
+This `RemoteInfo` must list every topic your rule wants to read, specified in one of these two constructor arguments:
+
+* ``callback_names``: a list of topic names (such as "evt_summaryState") for which your rule's ``compute_alarm_severity`` method should be called when new data is received.
+* ``poll_names``: a list of topic names which your rule will poll.
 
 setup
 -----
@@ -111,15 +115,16 @@ compute_alarm_severity
 ----------------------
 
 All rules must override abstract method `BaseRule.compute_alarm_severity`.
-This computes the alarm severity and return the information as a tuple:  ``(severity, reason)``.
+This computes the alarm severity and return the information as a tuple:  ``(severity, reason)`` or `None`.
+Return `None` if the severity cannot be computed, e.g. because the rule does not have enough information.
 
-If your rule is triggered by receiving SAL messages, specify the topics in `RemoteInfo`.
-Then `BaseRule.compute_alarm_severity` will be called when new data arrives, with two arguments:
+If you specify any ``callback_names`` in one or more `RemoteInfo` instances, `BaseRule.compute_alarm_severity` will be called when new data arrives for those topics.
+This method will be called with two arguments, by name:
 
-  * The new topic data.
-  * The `TopicCallback` for this topic.
+  * ``data``: the new topic data.
+  * ``topic_callback``: the `TopicCallback` for this topic.
     This can be used to determine which topic the data is for.
-    However, only a few rules are complicated enough need this; most rules can ignore it.
+    This can be useful if you have more than one callback topic.
 
 If your rule uses ESS data then see `ESS data <lsst.ts.watcher.writing_rules.ess_data>`.
 
