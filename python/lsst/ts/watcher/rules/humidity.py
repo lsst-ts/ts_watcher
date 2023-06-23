@@ -24,7 +24,7 @@ __all__ = ["Humidity"]
 import yaml
 from lsst.ts import utils
 
-from .base_ess_rule import BaseEssRule
+from ..base_ess_rule import BaseEssRule
 
 
 class Humidity(BaseEssRule):
