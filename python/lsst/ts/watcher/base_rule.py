@@ -35,8 +35,8 @@ from . import alarm
 if typing.TYPE_CHECKING:
     from .model import Model
 
-# Type alias for (alarm severity, reason str)
-AlarmSeverityReasonType: typing.TypeAlias = tuple[AlarmSeverity, str]
+# Type alias for (alarm severity, reason str) | None
+AlarmSeverityReasonType: typing.TypeAlias = tuple[AlarmSeverity, str] | None
 
 
 class RuleDisabledError(Exception):
@@ -248,26 +248,12 @@ class BaseRule(abc.ABC):
               Message from the topic described by topic_callback.
             * topic_callback : `TopicCallback`
               Topic callback wrapper.
-
-        Returns
-        -------
-        A tuple of two values:
-
-        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
-            The new alarm severity.
-        reason : `str`
-            Detailed reason for the severity, e.g. a string describing
-            what value is out of range, and what the range is.
-            If ``severity`` is ``NONE`` then this value is ignored (but still
-            required) and the old reason is retained until the alarm is reset
-            to ``nominal`` state.
-
-        Notes
-        -----
-        You may return `NoneNoReason` if the alarm states is ``NONE``.
         """
-        severity, reason = self.compute_alarm_severity(**kwargs)
-        await self.alarm.set_severity(severity=severity, reason=reason)
+        severity_reason = self.compute_alarm_severity(**kwargs)
+        if severity_reason is not None:
+            await self.alarm.set_severity(
+                severity=severity_reason[0], reason=severity_reason[1]
+            )
 
     @abc.abstractmethod
     def compute_alarm_severity(self, **kwargs: typing.Any) -> AlarmSeverityReasonType:
@@ -286,7 +272,7 @@ class BaseRule(abc.ABC):
 
         Returns
         -------
-        A tuple of two values:
+        None, if no change or unknown, or a tuple of two values:
 
         severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
             The new alarm severity.
@@ -299,7 +285,7 @@ class BaseRule(abc.ABC):
 
         Notes
         -----
-        You may return `NoneNoReason` if the alarm states is ``NONE``.
+        You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
         raise NotImplementedError("Subclasses must override")
 

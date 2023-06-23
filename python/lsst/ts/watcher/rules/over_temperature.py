@@ -50,7 +50,7 @@ class OverTemperature(BaseEssRule):
     def __init__(self, config):
         super().__init__(
             config=config,
-            rule_name=f"OverTemperature.{config.name}",
+            name=f"OverTemperature.{config.name}",
             topic_attr_name="tel_temperature",
             field_name="temperature",
             sensor_info_name="temperature_sensors",

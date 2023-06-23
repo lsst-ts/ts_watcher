@@ -32,7 +32,7 @@ class Enabled(watcher.BaseRule):
     """Monitor the summary state of a CSC.
 
     Set alarm severity NONE if the CSC is in the ENABLED state,
-    SERIOUS if the CSC is in a FAULT state, else WARNING.
+    and configurable severities in other states.
 
     Parameters
     ----------
@@ -80,7 +80,7 @@ class Enabled(watcher.BaseRule):
 """ + "\n".join(
                 f"{indent}    - {severity.value}"
                 for severity in AlarmSeverity
-                if severity != AlarmSeverity.NONE
+                if severity is not AlarmSeverity.NONE
             )
 
         schema_yaml = f"""
