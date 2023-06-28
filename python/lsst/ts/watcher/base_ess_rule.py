@@ -21,13 +21,21 @@
 
 __all__ = ["BaseEssRule"]
 
-import asyncio
-
-from lsst.ts import utils, watcher
+from lsst.ts import utils
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
+from .base_rule import NoneNoReason
+from .field_wrapper_list import FieldWrapperList
+from .filtered_field_wrapper import (
+    FilteredEssFieldWrapper,
+    IndexedFilteredEssFieldWrapper,
+)
+from .polling_rule import PollingRule
+from .remote_info import RemoteInfo
+from .threshold_handler import ThresholdHandler
 
-class BaseEssRule(watcher.PollingRule):
+
+class BaseEssRule(PollingRule):
     """Check one kind of ESS data, e.g. temperature or humidity.
 
     Parameters
@@ -79,7 +87,7 @@ class BaseEssRule(watcher.PollingRule):
           This should say what the operators should do.
 
 
-    rule_name : `str`
+    name : `str`
         The name of the rule.
     topic_attr_name : `str`
         The attr name of the ESS telemetry topic, e.g. "tel_temperature"
@@ -102,12 +110,12 @@ class BaseEssRule(watcher.PollingRule):
     ----------
     PollingRule attributes
         All attributes from `PollingRule`, plus:
-    field_wrappers : `watcher.FieldWrapperList`
+    field_wrappers : `FieldWrapperList`
         Wrappers for ESS telemetry fields.
     sensors : `dict`
         Sensor configuration (the config field specified by
         ``sensor_field_info_name``).
-    threshold_handler : `watcher.ThresholdHandler`
+    threshold_handler : `ThresholdHandler`
         Threshold handler for ESS data.
 
     Notes
@@ -121,7 +129,7 @@ class BaseEssRule(watcher.PollingRule):
         self,
         *,
         config,
-        rule_name,
+        name,
         topic_attr_name,
         field_name,
         sensor_info_name,
@@ -136,9 +144,9 @@ class BaseEssRule(watcher.PollingRule):
         self.sensors = getattr(config, sensor_info_name)
 
         # Field wrappers; computed in `setup`.
-        self.field_wrappers = watcher.FieldWrapperList()
+        self.field_wrappers = FieldWrapperList()
 
-        self.threshold_handler = watcher.ThresholdHandler(
+        self.threshold_handler = ThresholdHandler(
             warning_level=getattr(config, "warning_level", None),
             serious_level=getattr(config, "serious_level", None),
             critical_level=getattr(config, "critical_level", None),
@@ -166,7 +174,7 @@ class BaseEssRule(watcher.PollingRule):
                 topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
-            watcher.RemoteInfo(
+            RemoteInfo(
                 name=name,
                 index=sal_index,
                 callback_names=None,
@@ -176,7 +184,7 @@ class BaseEssRule(watcher.PollingRule):
         ]
         super().__init__(
             config=config,
-            name=rule_name,
+            name=name,
             remote_info_list=remote_info_list,
         )
 
@@ -198,7 +206,7 @@ class BaseEssRule(watcher.PollingRule):
                     sensor_name = topic_specific_sensor_info["sensor_name"]
                     indices = topic_specific_sensor_info.get("indices", None)
                     if indices is not None:
-                        field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
+                        field_wrapper = IndexedFilteredEssFieldWrapper(
                             model=model,
                             topic=topic,
                             sensor_name=sensor_name,
@@ -206,7 +214,7 @@ class BaseEssRule(watcher.PollingRule):
                             indices=indices,
                         )
                     else:
-                        field_wrapper = watcher.FilteredEssFieldWrapper(
+                        field_wrapper = FilteredEssFieldWrapper(
                             model=model,
                             topic=topic,
                             sensor_name=sensor_name,
@@ -215,20 +223,13 @@ class BaseEssRule(watcher.PollingRule):
                     self.field_wrappers.add_wrapper(field_wrapper)
             else:
                 for sensor_name in sensor_info["sensor_names"]:
-                    field_wrapper = watcher.FilteredEssFieldWrapper(
+                    field_wrapper = FilteredEssFieldWrapper(
                         model=model,
                         topic=topic,
                         sensor_name=sensor_name,
                         field_name=self.field_name,
                     )
                     self.field_wrappers.add_wrapper(field_wrapper)
-
-    def start(self):
-        self.poll_loop_task.cancel()
-        self.poll_loop_task = asyncio.create_task(self.poll_loop())
-
-    def stop(self):
-        self.poll_loop_task.cancel()
 
     def compute_alarm_severity(self):
         current_tai = utils.current_tai()
@@ -242,7 +243,7 @@ class BaseEssRule(watcher.PollingRule):
                     f"No {self.topic_attr_name} data seen for {self.config.max_data_age} seconds",
                 )
             else:
-                return watcher.NoneNoReason
+                return NoneNoReason
 
         # We got data; use the most pessimistic measured value.
         reported_value, field_wrapper, wrapper_index = max(

@@ -6,6 +6,27 @@
 Version History
 ###############
 
+v1.15.0
+-------
+
+* `BaseRule`: allow ``compute_alarm_severity`` to return None.
+* `BaseEssRule`:
+
+    * Rename ``rule_name`` constructor argument ``rule_name`` to ``name``, to match `BaseRule` and `PollingRule`.
+    * Move from the ``rules`` sub-module to the main level.
+      This prevents it from being specified as a rule in the CSC configuration and is consistent with `BaseRule` and `PollingRule`.
+
+* Add `rules.MTAirCompressorsState` rule.
+* Improve two documents: How to Write a Rule, and SquadCast Notes.
+
+Requires:
+
+* ts_utils 1.1
+* ts_salobj 7.1
+* ts_idl 2
+* IDL files for ``Watcher``, ``ATDome``, ``ESS``, ``MTMount``, ``ScriptQueue``, and ``Test``, plus any additional SAL components you wish to watch.
+  These may be generated using ``make_idl_files.py`` built with ts_xml 16 and ts_sal 7.
+
 v1.14.0
 -------
 
@@ -134,7 +155,7 @@ v1.12.0
 
 * Escalate critical alarms to SquadCast instead of OpsGenie.
   This changed the config schema version from v4 to v5.
-* Add `rules.BaseEssRule` and modify `rules.Humidity` and `rules.OverTemperature` to inherit from it.
+* Add ``rules.BaseEssRule`` and modify `rules.Humidity` and `rules.OverTemperature` to inherit from it.
 * `rules.Humdity`: add optional ``warning_msg``, ``serious_msg``, and ``critical_msg`` to config.
 * Add `rules.UnderPressure`.
 * Add `rules.test.TriggeredSeverities` rule.

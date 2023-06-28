@@ -23,7 +23,7 @@ __all__ = ["UnderPressure"]
 
 import yaml
 
-from .base_ess_rule import BaseEssRule
+from ..base_ess_rule import BaseEssRule
 
 
 class UnderPressure(BaseEssRule):
@@ -50,7 +50,7 @@ class UnderPressure(BaseEssRule):
     def __init__(self, config):
         super().__init__(
             config=config,
-            rule_name=f"UnderPressure.{config.name}",
+            name=f"UnderPressure.{config.name}",
             topic_attr_name="tel_pressure",
             field_name="pressure",
             sensor_info_name="pressure_sensors",
