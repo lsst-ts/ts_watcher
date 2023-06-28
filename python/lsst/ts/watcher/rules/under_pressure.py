@@ -23,7 +23,7 @@ __all__ = ["UnderPressure"]
 
 import yaml
 
-from .base_ess_rule import BaseEssRule
+from ..base_ess_rule import BaseEssRule
 
 
 class UnderPressure(BaseEssRule):

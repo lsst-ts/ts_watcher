@@ -10,8 +10,13 @@ v1.15.0
 -------
 
 * `BaseRule`: allow ``compute_alarm_severity`` to return None.
-* `BaseEssRule`: rename ``rule_name`` constructor argument ``rule_name`` to ``name``, to match `BaseRule` and `PollingRule`.
-* Add `MTAirCompressorsState` rule.
+* `BaseEssRule`:
+
+    * Rename ``rule_name`` constructor argument ``rule_name`` to ``name``, to match `BaseRule` and `PollingRule`.
+    * Move from the ``rules`` sub-module to the main level.
+      This prevents it from being specified as a rule in the CSC configuration and is consistent with `BaseRule` and `PollingRule`.
+
+* Add `rules.MTAirCompressorsState` rule.
 * Improve two documents: How to Write a Rule, and SquadCast Notes.
 
 Requires:
@@ -150,7 +155,7 @@ v1.12.0
 
 * Escalate critical alarms to SquadCast instead of OpsGenie.
   This changed the config schema version from v4 to v5.
-* Add `rules.BaseEssRule` and modify `rules.Humidity` and `rules.OverTemperature` to inherit from it.
+* Add ``rules.BaseEssRule`` and modify `rules.Humidity` and `rules.OverTemperature` to inherit from it.
 * `rules.Humdity`: add optional ``warning_msg``, ``serious_msg``, and ``critical_msg`` to config.
 * Add `rules.UnderPressure`.
 * Add `rules.test.TriggeredSeverities` rule.

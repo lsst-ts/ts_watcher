@@ -23,7 +23,7 @@ __all__ = ["OverTemperature"]
 
 import yaml
 
-from .base_ess_rule import BaseEssRule
+from ..base_ess_rule import BaseEssRule
 
 
 class OverTemperature(BaseEssRule):
