@@ -6,6 +6,15 @@
 Version History
 ###############
 
+v1.16.0
+-------
+
+* Make ``ScriptFailed`` rule unit test more robust.
+
+* Change ``Alarm`` behavior to cancel escalation timer if alarm is no longer critical.
+
+* Update default timeout parameter for heartbeat rule.
+
 v1.15.0
 -------
 

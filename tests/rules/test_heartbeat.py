@@ -62,7 +62,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         minimal_config_dict = dict(name="MTMount")
         minimal_config = watcher.rules.Heartbeat.make_config(**minimal_config_dict)
         assert minimal_config.name == minimal_config_dict["name"]
-        assert minimal_config.timeout == 5
+        assert minimal_config.timeout == 15
         assert minimal_config.alarm_severity == AlarmSeverity.CRITICAL
 
         # Check all values specified

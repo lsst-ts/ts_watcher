@@ -474,7 +474,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     and alarm.escalation_delay > 0
                     and alarm.escalation_responder
                 )
-                if auto_escalate:
+                if auto_escalate and alarm.severity == AlarmSeverity.CRITICAL:
                     assert alarm.timestamp_escalate > 0
                 else:
                     assert alarm.timestamp_escalate == 0
@@ -823,7 +823,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             assert alarm.escalation_delay == escalation_delay
             assert alarm.escalation_responder == escalation_responder
             assert alarm.escalation_responder == escalation_responder
-            if alarm.max_severity < AlarmSeverity.CRITICAL:
+            if alarm.severity < AlarmSeverity.CRITICAL:
                 assert alarm.timestamp_escalate == 0
                 assert alarm.escalation_timer_task.done()
             else:
