@@ -401,6 +401,16 @@ class Alarm:
             self.severity = severity
         if self.severity != AlarmSeverity.NONE:
             self.reason = reason
+        if (
+            self.severity != AlarmSeverity.CRITICAL
+            and not self.escalation_timer_task.done()
+        ):
+            # Cancel escalation if alarm is no longer critical. The Observing
+            # Specialists will never get used to acknowledging alarms that are
+            # no longer critical. It is best to cancel escalation if they
+            # resolve the issue in time.
+            self._cancel_escalation_timer()
+
         self.timestamp_severity_newest = curr_tai
         if self.severity == AlarmSeverity.NONE:
             if self.acknowledged:
@@ -414,7 +424,6 @@ class Alarm:
                 self.timestamp_max_severity = curr_tai
                 self._cancel_auto_acknowledge()
                 self._cancel_auto_unacknowledge()
-                self._cancel_escalation_timer()
                 self.escalating_task.cancel()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
