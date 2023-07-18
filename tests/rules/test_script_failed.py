@@ -108,24 +108,30 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                         currentSalIndex=test_params.script_sal_index,
                     )
 
+                    severity_1 = await asyncio.wait_for(
+                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                    )
+
                     await script_queue.evt_script.set_write(
                         scriptSalIndex=test_params.script_sal_index,
                         processState=test_params.process_state,
                         scriptState=test_params.script_state,
                     )
 
+                    severity_2 = await asyncio.wait_for(
+                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                    )
+
                     # This will publish 2 alarm states for each set of test
                     # parameters: one for the queue ScriptQueue event, the next
                     # for the script ScriptQueue event.
-                    for expected_severity in test_params.expected_severity:
+                    for expected_severity, severity in zip(
+                        test_params.expected_severity, [severity_1, severity_2]
+                    ):
                         with self.subTest(
                             description=test_params.description,
                             expected_severity=expected_severity,
                         ):
-                            severity = await asyncio.wait_for(
-                                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                            )
-
                             assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()
 
