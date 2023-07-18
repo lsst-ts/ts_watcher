@@ -79,7 +79,7 @@ class Heartbeat(watcher.BaseRule):
                 timeout:
                     description: Maximum allowed time between heartbeat events (sec).
                     type: number
-                    default: 5
+                    default: 15
                 alarm_severity:
                     description: >-
                         Alarm severity if the time is exceeded. One of:
