@@ -24,7 +24,7 @@ __all__ = ["BaseEssRule"]
 from lsst.ts import utils
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
-from .base_rule import NoneNoReason
+from .base_rule import AlarmSeverityReasonType, NoneNoReason
 from .field_wrapper_list import FieldWrapperList
 from .filtered_field_wrapper import (
     FilteredEssFieldWrapper,
@@ -182,6 +182,10 @@ class BaseEssRule(PollingRule):
             )
             for (name, sal_index), topic_attr_names in topic_names_dict.items()
         ]
+
+        self.current_severity = None
+        self.current_reason = None
+
         super().__init__(
             config=config,
             name=name,
@@ -231,27 +235,63 @@ class BaseEssRule(PollingRule):
                     )
                     self.field_wrappers.add_wrapper(field_wrapper)
 
-    def compute_alarm_severity(self):
+    def compute_alarm_severity(self) -> AlarmSeverityReasonType:
         current_tai = utils.current_tai()
         # List of (reported_value, field_wrapper, index)
         reported_values = self.field_wrappers.get_data(max_age=self.config.max_data_age)
         if not reported_values:
             poll_duration = current_tai - self.poll_start_tai
-            if poll_duration > self.config.max_data_age:
-                return (
+            severity, reason = (
+                (
                     AlarmSeverity.SERIOUS,
                     f"No {self.topic_attr_name} data seen for {self.config.max_data_age} seconds",
                 )
-            else:
-                return NoneNoReason
+                if poll_duration > self.config.max_data_age
+                else NoneNoReason
+            )
+            return self._get_publish_severity_reason(severity, reason)
 
         # We got data; use the most pessimistic measured value.
         reported_value, field_wrapper, wrapper_index = max(
             reported_values, key=lambda v: v[0]
         )
         source_descr = field_wrapper.get_value_descr(wrapper_index)
-        return self.threshold_handler.get_severity_reason(
+        severity, reason = self.threshold_handler.get_severity_reason(
             value=reported_value,
             current_severity=self.alarm.severity,
             source_descr=source_descr,
         )
+
+        return self._get_publish_severity_reason(severity=severity, reason=reason)
+
+    def _get_publish_severity_reason(
+        self, severity: AlarmSeverity, reason: str
+    ) -> AlarmSeverityReasonType:
+        """Get the value that should be published for severity and reason.
+
+        Parameters
+        ----------
+        severity : `AlarmSeverity`
+            The alarm severity.
+        reason : `str`
+            The alarm reason
+
+        Returns
+        -------
+        `None` | `tuple`[ `AlarmSeverity`, `str` ]
+            Either `None`, if alarm is unchanged, or the same values as the
+            input parameters.
+
+        Notes
+        -----
+        This method will compare the input values with the current alarm
+        severity and reason. If they are the same the method will return
+        `None`. If they are different the method returns the same value as the
+        input parameters and update the internal values.
+        """
+
+        if severity == self.current_severity and reason == self.current_reason:
+            return None
+        else:
+            self.current_severity, self.current_reason = severity, reason
+            return (severity, reason)
