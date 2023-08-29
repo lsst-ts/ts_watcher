@@ -152,7 +152,16 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
             rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
-            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
+            assert rule.alarm.severity == AlarmSeverity.SERIOUS
+            assert (
+                rule.alarm.reason
+                == f"No tel_pressure data seen for {max_data_age} seconds"
+            )
+
+            # Check that alarm is not continuously republished
+            rule.alarm.flush_severity_queue()
+            await asyncio.sleep(max_data_age + poll_interval * 2)
+            assert rule.alarm.severity_queue.qsize() == 0
 
     async def send_ess_data(
         self,

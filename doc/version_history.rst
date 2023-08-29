@@ -6,6 +6,12 @@
 Version History
 ###############
 
+v1.16.1
+-------
+
+* Update ``BaseEssRule`` to prevent alarms to be continuously republished.
+  The rule will now keep record of the latest severity/reason and only publishes when it changes.
+
 v1.16.0
 -------
 

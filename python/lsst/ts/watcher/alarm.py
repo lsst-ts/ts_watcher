@@ -569,8 +569,7 @@ class Alarm:
                 "(once) before calling assert_next_severity"
             )
         if flush:
-            while not self.severity_queue.empty():
-                self.severity_queue.get_nowait()
+            self.flush_severity_queue()
         severity = await asyncio.wait_for(self.severity_queue.get(), timeout=timeout)
         if check_empty:
             extra_severities = [
@@ -585,6 +584,11 @@ class Alarm:
             raise AssertionError(
                 f"severity={severity!r} != expected_severity{expected_severity!r}"
             )
+
+    def flush_severity_queue(self) -> None:
+        """Remove all items from the severity queue."""
+        while not self.severity_queue.empty():
+            self.severity_queue.get_nowait()
 
     def init_severity_queue(self):
         """Initialize the severity queue.
