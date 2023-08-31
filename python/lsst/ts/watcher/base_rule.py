@@ -89,6 +89,9 @@ class BaseRule(abc.ABC):
         self.config = config
         self.remote_info_list = remote_info_list
         self.remote_keys = frozenset(info.key for info in remote_info_list)
+        self.current_severity = None
+        self.current_reason = None
+
         # The model sets the callback and auto delays
         self.alarm = alarm.Alarm(name=name)
 
@@ -249,7 +252,10 @@ class BaseRule(abc.ABC):
             * topic_callback : `TopicCallback`
               Topic callback wrapper.
         """
-        severity_reason = self.compute_alarm_severity(**kwargs)
+        severity_reason = self._get_publish_severity_reason(
+            self.compute_alarm_severity(**kwargs)
+        )
+
         if severity_reason is not None:
             await self.alarm.set_severity(
                 severity=severity_reason[0], reason=severity_reason[1]
@@ -288,6 +294,39 @@ class BaseRule(abc.ABC):
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
         raise NotImplementedError("Subclasses must override")
+
+    def _get_publish_severity_reason(
+        self, severity_reason: AlarmSeverityReasonType
+    ) -> AlarmSeverityReasonType:
+        """Get the value that should be published for severity and reason.
+
+        Parameters
+        ----------
+        severity_reason : `AlarmSeverityReasonType`
+            Alarm severity and reason.
+
+        Returns
+        -------
+        `AlarmSeverityReasonType`
+            Either `None`, if alarm is unchanged, or the same values as the
+            input parameters.
+
+        Notes
+        -----
+        This method will compare the input values with the current alarm
+        severity and reason. If they are the same the method will return
+        `None`. If they are different the method returns the same value as the
+        input parameters and update the internal values.
+        """
+        if severity_reason is None:
+            return None
+
+        severity, reason = severity_reason
+        if severity == self.current_severity and reason == self.current_reason:
+            return None
+        else:
+            self.current_severity, self.current_reason = severity, reason
+            return (severity, reason)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name})"
