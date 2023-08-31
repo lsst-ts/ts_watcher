@@ -101,6 +101,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
+                severity_1 = None
                 for test_params in self.get_test_call_params():
                     await script_queue.evt_queue.set_write(
                         enabled=test_params.queue_enabled,
@@ -108,9 +109,15 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                         currentSalIndex=test_params.script_sal_index,
                     )
 
-                    severity_1 = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    try:
+                        severity = await asyncio.wait_for(
+                            rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                        )
+                    except asyncio.TimeoutError:
+                        if severity_1 is None:
+                            raise
+                    else:
+                        severity_1 = severity
 
                     await script_queue.evt_script.set_write(
                         scriptSalIndex=test_params.script_sal_index,
@@ -118,9 +125,15 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
                         scriptState=test_params.script_state,
                     )
 
-                    severity_2 = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    # if severity_2 = severity_1 alarm won't change and
+                    # retrieving it will timeout
+                    severity_2 = severity_1
+                    try:
+                        severity_2 = await asyncio.wait_for(
+                            rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                        )
+                    except asyncio.TimeoutError:
+                        pass
 
                     # This will publish 2 alarm states for each set of test
                     # parameters: one for the queue ScriptQueue event, the next

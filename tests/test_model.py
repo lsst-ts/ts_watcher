@@ -164,19 +164,28 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         controller_name_index = f"{controller.salinfo.name}:{controller.salinfo.index}"
         rule_name = f"Enabled.{controller_name_index}"
         rule = self.model.rules[rule_name]
+        previous_state = None
         for state in states:
             await controller.evt_summaryState.set_write(
                 summaryState=state, force_output=True
             )
-            if self.model.enabled:
+            if self.model.enabled and previous_state != state:
                 await asyncio.wait_for(
                     rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
                 )
+                assert rule.alarm.severity_queue.empty()
+            elif self.model.enabled:
+                # State didn't changed should not receive any new event
+                with pytest.raises(asyncio.TimeoutError):
+                    await asyncio.wait_for(
+                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                    )
                 assert rule.alarm.severity_queue.empty()
             else:
                 # We don't have any event we can wait for, so sleep a bit
                 # to give the model time to react to the data.
                 await asyncio.sleep(0.1)
+            previous_state = state
 
     def assert_muted(self, alarm, muted_severity, muted_by):
         """Assert that the specified alarm is muted.
