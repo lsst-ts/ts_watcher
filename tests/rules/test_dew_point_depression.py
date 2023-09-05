@@ -164,9 +164,15 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             # Check that no data for max_data_age triggers severity=SERIOUS.
             # Resume polling first.
             rule.start()
+            rule.alarm.flush_severity_queue()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
-            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
+            await rule.alarm.assert_next_severity(
+                AlarmSeverity.SERIOUS, flush=False, check_empty=False
+            )
+            # should not be published again
+            with pytest.raises(asyncio.TimeoutError):
+                await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
 
     async def send_ess_data(
         self,

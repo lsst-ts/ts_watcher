@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.17.0
+-------
+
+* Move feature that prevents alarms from being republished if they haven't changed from ``BaseEssRule`` to ``BaseRule``, to fix behavior of all rules.
+
 v1.16.1
 -------
 
