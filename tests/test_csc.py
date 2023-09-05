@@ -68,8 +68,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             The read message.
         """
         data = await self.remote.evt_alarm.next(flush=False, timeout=timeout)
-        for name, value in kwargs.items():
-            assert getattr(data, name) == value
+        for name, value_expected in kwargs.items():
+            value_current = getattr(data, name)
+            assert (
+                value_current == value_expected
+            ), f"{name}: {value_current} expected {value_expected}"
         return data
 
     async def check_all_alarms_events_are_none(self):
@@ -281,6 +284,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     timestampEscalate=0,
                 )
 
+                # give the background processes some time to stabilize before
+                # continuing.
+                await asyncio.sleep(STD_TIMEOUT)
+
                 # When alarm 1 goes to CRITICAL it will be escalated
                 # after a very short time.
                 rule1.trigger_next_severity_event.set()
@@ -322,6 +329,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     assert "ATDome" in incident["tags"]["alarm_name"]
                     assert alarm1.escalation_responder == incident["tags"]["responder"]
                     saved_incident_id = alarm1.escalated_id
+
+                # give the background processes some time to stabilize before
+                # continuing.
+                await asyncio.sleep(STD_TIMEOUT)
+
                 rule1.trigger_next_severity_event.set()
                 data = await self.assert_next_alarm(
                     name=alarm_name1,

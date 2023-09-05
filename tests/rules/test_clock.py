@@ -19,10 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
 import copy
 import types
 import unittest
 
+import pytest
 import yaml
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -138,7 +140,15 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 good_dt = threshold - margin
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.alt_write(dt=bad_dt)
-                    await alarm.assert_next_severity(AlarmSeverity.NONE)
+
+                    # Since the alarm is not changing, it will not be
+                    # republished. Check that it is published the first time
+                    # then not again.
+                    if i == 0:
+                        await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    else:
+                        with pytest.raises(asyncio.TimeoutError):
+                            await alarm.assert_next_severity(AlarmSeverity.NONE)
                     assert alarm.nominal
 
                 # The next heartbeat event with bad dt should set
@@ -159,7 +169,11 @@ class ClockTestCase(unittest.IsolatedAsyncioTestCase):
                 # at NONE
                 for i in range(rule.min_errors - 1):
                     await heartbeat_writer.alt_write(dt=bad_dt)
-                    await alarm.assert_next_severity(AlarmSeverity.NONE)
+
+                    # Since the alarm is not changing, it will not be
+                    # republished. Check that it is not republished.
+                    with pytest.raises(asyncio.TimeoutError):
+                        await alarm.assert_next_severity(AlarmSeverity.NONE)
 
                 await heartbeat_writer.alt_write(dt=bad_dt)
                 await alarm.assert_next_severity(AlarmSeverity.WARNING)

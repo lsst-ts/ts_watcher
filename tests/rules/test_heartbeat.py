@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import contextlib
 import types
 import unittest
 
@@ -119,27 +120,50 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 alarm = rule.alarm
                 alarm.init_severity_queue()
 
-                # Write a heartbeat event and check severity=None.
-                await controller.evt_heartbeat.write()
-                await alarm.assert_next_severity(AlarmSeverity.NONE)
-                assert alarm.nominal
+                # Start a heartbeat loop and check severity=None.
+                async with self.heart_beat_loop(controller=controller):
+                    await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    assert alarm.nominal
 
-                # Write a heartbeat event well before the timer expires,
-                # and check severity=None.
-                await asyncio.sleep(timeout / 2)
-                await controller.evt_heartbeat.write()
-                await alarm.assert_next_severity(AlarmSeverity.NONE)
-                assert alarm.nominal
+                    # Make sure alarm is not republished
+                    with pytest.raises(asyncio.TimeoutError):
+                        await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    assert alarm.nominal
 
-                # Wait until the alarm occurs.
+                # With the heartbeat loop closed wait until the alarm occurs.
                 await alarm.assert_next_severity(alarm_severity, timeout=timeout * 2.5)
                 assert not alarm.nominal
                 assert alarm.max_severity == alarm_severity
 
-                # Write a heartbeat event and check that severity is None
-                # but that max_severity is still high (since the alarm
+                # Start heartbeat loop again event and check that severity is
+                # None but that max_severity is still high (since the alarm
                 # has not been acknowledged).
-                await controller.evt_heartbeat.write()
-                await alarm.assert_next_severity(AlarmSeverity.NONE)
-                assert not alarm.nominal
-                assert alarm.max_severity == alarm_severity
+                alarm.flush_severity_queue()
+                async with self.heart_beat_loop(controller=controller):
+                    await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    assert not alarm.nominal
+                    assert alarm.max_severity == alarm_severity
+
+                    # Make sure alarm is not republished
+                    with pytest.raises(asyncio.TimeoutError):
+                        await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    assert alarm.nominal
+                    assert alarm.max_severity == alarm_severity
+
+    @contextlib.asynccontextmanager
+    async def heart_beat_loop(self, controller):
+        try:
+            _task = asyncio.create_task(self._publish_heart_beat(controller))
+            yield
+            _task.cancel()
+            await _task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"Exception in heart beat loop: {e!r}")
+
+    @staticmethod
+    async def _publish_heart_beat(controller):
+        while True:
+            await controller.evt_heartbeat.write()
+            await asyncio.sleep(1.0)
