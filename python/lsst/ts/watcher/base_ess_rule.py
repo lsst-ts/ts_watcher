@@ -93,7 +93,7 @@ class BaseEssRule(PollingRule):
         The attr name of the ESS telemetry topic, e.g. "tel_temperature"
         or "tel_relativeHumidity".
     field_name : `str`
-        The name of the ESS topic field, e.g. "temperature" or "humidity".
+        The name of the ESS topic field, e.g. "temperatureItem" or "humidity".
     sensor_info_name : `str`
         Name of sensor info field in ``config``.
     is_indexed : `bool`

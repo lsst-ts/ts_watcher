@@ -535,7 +535,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             async def send_temperature_data(temperature):
-                ess_1.tel_temperature.data.temperature[0] = temperature
+                ess_1.tel_temperature.data.temperatureItem[0] = temperature
                 await ess_1.tel_temperature.write()
 
             await self.check_all_alarms_events_are_none()
