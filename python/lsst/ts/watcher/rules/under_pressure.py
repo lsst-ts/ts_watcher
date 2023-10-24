@@ -52,7 +52,7 @@ class UnderPressure(BaseEssRule):
             config=config,
             name=f"UnderPressure.{config.name}",
             topic_attr_name="tel_pressure",
-            field_name="pressure",
+            field_name="pressureItem",
             sensor_info_name="pressure_sensors",
             is_indexed=True,
             big_is_bad=False,

@@ -233,6 +233,6 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 topic=topic,
                 sensorName=filter_value,
-                relativeHumidity=humidity,
+                relativeHumidityItem=humidity,
                 verbose=verbose,
             )

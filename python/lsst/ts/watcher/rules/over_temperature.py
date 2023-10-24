@@ -52,7 +52,7 @@ class OverTemperature(BaseEssRule):
             config=config,
             name=f"OverTemperature.{config.name}",
             topic_attr_name="tel_temperature",
-            field_name="temperature",
+            field_name="temperatureItem",
             sensor_info_name="temperature_sensors",
             is_indexed=True,
             big_is_bad=True,

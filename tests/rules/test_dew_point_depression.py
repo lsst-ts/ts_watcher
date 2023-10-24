@@ -255,7 +255,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 topic=topic,
                 sensorName=filter_value,
-                dewPoint=dew_point,
+                dewPointItem=dew_point,
                 verbose=verbose,
             )
 
@@ -269,7 +269,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             list(temperature_topics.keys())
         )
         for filter_value, (topic, indices) in temperature_topics.items():
-            num_temperatures = len(topic.data.temperature)
+            num_temperatures = len(topic.data.temperatureItem)
             assert self.num_valid_temperatures < num_temperatures
             num_nans = num_temperatures - self.num_valid_temperatures
             temperatures = [normal_temperature] * self.num_valid_temperatures + [
@@ -287,6 +287,6 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 topic=topic,
                 sensorName=filter_value,
-                temperature=temperatures,
+                temperatureItem=temperatures,
                 verbose=verbose,
             )

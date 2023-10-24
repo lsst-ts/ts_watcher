@@ -27,11 +27,11 @@ from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 # Name of dew point field in ESS telemetry topics
 # for dew point and humidity sensors.
-ESSDewPointField = "dewPoint"
+ESSDewPointField = "dewPointItem"
 
 # Name of temperature field in ESS telemetry topics
 # for temperature sensors.
-ESSTemperatureField = "temperature"
+ESSTemperatureField = "temperatureItem"
 
 
 class DewPointDepression(watcher.PollingRule):
