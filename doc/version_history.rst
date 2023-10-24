@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.17.1
+-------
+
+* Update ESS topic item names.
+
 v1.17.0
 -------
 

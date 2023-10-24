@@ -41,8 +41,8 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_basics(self):
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
-        scalar_data_field = "dewPoint"
-        array_data_field = "temperature"
+        scalar_data_field = "dewPointItem"
+        array_data_field = "temperatureItem"
         array_len = 16
         nan_array_len = 2
         # Indices to data; the last index points to NaN

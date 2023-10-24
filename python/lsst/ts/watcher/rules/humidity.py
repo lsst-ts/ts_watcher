@@ -55,7 +55,7 @@ class Humidity(BaseEssRule):
             config=config,
             name=f"Humidity.{config.name}",
             topic_attr_name="tel_relativeHumidity",
-            field_name="relativeHumidity",
+            field_name="relativeHumidityItem",
             sensor_info_name="humidity_sensors",
             is_indexed=False,
             big_is_bad=True,

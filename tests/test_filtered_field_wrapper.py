@@ -43,7 +43,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         """Test `FilteredEssFieldWrapper` with a scalar field."""
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
-        data_field = "dewPoint"
+        data_field = "dewPointItem"
 
         filter_values = ["one", "two"]
         # Dict of sensor_name: FilteredEssFieldWrapper
@@ -152,7 +152,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         """
         model = watcher.MockModel(enabled=True)
         filter_field = "sensorName"
-        data_field = "temperature"
+        data_field = "temperatureItem"
 
         filter_values = ["one", "two"]
 
@@ -171,7 +171,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             include=["temperature"],
         ) as remote:
             topic = remote.tel_temperature
-            temperature_len = len(topic.DataType().temperature)
+            temperature_len = len(topic.DataType().temperatureItem)
 
             # Make a location_str with fewer entries than channels, in order to
             # test get_value_descr's handling of missing entries.
@@ -320,7 +320,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor_errors(self):
         model = watcher.MockModel(enabled=True)
-        array_field_name = "temperature"
+        array_field_name = "temperatureItem"
         array_len = 16
         scalar_field_name = "timestamp"
 

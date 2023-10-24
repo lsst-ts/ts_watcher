@@ -217,7 +217,7 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
         rng = numpy.random.default_rng(seed=314)
         pessimistic_pressure_filter_value = rng.choice(list(pressure_topics.keys()))
         for filter_value, (topic, indices) in pressure_topics.items():
-            num_pressures = len(topic.data.pressure)
+            num_pressures = len(topic.data.pressureItem)
             assert self.num_valid_pressures < num_pressures
             num_nans = num_pressures - self.num_valid_pressures
             pressures = [normal_pressure] * self.num_valid_pressures + [
@@ -235,6 +235,6 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 topic=topic,
                 sensorName=filter_value,
-                pressure=pressures,
+                pressureItem=pressures,
                 verbose=verbose,
             )
