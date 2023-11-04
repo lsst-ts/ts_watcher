@@ -21,6 +21,7 @@
 
 import asyncio
 import contextlib
+import logging
 import types
 import unittest
 
@@ -57,6 +58,12 @@ class GetRuleClassTestCase(unittest.TestCase):
 
 
 class ModelTestCase(unittest.IsolatedAsyncioTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.log = logging.getLogger(type(cls).__name__)
+
+        return super().setUpClass()
+
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
@@ -101,6 +108,14 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             name, index = salobj.name_to_name_index(name_index)
             self.controllers.append(salobj.Controller(name=name, index=index))
 
+        # Write enabled for all components to make sure alarm starts with
+        # no severity.
+        for controller in self.controllers:
+            await controller.start_task
+            await controller.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
+
         if use_bad_callback:
 
             def bad_callback():
@@ -132,6 +147,10 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.nominal
             assert not rule.alarm.acknowledged
             assert not rule.alarm.muted
+            if enable:
+                await rule.alarm.assert_next_severity(
+                    expected_severity=AlarmSeverity.NONE
+                )
             self.assert_not_muted(rule.alarm)
 
         try:
@@ -153,7 +172,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         self.read_severities[alarm.name].append(alarm.severity)
         self.read_max_severities[alarm.name].append(alarm.max_severity)
         # Print the state to aid debugging test failures.
-        print(
+        self.log.debug(
             f"alarm_callback({alarm.name}, severity={alarm.severity!r}): "
             f"read_severities={self.read_severities[alarm.name]}"
         )
@@ -287,15 +306,15 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
         async with self.make_model(names=remote_names, enable=True):
             assert len(self.model.rules) == 2
-
-            # Enable the model and write ENABLED several times.
-            # This triggers the rule callback but that does not
-            # change the state of the alarm.
+            # Enable the model and write DISABLED once then ENABLED several
+            # times. This triggers the rule callback but that does not change
+            # the state of the alarm.
             await self.model.enable()
             for index in range(len(remote_names)):
                 await self.write_states(
                     index=index,
                     states=(
+                        salobj.State.DISABLED,
                         salobj.State.ENABLED,
                         salobj.State.ENABLED,
                         salobj.State.ENABLED,
@@ -303,9 +322,17 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 )
 
             for name, rule in self.model.rules.items():
-                assert rule.alarm.nominal
-                assert self.read_severities[name] == [AlarmSeverity.NONE]
-                assert self.read_max_severities[name] == [AlarmSeverity.NONE]
+                assert not rule.alarm.nominal  # state was DISABLED
+                assert self.read_severities[name] == [
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.NONE,
+                ]
+                assert self.read_max_severities[name] == [
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.WARNING,
+                ]
 
             # Disable the model and issue several events that would
             # trigger an alarm if the model was enabled. Since the
@@ -317,13 +344,21 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 )
 
             for name, rule in self.model.rules.items():
-                assert rule.alarm.nominal
-                assert self.read_severities[name] == [AlarmSeverity.NONE]
-                assert self.read_max_severities[name] == [AlarmSeverity.NONE]
+                assert not rule.alarm.nominal  # state was DISABLED
+                assert self.read_severities[name] == [
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.NONE,
+                ]
+                assert self.read_max_severities[name] == [
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.WARNING,
+                ]
 
             # Enable the model. This will trigger a callback with
             # the current state of the event (STANDBY).
-            # Note that the earlier FAULT event is is ignored
+            # Note that the earlier FAULT event is ignored
             # because it arrived while disabled.
             await self.model.enable()
             for name, rule in self.model.rules.items():
@@ -334,9 +369,13 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 assert self.read_severities[name] == [
                     AlarmSeverity.NONE,
                     AlarmSeverity.WARNING,
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
                 ]
                 assert self.read_max_severities[name] == [
                     AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.WARNING,
                     AlarmSeverity.WARNING,
                 ]
 
@@ -353,11 +392,15 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 assert self.read_severities[name] == [
                     AlarmSeverity.NONE,
                     AlarmSeverity.WARNING,
+                    AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
                     AlarmSeverity.CRITICAL,
                     AlarmSeverity.WARNING,
                 ]
                 assert self.read_max_severities[name] == [
                     AlarmSeverity.NONE,
+                    AlarmSeverity.WARNING,
+                    AlarmSeverity.WARNING,
                     AlarmSeverity.WARNING,
                     AlarmSeverity.CRITICAL,
                     AlarmSeverity.CRITICAL,
