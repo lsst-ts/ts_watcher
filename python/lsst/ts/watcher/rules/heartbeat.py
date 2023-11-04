@@ -109,10 +109,12 @@ class Heartbeat(watcher.BaseRule):
     async def heartbeat_timer(self):
         """Heartbeat timer."""
         await asyncio.sleep(self.config.timeout)
-        await self.alarm.set_severity(
-            severity=self.config.alarm_severity,
-            reason=f"Heartbeat event not seen in {self.config.timeout} seconds",
+        severity_reason = (
+            self.config.alarm_severity,
+            f"Heartbeat event not seen in {self.config.timeout} seconds",
         )
+        severity, reason = self._get_publish_severity_reason(severity_reason)
+        await self.alarm.set_severity(severity=severity, reason=reason)
 
     def restart_timer(self):
         """Start or restart the heartbeat timer."""
