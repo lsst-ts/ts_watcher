@@ -46,6 +46,8 @@ class PollingRule(BaseRule):
         so that groups of related alarms can be acknowledged.
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Attributes
     ----------
@@ -57,10 +59,12 @@ class PollingRule(BaseRule):
         Task that runs the polling loop.
     """
 
-    def __init__(self, config, name, remote_info_list):
+    def __init__(self, config, name, remote_info_list, log=None):
         self.poll_start_tai = utils.current_tai()
         self.poll_loop_task = utils.make_done_future()
-        super().__init__(config=config, name=name, remote_info_list=remote_info_list)
+        super().__init__(
+            config=config, name=name, remote_info_list=remote_info_list, log=log
+        )
 
     def start(self):
         self.poll_loop_task.cancel()
