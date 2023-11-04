@@ -106,7 +106,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.model = None
 
         self.model = Model(
-            domain=self.domain, config=config, alarm_callback=self.output_alarm
+            domain=self.domain,
+            config=config,
+            alarm_callback=self.output_alarm,
+            log=self.log,
         )
         if config.escalation_url:
             try:
