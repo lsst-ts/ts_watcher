@@ -42,13 +42,15 @@ class MTCCWFollowingRotator(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Ignored, because this rule has no configuration.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
     The alarm name is "MTCCWFollowingRotator".
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_info = watcher.RemoteInfo(
             name="MTMount",
             index=0,
@@ -59,6 +61,7 @@ class MTCCWFollowingRotator(watcher.BaseRule):
             config=config,
             name="MTCCWFollowingRotator",
             remote_info_list=[remote_info],
+            log=log,
         )
 
     @classmethod

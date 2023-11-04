@@ -36,6 +36,8 @@ class Humidity(BaseEssRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -48,7 +50,7 @@ class Humidity(BaseEssRule):
     where the data is differentiated by the value of the sensorName field.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         self.poll_loop_task = utils.make_done_future()
 
         super().__init__(
@@ -61,6 +63,7 @@ class Humidity(BaseEssRule):
             big_is_bad=True,
             units="%",
             value_format="0.2f",
+            log=log,
         )
 
     @classmethod

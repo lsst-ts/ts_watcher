@@ -34,6 +34,8 @@ class NoConfig(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Raises
     ------
@@ -47,8 +49,10 @@ class NoConfig(watcher.BaseRule):
     The alarm name is "test.NoConfig".
     """
 
-    def __init__(self, config):
-        super().__init__(config=config, name="test.NoConfig", remote_info_list=[])
+    def __init__(self, config, log=None):
+        super().__init__(
+            config=config, name="test.NoConfig", remote_info_list=[], log=log
+        )
 
     @classmethod
     def get_schema(cls):

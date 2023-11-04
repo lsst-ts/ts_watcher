@@ -38,6 +38,8 @@ class Enabled(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -45,7 +47,7 @@ class Enabled(watcher.BaseRule):
     where name and index are derived from ``config.name``.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
         remote_info = watcher.RemoteInfo(
             name=remote_name,
@@ -57,6 +59,7 @@ class Enabled(watcher.BaseRule):
             config=config,
             name=f"Enabled.{remote_info.name}:{remote_info.index}",
             remote_info_list=[remote_info],
+            log=log,
         )
 
     @classmethod
