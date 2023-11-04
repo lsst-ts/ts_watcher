@@ -24,6 +24,7 @@ from __future__ import annotations
 __all__ = ["AlarmSeverityReasonType", "NoneNoReason", "BaseRule", "RuleDisabledError"]
 
 import abc
+import logging
 import types
 import typing
 
@@ -63,6 +64,8 @@ class BaseRule(abc.ABC):
         so that groups of related alarms can be acknowledged.
     remote_info_list : `list` [`RemoteInfo`]
         Information about the remotes used by this rule.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Attributes
     ----------
@@ -85,15 +88,20 @@ class BaseRule(abc.ABC):
     This gives each rule ready access to its remote wrappers.
     """
 
-    def __init__(self, config, name, remote_info_list):
+    def __init__(self, config, name, remote_info_list, log=None):
         self.config = config
         self.remote_info_list = remote_info_list
         self.remote_keys = frozenset(info.key for info in remote_info_list)
         self.current_severity = None
         self.current_reason = None
+        self.log = (
+            logging.getLogger(type(self).__name__)
+            if log is None
+            else log.getChild(type(self).__name__)
+        )
 
         # The model sets the callback and auto delays
-        self.alarm = alarm.Alarm(name=name)
+        self.alarm = alarm.Alarm(name=name, log=self.log)
 
     @classmethod
     @abc.abstractmethod
@@ -257,6 +265,7 @@ class BaseRule(abc.ABC):
         )
 
         if severity_reason is not None:
+            self.log.debug(f"{severity_reason=}")
             await self.alarm.set_severity(
                 severity=severity_reason[0], reason=severity_reason[1]
             )
@@ -323,8 +332,13 @@ class BaseRule(abc.ABC):
 
         severity, reason = severity_reason
         if severity == self.current_severity and reason == self.current_reason:
+            self.log.debug(f"alarm {severity=}, {reason=} didn't changed.")
             return None
         else:
+            self.log.debug(
+                f"New alarm {severity=!r}, {reason=}. "
+                f"Previous value: {self.current_severity!r}, {self.current_reason}."
+            )
             self.current_severity, self.current_reason = severity, reason
             return (severity, reason)
 
