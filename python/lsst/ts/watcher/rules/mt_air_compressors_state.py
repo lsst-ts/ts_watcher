@@ -47,13 +47,15 @@ class MTAirCompressorsState(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
     The alarm name is "MTAirCompressorsState".
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_infos = [
             watcher.RemoteInfo(
                 name="MTAirCompressor",
@@ -69,6 +71,7 @@ class MTAirCompressorsState(watcher.BaseRule):
             config=config,
             name="MTAirCompressorsState",
             remote_info_list=remote_infos,
+            log=log,
         )
 
     @classmethod

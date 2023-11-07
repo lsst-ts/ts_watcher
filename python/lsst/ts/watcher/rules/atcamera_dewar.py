@@ -71,6 +71,8 @@ class ATCameraDewar(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Raises
     ------
@@ -104,7 +106,7 @@ class ATCameraDewar(watcher.BaseRule):
     median values reported within a configurable time window.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_info = watcher.RemoteInfo(
             name="ATCamera",
             index=0,
@@ -115,6 +117,7 @@ class ATCameraDewar(watcher.BaseRule):
             config=config,
             name="ATCameraDewar",
             remote_info_list=[remote_info],
+            log=log,
         )
         self.data_queue: salobj.BaseDdsDataType = collections.deque()
         self.max_data_age: float = max(config.temperature_window, config.vacuum_window)

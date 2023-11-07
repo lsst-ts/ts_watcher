@@ -35,6 +35,8 @@ class OverTemperature(BaseEssRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -47,7 +49,7 @@ class OverTemperature(BaseEssRule):
     where the data is differentiated by the value of the sensorName field.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         super().__init__(
             config=config,
             name=f"OverTemperature.{config.name}",
@@ -58,6 +60,7 @@ class OverTemperature(BaseEssRule):
             big_is_bad=True,
             units="C",
             value_format="0.2f",
+            log=log,
         )
 
     @classmethod

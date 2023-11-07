@@ -89,7 +89,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_operation(self):
         name = "ScriptQueue"
         index = 5
-        timeout = 0.9
+        timeout = 2.0
         alarm_severity = AlarmSeverity.CRITICAL
 
         watcher_config_dict = yaml.safe_load(
@@ -135,6 +135,12 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                 assert not alarm.nominal
                 assert alarm.max_severity == alarm_severity
 
+                # Make sure alarm is not republished
+                with pytest.raises(asyncio.TimeoutError):
+                    await alarm.assert_next_severity(
+                        alarm_severity, timeout=timeout * 2.5
+                    )
+
                 # Start heartbeat loop again event and check that severity is
                 # None but that max_severity is still high (since the alarm
                 # has not been acknowledged).
@@ -147,8 +153,17 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
                     # Make sure alarm is not republished
                     with pytest.raises(asyncio.TimeoutError):
                         await alarm.assert_next_severity(AlarmSeverity.NONE)
-                    assert alarm.nominal
+                    assert not alarm.nominal
                     assert alarm.max_severity == alarm_severity
+
+                    # acknowledge alarm
+                    await alarm.acknowledge(severity=alarm_severity, user="some_user")
+                    # alarm severity should not change, but alarm is now
+                    # nominal
+                    with pytest.raises(asyncio.TimeoutError):
+                        await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    assert alarm.nominal
+                    assert alarm.max_severity == AlarmSeverity.NONE
 
     @contextlib.asynccontextmanager
     async def heart_beat_loop(self, controller):
@@ -161,6 +176,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
             pass
         except Exception as e:
             print(f"Exception in heart beat loop: {e!r}")
+            raise
 
     @staticmethod
     async def _publish_heart_beat(controller):

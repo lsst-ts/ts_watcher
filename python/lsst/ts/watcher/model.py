@@ -24,6 +24,7 @@ __all__ = ["get_rule_class", "Model"]
 import asyncio
 import fnmatch
 import inspect
+import logging
 import re
 
 from lsst.ts import salobj, utils
@@ -67,6 +68,8 @@ class Model:
         Coroutine (async function) to call whenever an alarm changes state,
         or None if no callback wanted.
         The coroutine receives one argument: this alarm.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Raises
     ------
@@ -74,13 +77,19 @@ class Model:
         If alarm_callback is not None and not a coroutine.
     """
 
-    def __init__(self, domain, config, alarm_callback=None):
+    def __init__(self, domain, config, alarm_callback=None, log=None):
         if alarm_callback is not None and not inspect.iscoroutinefunction(
             alarm_callback
         ):
             raise TypeError(f"alarm_callback={alarm_callback} must be async")
 
         self.domain = domain
+        self.log = (
+            logging.getLogger(type(self).__name__)
+            if log is None
+            else log.getChild(type(self).__name__)
+        )
+
         self.alarm_callback = alarm_callback
 
         self._enabled = False
@@ -115,7 +124,7 @@ class Model:
                         f"Config {i+1} for rule class {ruleclassname} not valid: "
                         f"config={ruleconfig_dict}"
                     ) from e
-                rule = ruleclass(config=ruleconfig)
+                rule = ruleclass(config=ruleconfig, log=self.log)
                 if rule.is_usable(
                     disabled_sal_components=config.disabled_sal_components
                 ):

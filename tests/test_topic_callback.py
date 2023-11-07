@@ -165,6 +165,10 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             readonly=True,
             include=["summaryState"],
         ) as remote:
+            await controller.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED, force_output=True
+            )
+            await asyncio.sleep(STD_TIMEOUT)
             topic_callback = watcher.TopicCallback(
                 topic=remote.evt_summaryState, rule=bad_rule, model=model
             )

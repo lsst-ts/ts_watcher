@@ -131,6 +131,13 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
+                # Set state of the second index as OFFLINE
+                await controller.evt_summaryState.set_write(
+                    summaryState=salobj.State.OFFLINE, salIndex=1, force_output=True
+                )
+                await controller.evt_summaryState.set_write(
+                    summaryState=salobj.State.OFFLINE, salIndex=2, force_output=True
+                )
                 await model.enable()
 
                 assert len(model.rules) == 1
@@ -138,8 +145,17 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
-                # First set state for the main index; leaving
-                # unknown state for the other index.
+                while True:
+                    try:
+                        severity = await asyncio.wait_for(
+                            rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                        )
+                        print(f"Discard {severity=}")
+                    except asyncio.TimeoutError:
+                        break
+
+                # Iterate the state for the main index; leaving
+                # the second index in STANDBY.
                 for state in (
                     salobj.State.DISABLED,
                     salobj.State.STANDBY,
@@ -151,6 +167,7 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                         expected_severity = one_severity
                     else:
                         expected_severity = both_severity
+                    print(f"{state=!r}::{expected_severity=!r}")
                     await controller.evt_summaryState.set_write(
                         summaryState=state, salIndex=first_index, force_output=True
                     )

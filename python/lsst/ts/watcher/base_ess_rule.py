@@ -104,7 +104,8 @@ class BaseEssRule(PollingRule):
     value_format : `str`, optional
         Format for float value (threshold level or measured value)
         without a leading colon, e.g. "0.2f"
-
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Attributes
     ----------
@@ -137,6 +138,7 @@ class BaseEssRule(PollingRule):
         is_indexed,
         units,
         value_format="0.2f",
+        log=None,
     ):
         self.topic_attr_name = topic_attr_name
         self.field_name = field_name
@@ -187,6 +189,7 @@ class BaseEssRule(PollingRule):
             config=config,
             name=name,
             remote_info_list=remote_info_list,
+            log=log,
         )
 
     def setup(self, model):

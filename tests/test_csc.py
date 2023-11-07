@@ -67,7 +67,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         data : Alarm data
             The read message.
         """
-        data = await self.remote.evt_alarm.next(flush=False, timeout=timeout)
+        data = await self.assert_next_sample(
+            self.remote.evt_alarm, flush=False, timeout=timeout
+        )
+
         for name, value_expected in kwargs.items():
             value_current = getattr(data, name)
             assert (
@@ -693,7 +696,16 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             name="ATDome", write_only=True
         ) as atdome, salobj.Controller(
             name="ScriptQueue", index=2, write_only=True
-        ) as script_queue2:
+        ) as script_queue2, salobj.Controller(
+            name="ATCamera", write_only=True
+        ) as atcamera:
+            # Make sure CSCs are in ENABLED
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await atcamera.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await script_queue2.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED
+            )
+
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )
@@ -807,7 +819,18 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         """Test the mute and unmute command."""
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        ), salobj.Controller(
+            name="ATDome", write_only=True
+        ) as atdome, salobj.Controller(
+            name="ATCamera", write_only=True
+        ) as atcamera, salobj.Controller(
+            name="ScriptQueue", index=2, write_only=True
+        ) as atqueue:
+            # Make sure CSCs are in ENABLED
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await atcamera.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await atqueue.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )
@@ -894,8 +917,16 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         async with self.make_csc(
             config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
         ), salobj.Controller(
-            name="ScriptQueue", index=1, write_only=True
-        ) as script_queue1:
+            name="ScriptQueue", index=0, write_only=True
+        ) as script_queue:
+            # Make sure both queues are in ENABLED.
+            await script_queue.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED, salIndex=1, force_output=True
+            )
+            await script_queue.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED, salIndex=2, force_output=True
+            )
+
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -910,8 +941,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.check_all_alarms_events_are_none()
 
             # Send alarm 1 to severity warning.
-            await script_queue1.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
+            await script_queue.evt_summaryState.set_write(
+                summaryState=salobj.State.DISABLED, salIndex=1, force_output=True
             )
             await self.assert_next_alarm(
                 name=alarm_name1,
@@ -925,6 +956,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # this should not trigger an alarm event
             # because alarm 1 is not acknowledged
             # and alarm 2 is in nominal state
+            self.remote.evt_alarm.flush()
             await self.remote.cmd_unacknowledge.set_start(name=".*")
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
@@ -952,8 +984,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Unacknowledge a reset alarm;
             # this should not trigger an alarm event.
-            await script_queue1.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
+            await script_queue.evt_summaryState.set_write(
+                summaryState=salobj.State.ENABLED, salIndex=1, force_output=True
             )
             await self.assert_next_alarm(
                 name=alarm_name1,
