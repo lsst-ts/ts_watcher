@@ -44,6 +44,8 @@ class ScriptFailed(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -51,7 +53,7 @@ class ScriptFailed(watcher.BaseRule):
     where index are derived from ``config.index``.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_name = "ScriptQueue"
         remote_index = config.index
         remote_info = watcher.RemoteInfo(
@@ -64,6 +66,7 @@ class ScriptFailed(watcher.BaseRule):
             config=config,
             name=f"ScriptFailed.ScriptQueue:{remote_index}",
             remote_info_list=[remote_info],
+            log=log,
         )
 
         self.queue_running = None

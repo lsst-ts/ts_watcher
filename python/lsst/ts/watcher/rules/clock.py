@@ -40,6 +40,8 @@ class Clock(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -50,7 +52,7 @@ class Clock(watcher.BaseRule):
     min_errors = 3
     """Number of sequential errors required for a failure"""
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
         remote_info = watcher.RemoteInfo(
             name=remote_name,
@@ -62,6 +64,7 @@ class Clock(watcher.BaseRule):
             config=config,
             name=f"Clock.{remote_info.name}:{remote_info.index}",
             remote_info_list=[remote_info],
+            log=log,
         )
         self.threshold = config.threshold
         # An array of up to `min_errors` recent measurements of clock error

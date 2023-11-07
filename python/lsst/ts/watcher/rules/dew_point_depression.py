@@ -43,6 +43,8 @@ class DewPointDepression(watcher.PollingRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Notes
     -----
@@ -55,7 +57,7 @@ class DewPointDepression(watcher.PollingRule):
     where the data is differentiated by the value of the sensorName field.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         self.poll_start_tai = utils.current_tai()
         self.poll_loop_task = utils.make_done_future()
 
@@ -112,6 +114,7 @@ class DewPointDepression(watcher.PollingRule):
             config=config,
             name=f"DewPointDepression.{config.name}",
             remote_info_list=remote_info_list,
+            log=log,
         )
 
     @classmethod

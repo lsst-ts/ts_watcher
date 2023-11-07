@@ -6,6 +6,20 @@
 Version History
 ###############
 
+v1.17.2
+-------
+
+* Update heartbeat tests to raise an exception when there are errors, and fix them to capture the correct behavior of the rule.
+* Update unit tests to be more reliable when running with the kafka version of salobj.
+* In ``watcher_csc.py``, pass logger when instantiating the model.
+* In ``model.py``, add logger to the ``Model`` class and pass in logger when creating rules.
+* In ``base_rule.py``, add logger to ``BaseRule`` class and pass logger to ``Alarm`` class when instantiating it.
+* In ``base_ess_rule.py``, add logger to ``BaseESSRule``.
+* Add logger to all rules.
+* In ``alarm.py``, add logger to ``Alarm`` class.
+* In ``rules/heartbeat.py``, use ``_get_publish_severity_reason`` when setting alarm severity in ``heartbeat_timer`` to make sure it keeps track of the alarm state.
+* Update .gitignore with latest ts-pre-commit-config setup.
+
 v1.17.1
 -------
 

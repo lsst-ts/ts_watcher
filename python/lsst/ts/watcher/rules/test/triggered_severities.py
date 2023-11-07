@@ -42,6 +42,8 @@ class TriggeredSeverities(watcher.BaseRule):
     ----------
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Raises
     ------
@@ -64,11 +66,12 @@ class TriggeredSeverities(watcher.BaseRule):
     The alarm name is ``f"test.TriggeredSeverities.{config.name}"``
     """
 
-    def __init__(self, config):
+    def __init__(self, config, log=None):
         super().__init__(
             config=config,
             name=f"test.TriggeredSeverities.{config.name}",
             remote_info_list=[],
+            log=log,
         )
         self.run_task = utils.make_done_future()
         self.trigger_next_severity_event = asyncio.Event()

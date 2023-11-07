@@ -23,6 +23,7 @@ __all__ = ["Alarm"]
 
 import asyncio
 import inspect
+import logging
 
 from lsst.ts import utils
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
@@ -40,6 +41,8 @@ class Alarm:
         Name of alarm. This must be unique among all alarms
         and should be of the form system.[subsystem....]_name
         so that groups of related alarms can be acknowledged.
+    log : `logging.Logger`, optional
+        Parent logger.
 
     Attributes
     ----------
@@ -102,8 +105,13 @@ class Alarm:
         )
     )
 
-    def __init__(self, name):
+    def __init__(self, name, log=None):
         self.name = name
+        self.log = (
+            logging.getLogger(type(self).__name__)
+            if log is None
+            else log.getChild(type(self).__name__)
+        )
         self._callback = None
         self.auto_acknowledge_delay = 0
         self.auto_unacknowledge_delay = 0
