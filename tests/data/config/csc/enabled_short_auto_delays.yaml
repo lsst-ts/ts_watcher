@@ -4,3 +4,5 @@ rules:
 - classname: Enabled
   configs:
   - name: ATDome
+    disabled_severity: 2
+    standby_severity: 2
