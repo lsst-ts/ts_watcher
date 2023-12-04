@@ -81,9 +81,7 @@ class Enabled(watcher.BaseRule):
 {indent}    default: {default_severity.value}
 {indent}    enum:
 """ + "\n".join(
-                f"{indent}    - {severity.value}"
-                for severity in AlarmSeverity
-                if severity is not AlarmSeverity.NONE
+                f"{indent}    - {severity.value}" for severity in AlarmSeverity
             )
 
         schema_yaml = f"""
@@ -96,8 +94,8 @@ class Enabled(watcher.BaseRule):
                         CSC name and index in the form `name` or `name:index`.
                         The default index is 0.
                     type: string
-{make_severity_property(salobj.State.DISABLED, AlarmSeverity.WARNING)}
-{make_severity_property(salobj.State.STANDBY, AlarmSeverity.WARNING)}
+{make_severity_property(salobj.State.DISABLED, AlarmSeverity.NONE)}
+{make_severity_property(salobj.State.STANDBY, AlarmSeverity.NONE)}
 {make_severity_property(salobj.State.OFFLINE, AlarmSeverity.SERIOUS)}
 {make_severity_property(salobj.State.FAULT, AlarmSeverity.CRITICAL)}
             required:
@@ -121,6 +119,6 @@ class Enabled(watcher.BaseRule):
             state_name = f"{state} unknown"
             severity = self.config.fault_severity
 
-        if state == salobj.State.ENABLED:
+        if state == salobj.State.ENABLED or severity == AlarmSeverity.NONE:
             return watcher.NoneNoReason
         return severity, f"{state_name} state"

@@ -115,7 +115,9 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
         rule : `rules.EnabledRule`
             The constructed EnabledRule
         """
-        config = watcher.rules.Enabled.make_config(name=f"Test:{self.index}")
+        config = watcher.rules.Enabled.make_config(
+            name=f"Test:{self.index}", disabled_severity=2, standby_severity=2
+        )
         rule = watcher.rules.Enabled(config=config)
         rule.alarm.init_severity_queue()
         return rule
@@ -151,7 +153,9 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Make the first rule one that raises when called, in order to test
         # test that TopicCallback continues to call additional rules.
-        config = types.SimpleNamespace(name=f"Test:{self.index}")
+        config = types.SimpleNamespace(
+            name=f"Test:{self.index}", disabled_severity=2, standby_severity=2
+        )
         bad_rule = BadEnabledRule(config=config)
         rule2 = self.make_enabled_rule()
         rule3 = self.make_enabled_rule()

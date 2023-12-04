@@ -6,8 +6,14 @@ rules:
 - classname: Enabled
   configs:
   - name: ATDome
+    disabled_severity: 2
+    standby_severity: 2
   - name: ATCamera
+    disabled_severity: 2
+    standby_severity: 2
   - name: ScriptQueue:2
+    disabled_severity: 2
+    standby_severity: 2
 escalation:
 - alarms: ["Enabled.AT*"]
   responder: stella

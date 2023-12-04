@@ -62,8 +62,8 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
         minimal_config_dict = dict(name="MTMount")
         minimal_config = watcher.rules.Enabled.make_config(**minimal_config_dict)
         assert minimal_config.name == minimal_config_dict["name"]
-        assert minimal_config.disabled_severity == AlarmSeverity.WARNING
-        assert minimal_config.standby_severity == AlarmSeverity.WARNING
+        assert minimal_config.disabled_severity == AlarmSeverity.NONE
+        assert minimal_config.standby_severity == AlarmSeverity.NONE
         assert minimal_config.offline_severity == AlarmSeverity.SERIOUS
         assert minimal_config.fault_severity == AlarmSeverity.CRITICAL
 
@@ -81,7 +81,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
 
         for state, bad_value in itertools.product(
             salobj.State,
-            ("not a number", AlarmSeverity.NONE, AlarmSeverity.CRITICAL + 1),
+            ("not a number", AlarmSeverity.CRITICAL + 1),
         ):
             if state == salobj.State.ENABLED:
                 continue

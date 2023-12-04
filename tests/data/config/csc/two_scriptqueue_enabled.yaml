@@ -2,7 +2,11 @@ rules:
 - classname: Enabled
   configs:
   - name: "ScriptQueue:1"
+    disabled_severity: 2
+    standby_severity: 2
   - name: "ScriptQueue:2"
+    disabled_severity: 2
+    standby_severity: 2
 escalation:
 - alarms: ["Enabled.ScriptQueue:2"]
   responder: stella

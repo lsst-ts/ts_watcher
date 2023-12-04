@@ -76,7 +76,12 @@ class ScriptFailed(watcher.BaseRule):
 
     @classmethod
     def get_schema(cls):
-        schema_yaml = """
+        ident = "                    "
+        severity_values = "\n".join(
+            [f"{ident}- {severity.name}" for severity in AlarmSeverity]
+        )
+
+        schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#
             description: Configuration for Enabled
             type: object
@@ -85,7 +90,13 @@ class ScriptFailed(watcher.BaseRule):
                     description: >-
                         Index of the ScriptQueue to monitor.
                     type: integer
-
+                severity:
+                    description: >-
+                        Alarm severity for when Scripts fail.
+                    type: string
+                    default: {AlarmSeverity.CRITICAL.name}
+                    enum:
+{severity_values}
             required: [index]
             additionalProperties: false
         """

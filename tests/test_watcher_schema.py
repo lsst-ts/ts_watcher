@@ -28,6 +28,7 @@ import jsonschema
 import pytest
 import yaml
 from lsst.ts import salobj, watcher
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 
 class WatcherSchemaTestCase(unittest.TestCase):
@@ -83,9 +84,21 @@ class WatcherSchemaTestCase(unittest.TestCase):
         rule0_dict = config.rules[0]
         assert rule0_dict["classname"] == "Enabled"
         assert rule0_dict["configs"] == [
-            dict(name="ATDome"),
-            dict(name="ATCamera"),
-            dict(name="ScriptQueue:2"),
+            dict(
+                name="ATDome",
+                disabled_severity=AlarmSeverity.WARNING,
+                standby_severity=AlarmSeverity.WARNING,
+            ),
+            dict(
+                name="ATCamera",
+                disabled_severity=AlarmSeverity.WARNING,
+                standby_severity=AlarmSeverity.WARNING,
+            ),
+            dict(
+                name="ScriptQueue:2",
+                disabled_severity=AlarmSeverity.WARNING,
+                standby_severity=AlarmSeverity.WARNING,
+            ),
         ]
         assert len(config.escalation) == 2
         assert config.escalation[0] == dict(
