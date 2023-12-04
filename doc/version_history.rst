@@ -6,6 +6,14 @@
 Version History
 ###############
 
+v1.17.3
+-------
+
+* Update ``script_failed`` alarm to allow users to specify the severity of the alarm.
+
+* Update ``enabled`` rule to allow setting alarm level to ``NONE`` for a particular state.
+
+
 v1.17.2
 -------
 

@@ -90,7 +90,10 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             raise ValueError("Must specify one or more CSCs")
         self.name_index_list = [salobj.name_to_name_index(name) for name in names]
 
-        configs = [dict(name=name_index) for name_index in names]
+        configs = [
+            dict(name=name_index, disabled_severity=2, standby_severity=2)
+            for name_index in names
+        ]
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
