@@ -228,9 +228,9 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         field_name=data_field,
                         indices=indices,
                     )
-                    indexed_field_wrappers[
-                        (sensor_name, indices)
-                    ] = indexed_field_wrapper
+                    indexed_field_wrappers[(sensor_name, indices)] = (
+                        indexed_field_wrapper
+                    )
 
                     # Test indexed field wrapper attributes
                     assert indexed_field_wrapper.topic_wrapper is topic_wrapper
