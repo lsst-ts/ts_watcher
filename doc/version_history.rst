@@ -6,6 +6,13 @@
 Version History
 ###############
 
+v1.17.5
+-------
+
+Make CSC compatible with ts-xml 21 by adding support for makeLogEntry command.
+
+Command functionality is still not implemented.
+
 v1.17.4
 -------
 
