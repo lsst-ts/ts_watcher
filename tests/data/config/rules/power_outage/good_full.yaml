@@ -1,2 +1,3 @@
 name: EPM:301
 min_num_zeros_schneider: 3
+generator_startup_time: 600

@@ -25,13 +25,14 @@ import math
 import typing
 
 import yaml
-from lsst.ts import salobj
+from lsst.ts import salobj, utils
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
-REASON = "Power outage detected."
+POWER_OUTAGE_REASON = "Power outage detected."
+GENERATOR_STARTING_REASON = POWER_OUTAGE_REASON + " The generator is starting."
 
 
 class PowerOutage(BaseRule):
@@ -69,6 +70,9 @@ class PowerOutage(BaseRule):
         )
 
         self.num_zeros_schneider = 0
+        self.xups_alert_started = False
+        self.schneider_warn_start_time = 0.0
+        self.xups_warn_start_time = 0.0
 
     @classmethod
     def get_schema(cls):
@@ -87,9 +91,14 @@ properties:
         description: >-
             The number of consecutive zeros before an alarm is raised.
         type: number
+    generator_startup_time:
+        description: >-
+            The number of seconds the power generator needs to start up.
+        type: number
 required:
   - name
   - min_num_zeros_schneider
+  - generator_startup_time
 additionalProperties: false
        """
         return yaml.safe_load(schema_yaml)
@@ -105,13 +114,12 @@ additionalProperties: false
                 and math.isclose(data.activePowerB, 0.0)
                 and math.isclose(data.activePowerC, 0.0)
             ):
+                if self.num_zeros_schneider == 0:
+                    self.schneider_warn_start_time = utils.current_tai()
                 self.num_zeros_schneider += 1
             else:
                 self.num_zeros_schneider = 0
-
-            if self.num_zeros_schneider >= self.config.min_num_zeros_schneider:
-                severity = AlarmSeverity.CRITICAL
-                reason = REASON
+            severity, reason = self.determine_schneider_severity_and_reason()
 
         elif hasattr(data, "inputPower"):
             # Eaton XUPS.
@@ -120,7 +128,29 @@ additionalProperties: false
                 and math.isnan(data.inputPower[1])
                 and math.isnan(data.inputPower[2])
             ):
-                severity = AlarmSeverity.CRITICAL
-                reason = REASON
+                if not self.xups_alert_started:
+                    self.xups_warn_start_time = utils.current_tai()
+                    self.xups_alert_started = True
+                severity, reason = self.determine_ups_severity_and_reason(
+                    self.xups_warn_start_time
+                )
 
+        return severity, reason
+
+    def determine_schneider_severity_and_reason(self):
+        severity, reason = NoneNoReason
+        if self.num_zeros_schneider >= self.config.min_num_zeros_schneider:
+            severity, reason = self.determine_ups_severity_and_reason(
+                self.schneider_warn_start_time
+            )
+        return severity, reason
+
+    def determine_ups_severity_and_reason(self, start_time: float):
+        severity, reason = NoneNoReason
+        if utils.current_tai() - start_time >= self.config.generator_startup_time:
+            severity = AlarmSeverity.CRITICAL
+            reason = POWER_OUTAGE_REASON
+        else:
+            severity = AlarmSeverity.WARNING
+            reason = GENERATOR_STARTING_REASON
         return severity, reason

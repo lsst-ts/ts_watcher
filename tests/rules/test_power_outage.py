@@ -24,6 +24,7 @@ import math
 import pathlib
 import types
 import unittest
+from unittest import mock
 
 import yaml
 from lsst.ts import salobj, utils, watcher
@@ -45,6 +46,11 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
             / "rules"
             / "power_outage"
         )
+        self.curr_tai = 630720100.0
+
+    def current_tai(self):
+        """Wrapper function to mock lsst.ts.utils.current_tai."""
+        return self.curr_tai
 
     def get_config(self, filepath):
         with open(filepath, "r") as f:
@@ -78,68 +84,83 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="EPM", index=301
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
-            test_data_items = [
-                {
-                    "topic": controller.tel_xups,
-                    "is_power_outage": False,
-                    "expected_severity": AlarmSeverity.NONE,
-                },
-                {
-                    "topic": controller.tel_xups,
-                    "is_power_outage": True,
-                    "expected_severity": AlarmSeverity.CRITICAL,
-                },
-                {
-                    "topic": controller.tel_scheiderPm5xxx,
-                    "is_power_outage": False,
-                    "expected_severity": AlarmSeverity.NONE,
-                },
-                {
-                    "topic": controller.tel_scheiderPm5xxx,
-                    "is_power_outage": True,
-                    "expected_severity": AlarmSeverity.NONE,
-                },
-                {
-                    "topic": controller.tel_scheiderPm5xxx,
-                    "is_power_outage": True,
-                    "expected_severity": AlarmSeverity.NONE,
-                },
-                {
-                    "topic": controller.tel_scheiderPm5xxx,
-                    "is_power_outage": True,
-                    "expected_severity": AlarmSeverity.CRITICAL,
-                },
-            ]
+        with mock.patch(
+            "lsst.ts.watcher.rules.power_outage.utils.current_tai", self.current_tai
+        ):
+            async with salobj.Controller(
+                name="EPM", index=301
+            ) as controller, watcher.Model(
+                domain=controller.domain, config=watcher_config
+            ) as model:
+                test_data_items = [
+                    {
+                        "topic": controller.tel_xups,
+                        "is_power_outage": False,
+                        "expected_severity": AlarmSeverity.NONE,
+                    },
+                    {
+                        "topic": controller.tel_xups,
+                        "is_power_outage": True,
+                        "expected_severity": AlarmSeverity.WARNING,
+                    },
+                    {
+                        "topic": controller.tel_xups,
+                        "is_power_outage": True,
+                        "expected_severity": AlarmSeverity.CRITICAL,
+                    },
+                    {
+                        "topic": controller.tel_scheiderPm5xxx,
+                        "is_power_outage": False,
+                        "expected_severity": AlarmSeverity.NONE,
+                    },
+                    {
+                        "topic": controller.tel_scheiderPm5xxx,
+                        "is_power_outage": True,
+                        "expected_severity": AlarmSeverity.NONE,
+                    },
+                    {
+                        "topic": controller.tel_scheiderPm5xxx,
+                        "is_power_outage": True,
+                        "expected_severity": AlarmSeverity.NONE,
+                    },
+                    {
+                        "topic": controller.tel_scheiderPm5xxx,
+                        "is_power_outage": True,
+                        "expected_severity": AlarmSeverity.WARNING,
+                    },
+                ]
 
-            rule_name = "PowerOutage.EPM:301"
-            rule = model.rules[rule_name]
-            rule.alarm.init_severity_queue()
+                rule_name = "PowerOutage.EPM:301"
+                rule = model.rules[rule_name]
+                rule.alarm.init_severity_queue()
 
-            await model.enable()
+                await model.enable()
 
-            num_zeros_schneider = 0
-            for data_item in test_data_items:
-                await self.send_epm_data(
-                    model=model,
-                    topic=data_item["topic"],
-                    is_power_outage=data_item["is_power_outage"],
-                )
-                if hasattr(data_item["topic"].data, "activePowerA"):
-                    if data_item["is_power_outage"]:
-                        num_zeros_schneider += 1
-                    else:
-                        num_zeros_schneider = 0
-                if num_zeros_schneider == 0 or num_zeros_schneider >= 3:
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                num_zeros_schneider = 0
+                for index, data_item in enumerate(test_data_items):
+                    if index == 2:
+                        self.curr_tai += (
+                            watcher_config.rules[0]["configs"][0][
+                                "generator_startup_time"
+                            ]
+                            + 1.0
+                        )
+                    await self.send_epm_data(
+                        model=model,
+                        topic=data_item["topic"],
+                        is_power_outage=data_item["is_power_outage"],
                     )
-                    assert severity == data_item["expected_severity"]
-                assert rule.alarm.severity_queue.empty()
+                    if hasattr(data_item["topic"].data, "activePowerA"):
+                        if data_item["is_power_outage"]:
+                            num_zeros_schneider += 1
+                        else:
+                            num_zeros_schneider = 0
+                    if num_zeros_schneider == 0 or num_zeros_schneider >= 3:
+                        severity = await asyncio.wait_for(
+                            rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
+                        )
+                        assert severity == data_item["expected_severity"]
+                    assert rule.alarm.severity_queue.empty()
 
     async def send_epm_data(
         self,
