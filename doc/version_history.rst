@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.17.6
+-------
+
+* Add `rules.PowerOutage` rule.
+
 v1.17.5
 -------
 
