@@ -106,6 +106,36 @@ additionalProperties: false
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
     ) -> AlarmSeverityReasonType:
+        """Compute and set alarm severity and reason.
+
+        Parameters
+        ----------
+        data : `salobj.BaseMsgType`
+              Message from the topic described by topic_callback.
+        **kwargs : `dict` [`str`, `typing.Any`]
+            Keyword arguments. If triggered by `TopicCallback` calling
+            `update_alarm_severity`, the arguments will be as follows:
+
+            * topic_callback : `TopicCallback`
+              Topic callback wrapper.
+
+        Returns
+        -------
+        None, if no change or unknown, or a tuple of two values:
+
+        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+            The new alarm severity.
+        reason : `str`
+            Detailed reason for the severity, e.g. a string describing
+            what value is out of range, and what the range is.
+            If ``severity`` is ``NONE`` then this value is ignored (but still
+            required) and the old reason is retained until the alarm is reset
+            to ``nominal`` state.
+
+        Notes
+        -----
+        You may return `NoneNoReason` if the alarm state is ``NONE``.
+        """
         severity, reason = NoneNoReason
         if hasattr(data, "activePowerA"):
             # Schneider UPS.
@@ -138,6 +168,25 @@ additionalProperties: false
         return severity, reason
 
     def determine_schneider_severity_and_reason(self):
+        """Determine the severity and reason for Schneider UPSs.
+
+        Under normal circumstances Schneider UPSs emit telemetry with zeros
+        in between telemetry with non-zero values. During a power outage only
+        zeros are emitted. Therefore only after a certain amount of zeros the
+        condition of a power outage can be ensured. This method checks for that
+        condition before determining the severity and reason.
+
+        Returns
+        -------
+        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+            The new alarm severity.
+        reason : `str`
+            Detailed reason for the severity, e.g. a string describing
+            what value is out of range, and what the range is.
+            If ``severity`` is ``NONE`` then this value is ignored (but still
+            required) and the old reason is retained until the alarm is reset
+            to ``nominal`` state.
+        """
         severity, reason = NoneNoReason
         if self.num_zeros_schneider >= self.config.min_num_zeros_schneider:
             severity, reason = self.determine_ups_severity_and_reason(
@@ -146,6 +195,28 @@ additionalProperties: false
         return severity, reason
 
     def determine_ups_severity_and_reason(self, start_time: float):
+        """Determine the severity and reason for all UPSs.
+
+        When a power outage starts, the generator will start. This takes a
+        certain amount of time during which the severity will be WARNING. After
+        that time the severity will be CRITICAL.
+
+        Parameters
+        ----------
+        start_time : `float`
+            The start time (TAI seconds) at which the power outage started.
+
+        Returns
+        -------
+        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+            The new alarm severity.
+        reason : `str`
+            Detailed reason for the severity, e.g. a string describing
+            what value is out of range, and what the range is.
+            If ``severity`` is ``NONE`` then this value is ignored (but still
+            required) and the old reason is retained until the alarm is reset
+            to ``nominal`` state.
+        """
         severity, reason = NoneNoReason
         if utils.current_tai() - start_time >= self.config.generator_startup_time:
             severity = AlarmSeverity.CRITICAL
