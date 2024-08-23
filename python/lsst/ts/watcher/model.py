@@ -216,6 +216,19 @@ class Model:
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
 
+    async def make_log_entry(self, name):
+        """MakeLogEntry for alarm.
+
+        Parameters
+        ----------
+        name : `str`
+            Regular expression for alarm name(s) to post to narrative log.
+        """
+        log_server = self.config.narrative_server_url
+
+        for rule in self.get_rules(name):
+            await rule.alarm.make_log_entry(log_server)
+
     async def acknowledge_alarm(self, name, severity, user):
         """Acknowledge one or more alarms.
 

@@ -26,7 +26,7 @@ import yaml
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
-title: Watcher v5
+title: Watcher v6
 description: Configuration for the Watcher
 type: object
 required:
@@ -38,6 +38,9 @@ required:
   - escalation_url
 additionalProperties: false
 properties:
+  narrative_server_url:
+    description: URL of narrativelog service
+    type: string
   disabled_sal_components:
     description: >-
       Names of SAL components that the Watcher will ignored.

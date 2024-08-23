@@ -20,13 +20,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["Alarm"]
-
 import asyncio
 import inspect
 import logging
 
+import aiohttp
 from lsst.ts import utils
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.salobj.base import get_user_host
 
 # Default timeout for Alarm.assert_next_severity
 DEFAULT_NEXT_SEVERITY_TIMEOUT = 10
@@ -222,6 +223,53 @@ class Alarm:
         self._cancel_auto_unacknowledge()
         self._cancel_escalation_timer()
         self._cancel_unmute()
+
+    async def make_log_entry(self, log_server_url):
+        """Post message to narrative log entry in response to alarm
+        Parameters
+        ----------
+        log_server_url: `str`
+            URL of the narrativelog service.
+
+        Returns
+        -------
+        response: `dict`
+           JSON respose from Post
+
+        """
+        alarm_severity_level = {
+            AlarmSeverity.NONE: logging.DEBUG,
+            AlarmSeverity.SERIOUS: logging.INFO,
+            AlarmSeverity.WARNING: logging.WARNING,
+            AlarmSeverity.CRITICAL: logging.CRITICAL,
+        }
+
+        now = utils.astropy_time_from_tai_unix(utils.current_tai()).datetime.isoformat()
+        # Required? fields in payload:
+        #   message_text, level, user_id, user_agent, is_human
+        message = f"alarm:{self.name} severity={self.severity} {self.reason}"
+        payload = {
+            "message_text": message,
+            "level": alarm_severity_level[self.severity],
+            "user_id": get_user_host(),
+            "user_agent": "Watcher",
+            "is_human": False,
+            "tags": ["watcher", "alarm", "make_log_entry"],
+            "date_begin": now,
+            "date_end": now,
+        }
+
+        url = f"{log_server_url}/messages"
+
+        # AIOHTTP docs say don't create session per request. We do so anyhow.
+        # By not specifying a timeout, we accept the default value of
+        # 5 minutes (according to the doc)for the whole
+        # operation (connect, write, response).
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(url=url, json=payload) as response:
+                response: dict = await response.json()
+                self.log.debug(f"Response (json) from Post: {response=}")
+        return response
 
     async def acknowledge(self, severity, user):
         """Acknowledge the alarm.

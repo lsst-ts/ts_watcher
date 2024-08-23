@@ -5,3 +5,4 @@ rules: []
 escalation: []
 escalation_url: ""
 escalation_timeout: 1
+narrative_server_url: https://fake.url.com/narrativelog
