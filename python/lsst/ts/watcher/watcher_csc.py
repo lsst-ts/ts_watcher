@@ -28,7 +28,6 @@ from http import HTTPStatus
 
 import aiohttp
 from lsst.ts import salobj
-from lsst.ts.xml.component_info import ComponentInfo
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
@@ -73,16 +72,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # and reset to None when the Watcher goes to standby.
         self.model = None
         self.http_client = aiohttp.ClientSession()
-
-        # TODO DM-44613: Remove compatibility commands
-        compatibility_commands = dict(
-            makeLogEntry=self._do_makeLogEntry,
-        )
-
-        component_info = ComponentInfo("Watcher", "none")
-        for command_name, command_method in compatibility_commands.items():
-            if f"cmd_{command_name}" in component_info.topics:
-                setattr(self, f"do_{command_name}", command_method)
 
         super().__init__(
             "Watcher",
@@ -336,12 +325,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.assert_enabled()
         await self.model.unmute_alarm(name=data.name)
 
-    async def _do_makeLogEntry(self, data):
+    async def do_makeLogEntry(self, data):
         """Make log entry for alarms."""
         self.assert_enabled()
-        # TODO DM-44613: Implement watcher command to create
-        # log entry for a particular alarm.
-        raise NotImplementedError("Command not implemented yet.")
+        await self.model.make_log_entry(name=data.name)
 
 
 def run_watcher():
