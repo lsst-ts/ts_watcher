@@ -24,6 +24,7 @@ import os
 import pathlib
 import sys
 import unittest
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from lsst.ts import salobj, utils, watcher
@@ -151,7 +152,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             desired_config_pkg_name = "ts_config_ocs"
             desired_config_env_name = desired_config_pkg_name.upper() + "_DIR"
             desird_config_pkg_dir = os.environ[desired_config_env_name]
-            desired_config_dir = pathlib.Path(desird_config_pkg_dir) / "Watcher/v5"
+            desired_config_dir = pathlib.Path(desird_config_pkg_dir) / "Watcher/v6"
             assert self.csc.get_config_pkg() == desired_config_pkg_name
             assert self.csc.config_dir == desired_config_dir
 
@@ -187,6 +188,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     "showAlarms",
                     "unacknowledge",
                     "unmute",
+                    "makeLogEntry",
                 ),
                 override="two_scriptqueue_enabled.yaml",
             )
@@ -814,6 +816,70 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 assert not data.acknowledged
                 assert data.acknowledgedBy == ""
             assert seen_alarm_names == alarm_names
+
+    @patch("aiohttp.ClientSession.post")
+    async def test_make_log_entry(self, mock_post):
+        """Test the makeLogEntry command."""
+
+        # Send the makeLogEntry command.
+        async with self.make_csc(
+            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
+            atdome_alarm_name = "Enabled.ATDome:0"
+
+            await salobj.set_summary_state(
+                self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
+            )
+            await self.check_all_alarms_events_are_none()
+
+            await atdome.evt_summaryState.set_write(
+                summaryState=salobj.State.FAULT, force_output=True
+            )
+            await self.assert_next_alarm(
+                name=atdome_alarm_name,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=False,
+                acknowledgedBy="",
+            )
+
+            test_case_json = {"key": "TEST-123", "status": "PASS"}
+            mock_response = AsyncMock()
+            mock_response.json.return_value = test_case_json
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            await self.remote.cmd_makeLogEntry.set_start(
+                name=atdome_alarm_name,
+                timeout=STD_TIMEOUT,
+            )
+
+            post_args = mock_post.call_args.kwargs
+            assert post_args["url"] == "https://fake.url.com/narrativelog/messages"
+            assert (
+                post_args["json"]["message_text"]
+                == "alarm:Enabled.ATDome:0 severity=4 FAULT state"
+            )
+            # The POST response contains three additional keys
+            # (user_id, date_begin, date_end) that will vary from
+            # test to test.  The are removed from this expected value
+            # and the mock_post.call_args dict.
+            expected = {
+                "url": "https://fake.url.com/narrativelog/messages",
+                "json": {
+                    "message_text": "alarm:Enabled.ATDome:0 severity=4 FAULT state",
+                    "level": 50,
+                    "user_agent": "Watcher",
+                    "is_human": False,
+                    "tags": ["watcher", "alarm", "make_log_entry"],
+                },
+            }
+            self.assertIn("user_id", post_args["json"])
+            self.assertIn("date_begin", post_args["json"])
+            self.assertIn("date_end", post_args["json"])
+            del post_args["json"]["user_id"]
+            del post_args["json"]["date_begin"]
+            del post_args["json"]["date_end"]
+            self.assertEqual(post_args, expected)
 
     async def test_mute(self):
         """Test the mute and unmute command."""

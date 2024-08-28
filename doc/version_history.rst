@@ -6,6 +6,16 @@
 Version History
 ###############
 
+v1.18.0
+-------
+
+* Add `rules.MTDomeAzEnabled` rule.
+* Add `rules.MTDomeCapacitorBanks` rule.
+* Add `rules.PowerOutage` rule.
+* Add makeLogEntry which will create a log entry for a particular alarm.
+* Add narrative_server_url key to the Watcher config file.
+
+
 v1.17.5
 -------
 
