@@ -28,6 +28,7 @@ from .heartbeat import *
 from .humidity import *
 from .mt_air_compressors_state import *
 from .mt_ccw_following_rotator import *
+from .mt_vibration_rotator import *
 from .mtdome_az_enabled import *
 from .mtdome_capacitor_banks import *
 from .over_temperature import *
