@@ -31,6 +31,7 @@ from .mt_ccw_following_rotator import *
 from .mt_vibration_rotator import *
 from .mtdome_az_enabled import *
 from .mtdome_capacitor_banks import *
+from .mtm2_out_closed_loop_control import *
 from .over_temperature import *
 from .power_outage import *
 from .script_failed import *
