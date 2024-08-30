@@ -32,6 +32,7 @@ from .mt_vibration_rotator import *
 from .mtdome_az_enabled import *
 from .mtdome_capacitor_banks import *
 from .mtm2_out_closed_loop_control import *
+from .mtm2_total_force_moment import *
 from .over_temperature import *
 from .power_outage import *
 from .script_failed import *

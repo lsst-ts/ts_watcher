@@ -10,6 +10,7 @@ v1.19.0
 -------
 
 * Add the `rules.MTM2OutClosedLoopControl` rule.
+* Add the `rules.MTM2TotalForceMoment` rule.
 
 v1.18.1
 -------
