@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.18.1
+-------
+
+* Add the `rules.MTVibrationRotator` rule.
+
 v1.18.0
 -------
 
