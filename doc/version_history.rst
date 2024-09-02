@@ -13,6 +13,7 @@ v1.19.0
 * Add the `rules.MTM2TotalForceMoment` rule.
 * Add the `rules.MTM2ForceError` rule.
 * Add the `rules.MTM2MirrorTemperature` rule.
+* Add the `rules.MTM2TangentLinkTemperature` rule.
 
 v1.18.1
 -------

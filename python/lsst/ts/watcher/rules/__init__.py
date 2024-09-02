@@ -34,6 +34,7 @@ from .mtdome_capacitor_banks import *
 from .mtm2_force_error import *
 from .mtm2_mirror_temperature import *
 from .mtm2_out_closed_loop_control import *
+from .mtm2_tangent_link_temperature import *
 from .mtm2_total_force_moment import *
 from .over_temperature import *
 from .power_outage import *
