@@ -28,6 +28,11 @@ from .heartbeat import *
 from .humidity import *
 from .mt_air_compressors_state import *
 from .mt_ccw_following_rotator import *
+from .mt_force_error import *
+from .mt_mirror_temperature import *
+from .mt_out_closed_loop_control import *
+from .mt_tangent_link_temperature import *
+from .mt_total_force_moment import *
 from .mt_vibration_rotator import *
 from .mtdome_az_enabled import *
 from .mtdome_capacitor_banks import *
