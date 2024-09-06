@@ -77,6 +77,8 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         self._remote_ess: salobj.Remote | None = None
         self._remote_m2: salobj.Remote | None = None
 
+        self._timeout = 0.0
+
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
         schema_yaml = """
@@ -90,6 +92,11 @@ class MTTangentLinkTemperature(watcher.PollingRule):
                         the ambient (degree C).
                     type: number
                     default: 10.0
+                timeout:
+                    description: >-
+                        Timeout of the telemetry data (second).
+                    type: number
+                    default: 3600.0
                 poll_interval:
                     description: >-
                         Time delay between polling updates (second).
@@ -142,7 +149,17 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         if (not self._remote_ess.tel_temperature.has_data) or (
             not self._remote_m2.tel_temperature.has_data
         ):
-            return NoneNoReason
+            self._timeout += 1.0
+            return (
+                NoneNoReason
+                if self._timeout < self.config.timeout
+                else (
+                    AlarmSeverity.WARNING,
+                    "Timeout of telemetry data.",
+                )
+            )
+
+        self._timeout = 0.0
 
         # There are 16 channels in total. Only 6 are used for the M2 tangent
         # links. Other 10 elements are NaN.
