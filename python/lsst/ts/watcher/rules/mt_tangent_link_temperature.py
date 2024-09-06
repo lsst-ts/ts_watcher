@@ -91,9 +91,15 @@ class MTTangentLinkTemperature(watcher.PollingRule):
                     type: number
                     default: 10.0
                 poll_interval:
-                    description: Time delay between polling updates (second).
+                    description: >-
+                        Time delay between polling updates (second).
                     type: number
                     default: 1.0
+                severity:
+                    description: >-
+                        Alarm severity defined in enum AlarmSeverity.
+                    type: integer
+                    default: 2
 
             required:
             - buffer
@@ -158,7 +164,7 @@ class MTTangentLinkTemperature(watcher.PollingRule):
                 )
             )
             else (
-                AlarmSeverity.WARNING,
-                f"Tangent link temperature > ambient by {self.config.buffer} degree C threshold.",
+                AlarmSeverity(int(self.config.severity)),
+                f"Tangent link temperature above ambient threshold of {self.config.buffer} degree C.",
             )
         )

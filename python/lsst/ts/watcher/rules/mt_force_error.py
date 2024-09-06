@@ -82,9 +82,15 @@ class MTForceError(watcher.PollingRule):
                     type: number
                     default: 10.0
                 poll_interval:
-                    description: Time delay between polling updates (second).
+                    description: >-
+                        Time delay between polling updates (second).
                     type: number
                     default: 1.0
+                severity:
+                    description: >-
+                        Alarm severity defined in enum AlarmSeverity.
+                    type: integer
+                    default: 3
 
             required:
             - force_error_axial
@@ -133,21 +139,22 @@ class MTForceError(watcher.PollingRule):
                 self._remote.tel_tangentForce.get(), self.config.force_error_tangent
             )
 
+        severity = AlarmSeverity(int(self.config.severity))
         if list_axial and list_tangent:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Axial and tangent force errors out of normal range.",
             )
 
         elif list_axial:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Axial force error out of normal range.",
             )
 
         elif list_tangent:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Tangent force error out of normal range.",
             )
 

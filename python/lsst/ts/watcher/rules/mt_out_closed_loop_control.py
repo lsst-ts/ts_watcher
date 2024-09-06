@@ -122,7 +122,7 @@ class MTOutClosedLoopControl(watcher.BaseRule):
             and (not is_closed_loop_control)
         ):
             self._was_closed_loop_control = False
-            return (AlarmSeverity.CRITICAL, "MTM2 is out of the closed-loop control.")
+            return (AlarmSeverity.CRITICAL, "MTM2 is out of closed-loop control.")
 
         if self._is_communication_power_on:
             self._was_closed_loop_control = is_closed_loop_control

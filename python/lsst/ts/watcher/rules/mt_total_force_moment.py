@@ -102,9 +102,15 @@ class MTTotalForceMoment(watcher.PollingRule):
                     type: number
                     default: 300.0
                 poll_interval:
-                    description: Time delay between polling updates (second).
+                    description: >-
+                        Time delay between polling updates (second).
                     type: number
                     default: 1.0
+                severity:
+                    description: >-
+                        Alarm severity defined in enum AlarmSeverity.
+                    type: integer
+                    default: 3
 
             required:
             - fx
@@ -157,21 +163,22 @@ class MTTotalForceMoment(watcher.PollingRule):
                 self._remote.tel_netMomentsTotal.get(), ["mx", "my", "mz"]
             )
 
+        severity = AlarmSeverity(int(self.config.severity))
         if list_forces and list_moments:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Force and moment out of normal range.",
             )
 
         elif list_forces:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Force out of normal range.",
             )
 
         elif list_moments:
             return (
-                AlarmSeverity.SERIOUS,
+                severity,
                 "Moment out of normal range.",
             )
 

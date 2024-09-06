@@ -89,9 +89,15 @@ class MTMirrorTemperature(watcher.PollingRule):
                     type: number
                     default: 10.0
                 poll_interval:
-                    description: Time delay between polling updates (second).
+                    description: >-
+                        Time delay between polling updates (second).
                     type: number
                     default: 1.0
+                severity:
+                    description: >-
+                        Alarm severity defined in enum AlarmSeverity.
+                    type: integer
+                    default: 2
 
             required:
             - ring
@@ -147,7 +153,7 @@ class MTMirrorTemperature(watcher.PollingRule):
             NoneNoReason
             if (len(sources) == 0)
             else (
-                AlarmSeverity.WARNING,
+                AlarmSeverity(int(self.config.severity)),
                 "Mirror temperature out of normal range.",
             )
         )
