@@ -24,20 +24,20 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.watcher.rules import MTM2OutClosedLoopControl
+from lsst.ts.watcher.rules import MTOutClosedLoopControl
 from lsst.ts.xml.enums.MTM2 import PowerSystemState, PowerType
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
-class MTM2OutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
+class MTOutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
-        rule = MTM2OutClosedLoopControl(None)
+        rule = MTOutClosedLoopControl(None)
         assert len(rule.remote_info_list) == 1
         assert len(rule.remote_info_list[0].callback_names) == 2
 
@@ -46,7 +46,7 @@ class MTM2OutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTM2OutClosedLoopControl", configs=[{}])],
+            rules=[dict(classname="MTOutClosedLoopControl", configs=[{}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
@@ -94,7 +94,7 @@ class MTM2OutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
                 },
             ]
 
-            rule_name = "MTM2OutClosedLoopControl.MTM2"
+            rule_name = "MTOutClosedLoopControl.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 

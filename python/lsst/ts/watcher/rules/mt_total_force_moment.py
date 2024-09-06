@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTM2ForceError"]
+__all__ = ["MTTotalForceMoment"]
 
 import logging
 import types
@@ -33,8 +33,8 @@ from ..base_rule import AlarmSeverityReasonType, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTM2ForceError(watcher.PollingRule):
-    """Monitor the actuator force error of main telescope M2 is out of the
+class MTTotalForceMoment(watcher.PollingRule):
+    """Monitor the total force and moment of main telescope M2 is out of the
     normal range.
 
     Parameters
@@ -53,11 +53,11 @@ class MTM2ForceError(watcher.PollingRule):
         remote_info = RemoteInfo(
             remote_name,
             0,
-            poll_names=["tel_axialForce", "tel_tangentForce"],
+            poll_names=["tel_netForcesTotal", "tel_netMomentsTotal"],
         )
         super().__init__(
             config,
-            f"MTM2ForceError.{remote_name}",
+            f"MTTotalForceMoment.{remote_name}",
             [remote_info],
             log=log,
         )
@@ -68,27 +68,51 @@ class MTM2ForceError(watcher.PollingRule):
     def get_schema(cls) -> dict[str, typing.Any]:
         schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
-            description: Configuration for MTM2ForceError rule.
+            description: Configuration for MTTotalForceMoment rule.
             type: object
             properties:
-                force_error_axial:
+                fx:
                     description: >-
-                        Limit of the force error of axial actuator (N).
+                        Limit of the total force in x-direction (N).
                     type: number
-                    default: 5.0
-                force_error_tangent:
+                    default: 115.0
+                fy:
                     description: >-
-                        Limit of the force error of tangent link (N).
+                        Limit of the total force in y-direction (N).
                     type: number
-                    default: 10.0
+                    default: 17600.0
+                fz:
+                    description: >-
+                        Limit of the total force in z-direction (N).
+                    type: number
+                    default: 17600.0
+                mx:
+                    description: >-
+                        Limit of the total moment in x-direction (N * m).
+                    type: number
+                    default: 1500.0
+                my:
+                    description: >-
+                        Limit of the total moment in y-direction (N * m).
+                    type: number
+                    default: 40.0
+                mz:
+                    description: >-
+                        Limit of the total moment in z-direction (N * m).
+                    type: number
+                    default: 300.0
                 poll_interval:
                     description: Time delay between polling updates (second).
                     type: number
                     default: 1.0
 
             required:
-            - force_error_axial
-            - force_error_tangent
+            - fx
+            - fy
+            - fz
+            - mx
+            - my
+            - mz
             - poll_interval
             additionalProperties: false
         """
@@ -121,73 +145,60 @@ class MTM2ForceError(watcher.PollingRule):
 
         assert self._remote is not None
 
-        list_axial = list()
-        if self._remote.tel_axialForce.has_data:
-            list_axial = self._check_out_of_range(
-                self._remote.tel_axialForce.get(), self.config.force_error_axial
+        list_forces = list()
+        if self._remote.tel_netForcesTotal.has_data:
+            list_forces = self._check_out_of_range(
+                self._remote.tel_netForcesTotal.get(), ["fx", "fy", "fz"]
             )
 
-        list_tangent = list()
-        if self._remote.tel_tangentForce.has_data:
-            list_tangent = self._check_out_of_range(
-                self._remote.tel_tangentForce.get(), self.config.force_error_tangent
+        list_moments = list()
+        if self._remote.tel_netMomentsTotal.has_data:
+            list_moments = self._check_out_of_range(
+                self._remote.tel_netMomentsTotal.get(), ["mx", "my", "mz"]
             )
 
-        if (len(list_axial) != 0) and (len(list_tangent) != 0):
+        if list_forces and list_moments:
             return (
                 AlarmSeverity.SERIOUS,
-                f"Axial ({list_axial}) and tangent ({list_tangent}) force errors out of normal range.",
+                "Force and moment out of normal range.",
             )
 
-        elif len(list_axial) != 0:
+        elif list_forces:
             return (
                 AlarmSeverity.SERIOUS,
-                f"Axial ({list_axial}) force error out of normal range.",
+                "Force out of normal range.",
             )
 
-        elif len(list_tangent) != 0:
+        elif list_moments:
             return (
                 AlarmSeverity.SERIOUS,
-                f"Tangent ({list_tangent}) force error out of normal range.",
+                "Moment out of normal range.",
             )
 
         else:
             return NoneNoReason
 
     def _check_out_of_range(
-        self, data: salobj.BaseMsgType, threshold: float
-    ) -> list[int]:
+        self, data: salobj.BaseMsgType, components: list[str]
+    ) -> list[str]:
         """Check the data that is out of the range.
 
         Parameters
         ----------
         data : `salobj.BaseMsgType`
             Data.
-        threshold : `float`
-            Threshold in N.
+        components : `list` [`str`]
+            Components to check in data.
 
         Returns
         -------
-        list_actuators : `list`
-            List of the actuators that are out of the range.
+        list_components : `list`
+            List of the components that are out of the normal range.
         """
 
-        list_actuators = list()
-        for idx in range(len(data.measured)):
+        list_components = list()
+        for component in components:
+            if abs(getattr(data, component)) > getattr(self.config, component):
+                list_components.append(component)
 
-            # Skip the hardpoints
-            hardpoint_correction = data.hardpointCorrection[idx]
-            if hardpoint_correction == 0.0:
-                continue
-
-            force_error = (
-                data.lutGravity[idx]
-                + data.lutTemperature[idx]
-                + hardpoint_correction
-                + data.applied[idx]
-                - data.measured[idx]
-            )
-            if abs(force_error) > threshold:
-                list_actuators.append(idx)
-
-        return list_actuators
+        return list_components

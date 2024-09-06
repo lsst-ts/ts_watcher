@@ -24,40 +24,23 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.watcher.rules import MTM2ForceError
+from lsst.ts.watcher.rules import MTTotalForceMoment
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
-class TestData:
-
-    def __init__(
-        self,
-        lut_gravity: list[float],
-        lut_temperature: list[float],
-        applied: list[float],
-        measured: list[float],
-        hardpoint_correction: list[float],
-    ) -> None:
-        self.lutGravity = lut_gravity
-        self.lutTemperature = lut_temperature
-        self.applied = applied
-        self.measured = measured
-        self.hardpointCorrection = hardpoint_correction
-
-
-class MTM2ForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
+class MTTotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
 
-        schema = watcher.rules.MTM2ForceError.get_schema()
+        schema = watcher.rules.MTTotalForceMoment.get_schema()
         assert schema is not None
 
-        rule = MTM2ForceError(None)
+        rule = MTTotalForceMoment(None)
         assert len(rule.remote_info_list) == 1
         assert len(rule.remote_info_list[0].poll_names) == 2
 
@@ -66,7 +49,7 @@ class MTM2ForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTM2ForceError", configs=[{}])],
+            rules=[dict(classname="MTTotalForceMoment", configs=[{}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
@@ -75,53 +58,56 @@ class MTM2ForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
             domain=controller.domain, config=watcher_config
         ) as model:
 
-            rule_name = "MTM2ForceError.MTM2"
+            rule_name = "MTTotalForceMoment.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
             await model.enable()
 
-            # 72 axial actuators and 6 tangent links
-            hardpoint_correction_axial = [1.0] * 72
-            hardpoint_correction_tangent = [1.0] * 6
+            value_normal = 10.0
             test_data_items = [
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller.tel_netForcesTotal,
                     "fields": {
-                        "measured": [0.0] * 72,
-                        "hardpointCorrection": hardpoint_correction_axial,
+                        "fx": value_normal,
+                        "fy": value_normal,
+                        "fz": value_normal,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller.tel_netForcesTotal,
                     "fields": {
-                        "measured": [100.0] * 72,
-                        "hardpointCorrection": hardpoint_correction_axial,
+                        "fx": value_normal,
+                        "fy": rule.config.fy + 1.0,
+                        "fz": value_normal,
                     },
                     "expected_severity": AlarmSeverity.SERIOUS,
                 },
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller.tel_netForcesTotal,
                     "fields": {
-                        "measured": [0.0] * 72,
-                        "hardpointCorrection": hardpoint_correction_axial,
+                        "fx": value_normal,
+                        "fy": value_normal,
+                        "fz": value_normal,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller.tel_tangentForce,
+                    "topic": controller.tel_netMomentsTotal,
                     "fields": {
-                        "measured": [100.0] * 6,
-                        "hardpointCorrection": hardpoint_correction_tangent,
+                        "mx": value_normal,
+                        "my": value_normal,
+                        "mz": -rule.config.mz - 1.0,
                     },
                     "expected_severity": AlarmSeverity.SERIOUS,
                 },
                 {
-                    "topic": controller.tel_tangentForce,
+                    "topic": controller.tel_netMomentsTotal,
                     "fields": {
-                        "measured": [0.0] * 6,
-                        "hardpointCorrection": hardpoint_correction_tangent,
+                        "mx": value_normal,
+                        "my": value_normal,
+                        "mz": value_normal,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
@@ -137,30 +123,3 @@ class MTM2ForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
                     assert severity == data_item["expected_severity"]
 
             assert rule.alarm.severity_queue.empty()
-
-    def test_check_out_of_range(self) -> None:
-
-        # Normal
-        data_normal = TestData(
-            [0.0] * 5,
-            [0.0] * 5,
-            [1.0] * 5,
-            [1.0] * 5,
-            [1.0, 0.0, 0.0, 1.0, 1.0],
-        )
-
-        rule = MTM2ForceError(watcher.rules.MTM2ForceError.get_schema())
-        list_actuators = rule._check_out_of_range(data_normal, 1.0)
-        assert list_actuators == []
-
-        # Out of range
-        data_normal = TestData(
-            [0.0] * 5,
-            [0.0] * 5,
-            [1.0] * 5,
-            [10.0] * 5,
-            [1.0, 0.0, 0.0, 1.0, 1.0],
-        )
-
-        list_actuators = rule._check_out_of_range(data_normal, 1.0)
-        assert list_actuators == [0, 3, 4]

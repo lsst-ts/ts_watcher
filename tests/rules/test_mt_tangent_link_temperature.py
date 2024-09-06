@@ -23,91 +23,85 @@ import asyncio
 import types
 import unittest
 
+import numpy as np
 from lsst.ts import salobj, watcher
-from lsst.ts.watcher.rules import MTM2TotalForceMoment
+from lsst.ts.watcher.rules import MTTangentLinkTemperature
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
-class MTM2TotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
+class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
 
-        schema = watcher.rules.MTM2TotalForceMoment.get_schema()
+        schema = watcher.rules.MTTangentLinkTemperature.get_schema()
         assert schema is not None
 
-        rule = MTM2TotalForceMoment(None)
-        assert len(rule.remote_info_list) == 1
-        assert len(rule.remote_info_list[0].poll_names) == 2
+        rule = MTTangentLinkTemperature(None)
+        assert len(rule.remote_info_list) == 2
+        assert len(rule.remote_info_list[0].poll_names) == 1
+        assert len(rule.remote_info_list[1].poll_names) == 1
 
     async def test_operation(self) -> None:
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTM2TotalForceMoment", configs=[{}])],
+            rules=[dict(classname="MTTangentLinkTemperature", configs=[{}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
+        # 106 is the ESS SAL index for the M2 tangent link temperature
+        async with salobj.Controller("ESS", 106) as controller_ess, salobj.Controller(
+            "MTM2", 0
+        ) as controller_m2, watcher.Model(
+            domain=controller_ess.domain, config=watcher_config
         ) as model:
 
-            rule_name = "MTM2TotalForceMoment.MTM2"
+            rule_name = "MTTangentLinkTemperature.ESS"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
             await model.enable()
 
-            value_normal = 10.0
+            # 12 ring temperature values and 16 tangent link temperature
+            # channels in ESS (but only 6 are used).
+            tangent_normal = [np.nan] * 16
+            tangent_normal[1:7] = [0.0] * 6
+
+            tangent_bad = [np.nan] * 16
+            tangent_bad[1:7] = [rule.config.buffer + 1.0] * 6
+
             test_data_items = [
                 {
-                    "topic": controller.tel_netForcesTotal,
+                    "topic": controller_m2.tel_temperature,
                     "fields": {
-                        "fx": value_normal,
-                        "fy": value_normal,
-                        "fz": value_normal,
+                        "ring": [0.0] * 12,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller.tel_netForcesTotal,
+                    "topic": controller_ess.tel_temperature,
                     "fields": {
-                        "fx": value_normal,
-                        "fy": rule.config.fy + 1.0,
-                        "fz": value_normal,
+                        "temperatureItem": tangent_normal,
                     },
-                    "expected_severity": AlarmSeverity.SERIOUS,
                 },
                 {
-                    "topic": controller.tel_netForcesTotal,
+                    "topic": controller_ess.tel_temperature,
                     "fields": {
-                        "fx": value_normal,
-                        "fy": value_normal,
-                        "fz": value_normal,
+                        "temperatureItem": tangent_bad,
                     },
-                    "expected_severity": AlarmSeverity.NONE,
+                    "expected_severity": AlarmSeverity.WARNING,
                 },
                 {
-                    "topic": controller.tel_netMomentsTotal,
+                    "topic": controller_ess.tel_temperature,
                     "fields": {
-                        "mx": value_normal,
-                        "my": value_normal,
-                        "mz": -rule.config.mz - 1.0,
-                    },
-                    "expected_severity": AlarmSeverity.SERIOUS,
-                },
-                {
-                    "topic": controller.tel_netMomentsTotal,
-                    "fields": {
-                        "mx": value_normal,
-                        "my": value_normal,
-                        "mz": value_normal,
+                        "temperatureItem": tangent_normal,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },

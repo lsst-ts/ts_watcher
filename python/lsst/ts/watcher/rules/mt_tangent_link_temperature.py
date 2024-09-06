@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTM2MirrorTemperature"]
+__all__ = ["MTTangentLinkTemperature"]
 
 import logging
 import types
@@ -34,9 +34,9 @@ from ..base_rule import AlarmSeverityReasonType, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTM2MirrorTemperature(watcher.PollingRule):
-    """Monitor the mirror temperature of main telescope M2 is out of the normal
-    range.
+class MTTangentLinkTemperature(watcher.PollingRule):
+    """Monitor the tangent link temperature of main telescope M2 is out of the
+    normal range.
 
     Parameters
     ----------
@@ -50,42 +50,44 @@ class MTM2MirrorTemperature(watcher.PollingRule):
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
 
-        remote_name = "MTM2"
-        remote_info = RemoteInfo(
-            remote_name,
+        # ESS
+        # 106 is the ESS SAL index for the M2 tangent link temperature
+        remote_name_ess = "ESS"
+        remote_info_ess = RemoteInfo(
+            remote_name_ess,
+            106,
+            poll_names=["tel_temperature"],
+        )
+
+        # M2
+        remote_name_m2 = "MTM2"
+        remote_info_m2 = RemoteInfo(
+            remote_name_m2,
             0,
             poll_names=["tel_temperature"],
         )
+
         super().__init__(
             config,
-            f"MTM2MirrorTemperature.{remote_name}",
-            [remote_info],
+            f"MTTangentLinkTemperature.{remote_name_ess}",
+            [remote_info_ess, remote_info_m2],
             log=log,
         )
 
-        self._remote: salobj.Remote | None = None
+        self._remote_ess: salobj.Remote | None = None
+        self._remote_m2: salobj.Remote | None = None
 
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
         schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
-            description: Configuration for MTM2MirrorTemperature rule.
+            description: Configuration for MTTangentLinkTemperature rule.
             type: object
             properties:
-                ring:
+                buffer:
                     description: >-
-                        Limit of the ring temperature (degree C).
-                    type: number
-                    default: 25.0
-                intake:
-                    description: >-
-                        Limit of the intake (plenum) temperature (degree C).
-                    type: number
-                    default: 25.0
-                gradient:
-                    description: >-
-                        Limit of the gradient (or the variation of ring
-                        temperatures, peak-to-valley) temperature (degree C).
+                        Buffer of the tangent link temperature compared with
+                        the ambient (degree C).
                     type: number
                     default: 10.0
                 poll_interval:
@@ -94,9 +96,7 @@ class MTM2MirrorTemperature(watcher.PollingRule):
                     default: 1.0
 
             required:
-            - ring
-            - intake
-            - gradient
+            - buffer
             - poll_interval
             additionalProperties: false
         """
@@ -104,7 +104,10 @@ class MTM2MirrorTemperature(watcher.PollingRule):
 
     def setup(self, model) -> None:
 
-        self._remote = model.remotes[("MTM2", 0)]
+        # 106 is the ESS SAL index for the M2 tangent link temperature
+        self._remote_ess = model.remotes[("ESS", 106)]
+
+        self._remote_m2 = model.remotes[("MTM2", 0)]
 
     def compute_alarm_severity(self) -> AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
@@ -127,27 +130,35 @@ class MTM2MirrorTemperature(watcher.PollingRule):
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
 
-        assert self._remote is not None
+        assert self._remote_ess is not None
+        assert self._remote_m2 is not None
 
-        sources = list()
-        if self._remote.tel_temperature.has_data:
-            data = self._remote.tel_temperature.get()
+        if (not self._remote_ess.tel_temperature.has_data) or (
+            not self._remote_m2.tel_temperature.has_data
+        ):
+            return NoneNoReason
 
-            temperature_ring = np.array(data.ring)
-            if np.any(temperature_ring > self.config.ring):
-                sources.append("ring")
+        # There are 16 channels in total. Only 6 are used for the M2 tangent
+        # links. Other 10 elements are NaN.
+        temperature_tangent_contain_nan = np.array(
+            self._remote_ess.tel_temperature.get().temperatureItem
+        )
+        temperature_tangent = temperature_tangent_contain_nan[
+            ~np.isnan(temperature_tangent_contain_nan)
+        ]
 
-            if (temperature_ring.max() - temperature_ring.min()) > self.config.gradient:
-                sources.append("gradient")
-
-            if np.any(np.array(data.intake) > self.config.intake):
-                sources.append("intake/plenum")
+        temperature_ring = np.array(self._remote_m2.tel_temperature.get().ring)
 
         return (
             NoneNoReason
-            if (len(sources) == 0)
+            if (
+                np.all(
+                    temperature_tangent
+                    < (np.median(temperature_ring) + self.config.buffer)
+                )
+            )
             else (
                 AlarmSeverity.WARNING,
-                f"Mirror temperature ({sources}) out of normal range.",
+                f"Tangent link temperature > ambient by {self.config.buffer} degree C threshold.",
             )
         )

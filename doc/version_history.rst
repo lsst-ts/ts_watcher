@@ -9,11 +9,11 @@ Version History
 v1.19.0
 -------
 
-* Add the `rules.MTM2OutClosedLoopControl` rule.
-* Add the `rules.MTM2TotalForceMoment` rule.
-* Add the `rules.MTM2ForceError` rule.
-* Add the `rules.MTM2MirrorTemperature` rule.
-* Add the `rules.MTM2TangentLinkTemperature` rule.
+* Add the `rules.MTOutClosedLoopControl` rule.
+* Add the `rules.MTTotalForceMoment` rule.
+* Add the `rules.MTForceError` rule.
+* Add the `rules.MTMirrorTemperature` rule.
+* Add the `rules.MTTangentLinkTemperature` rule.
 
 v1.18.1
 -------

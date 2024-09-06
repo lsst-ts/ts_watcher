@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTM2OutClosedLoopControl"]
+__all__ = ["MTOutClosedLoopControl"]
 
 import logging
 import types
@@ -33,7 +33,7 @@ from ..base_rule import AlarmSeverityReasonType, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTM2OutClosedLoopControl(watcher.BaseRule):
+class MTOutClosedLoopControl(watcher.BaseRule):
     """Monitor the main telescope M2 is out of the closed-loop control.
 
     Parameters
@@ -56,7 +56,7 @@ class MTM2OutClosedLoopControl(watcher.BaseRule):
         )
         super().__init__(
             config,
-            f"MTM2OutClosedLoopControl.{remote_name}",
+            f"MTOutClosedLoopControl.{remote_name}",
             [remote_info],
             log=log,
         )

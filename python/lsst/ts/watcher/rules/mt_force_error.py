@@ -19,13 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTM2TangentLinkTemperature"]
+__all__ = ["MTForceError"]
 
 import logging
 import types
 import typing
 
-import numpy as np
 import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
@@ -34,8 +33,8 @@ from ..base_rule import AlarmSeverityReasonType, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTM2TangentLinkTemperature(watcher.PollingRule):
-    """Monitor the tangent link temperature of main telescope M2 is out of the
+class MTForceError(watcher.PollingRule):
+    """Monitor the actuator force error of main telescope M2 is out of the
     normal range.
 
     Parameters
@@ -50,44 +49,36 @@ class MTM2TangentLinkTemperature(watcher.PollingRule):
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
 
-        # ESS
-        # 106 is the ESS SAL index for the M2 tangent link temperature
-        remote_name_ess = "ESS"
-        remote_info_ess = RemoteInfo(
-            remote_name_ess,
-            106,
-            poll_names=["tel_temperature"],
-        )
-
-        # M2
-        remote_name_m2 = "MTM2"
-        remote_info_m2 = RemoteInfo(
-            remote_name_m2,
+        remote_name = "MTM2"
+        remote_info = RemoteInfo(
+            remote_name,
             0,
-            poll_names=["tel_temperature"],
+            poll_names=["tel_axialForce", "tel_tangentForce"],
         )
-
         super().__init__(
             config,
-            f"MTM2TangentLinkTemperature.{remote_name_ess}",
-            [remote_info_ess, remote_info_m2],
+            f"MTForceError.{remote_name}",
+            [remote_info],
             log=log,
         )
 
-        self._remote_ess: salobj.Remote | None = None
-        self._remote_m2: salobj.Remote | None = None
+        self._remote: salobj.Remote | None = None
 
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
         schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
-            description: Configuration for MTM2TangentLinkTemperature rule.
+            description: Configuration for MTForceError rule.
             type: object
             properties:
-                buffer:
+                force_error_axial:
                     description: >-
-                        Buffer of the tangent link temperature compared with
-                        the ambient (degree C).
+                        Limit of the force error of axial actuator (N).
+                    type: number
+                    default: 5.0
+                force_error_tangent:
+                    description: >-
+                        Limit of the force error of tangent link (N).
                     type: number
                     default: 10.0
                 poll_interval:
@@ -96,7 +87,8 @@ class MTM2TangentLinkTemperature(watcher.PollingRule):
                     default: 1.0
 
             required:
-            - buffer
+            - force_error_axial
+            - force_error_tangent
             - poll_interval
             additionalProperties: false
         """
@@ -104,10 +96,7 @@ class MTM2TangentLinkTemperature(watcher.PollingRule):
 
     def setup(self, model) -> None:
 
-        # 106 is the ESS SAL index for the M2 tangent link temperature
-        self._remote_ess = model.remotes[("ESS", 106)]
-
-        self._remote_m2 = model.remotes[("MTM2", 0)]
+        self._remote = model.remotes[("MTM2", 0)]
 
     def compute_alarm_severity(self) -> AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
@@ -130,35 +119,75 @@ class MTM2TangentLinkTemperature(watcher.PollingRule):
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
 
-        assert self._remote_ess is not None
-        assert self._remote_m2 is not None
+        assert self._remote is not None
 
-        if (not self._remote_ess.tel_temperature.has_data) or (
-            not self._remote_m2.tel_temperature.has_data
-        ):
+        list_axial = list()
+        if self._remote.tel_axialForce.has_data:
+            list_axial = self._check_out_of_range(
+                self._remote.tel_axialForce.get(), self.config.force_error_axial
+            )
+
+        list_tangent = list()
+        if self._remote.tel_tangentForce.has_data:
+            list_tangent = self._check_out_of_range(
+                self._remote.tel_tangentForce.get(), self.config.force_error_tangent
+            )
+
+        if list_axial and list_tangent:
+            return (
+                AlarmSeverity.SERIOUS,
+                "Axial and tangent force errors out of normal range.",
+            )
+
+        elif list_axial:
+            return (
+                AlarmSeverity.SERIOUS,
+                "Axial force error out of normal range.",
+            )
+
+        elif list_tangent:
+            return (
+                AlarmSeverity.SERIOUS,
+                "Tangent force error out of normal range.",
+            )
+
+        else:
             return NoneNoReason
 
-        # There are 16 channels in total. Only 6 are used for the M2 tangent
-        # links. Other 10 elements are NaN.
-        temperature_tangent_contain_nan = np.array(
-            self._remote_ess.tel_temperature.get().temperatureItem
-        )
-        temperature_tangent = temperature_tangent_contain_nan[
-            ~np.isnan(temperature_tangent_contain_nan)
-        ]
+    def _check_out_of_range(
+        self, data: salobj.BaseMsgType, threshold: float
+    ) -> list[int]:
+        """Check the data that is out of the range.
 
-        temperature_ring = np.array(self._remote_m2.tel_temperature.get().ring)
+        Parameters
+        ----------
+        data : `salobj.BaseMsgType`
+            Data.
+        threshold : `float`
+            Threshold in N.
 
-        return (
-            NoneNoReason
-            if (
-                np.all(
-                    temperature_tangent
-                    < (np.median(temperature_ring) + self.config.buffer)
-                )
+        Returns
+        -------
+        list_actuators : `list`
+            List of the actuators that are out of the range.
+        """
+
+        list_actuators = list()
+        for idx in range(len(data.measured)):
+
+            # Skip the hardpoints
+            hardpoint_correction = data.hardpointCorrection[idx]
+            if hardpoint_correction == 0.0:
+                continue
+
+            force_error = (
+                data.lutGravity[idx]
+                + data.lutTemperature[idx]
+                + hardpoint_correction
+                + data.applied[idx]
+                - data.measured[idx]
             )
-            else (
-                AlarmSeverity.WARNING,
-                f"Tangent link temperature > ambient by {self.config.buffer} degree C threshold.",
-            )
-        )
+            if abs(force_error) > threshold:
+                list_actuators.append(idx)
+
+        return list_actuators

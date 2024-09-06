@@ -19,12 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTM2TotalForceMoment"]
+__all__ = ["MTMirrorTemperature"]
 
 import logging
 import types
 import typing
 
+import numpy as np
 import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
@@ -33,9 +34,9 @@ from ..base_rule import AlarmSeverityReasonType, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTM2TotalForceMoment(watcher.PollingRule):
-    """Monitor the total force and moment of main telescope M2 is out of the
-    normal range.
+class MTMirrorTemperature(watcher.PollingRule):
+    """Monitor the mirror temperature of main telescope M2 is out of the normal
+    range.
 
     Parameters
     ----------
@@ -53,11 +54,11 @@ class MTM2TotalForceMoment(watcher.PollingRule):
         remote_info = RemoteInfo(
             remote_name,
             0,
-            poll_names=["tel_netForcesTotal", "tel_netMomentsTotal"],
+            poll_names=["tel_temperature"],
         )
         super().__init__(
             config,
-            f"MTM2TotalForceMoment.{remote_name}",
+            f"MTMirrorTemperature.{remote_name}",
             [remote_info],
             log=log,
         )
@@ -68,51 +69,34 @@ class MTM2TotalForceMoment(watcher.PollingRule):
     def get_schema(cls) -> dict[str, typing.Any]:
         schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
-            description: Configuration for MTM2TotalForceMoment rule.
+            description: Configuration for MTMirrorTemperature rule.
             type: object
             properties:
-                fx:
+                ring:
                     description: >-
-                        Limit of the total force in x-direction (N).
+                        Limit of the ring temperature (degree C).
                     type: number
-                    default: 115.0
-                fy:
+                    default: 25.0
+                intake:
                     description: >-
-                        Limit of the total force in y-direction (N).
+                        Limit of the intake (plenum) temperature (degree C).
                     type: number
-                    default: 17600.0
-                fz:
+                    default: 25.0
+                gradient:
                     description: >-
-                        Limit of the total force in z-direction (N).
+                        Limit of the gradient (or the variation of ring
+                        temperatures, peak-to-valley) temperature (degree C).
                     type: number
-                    default: 17600.0
-                mx:
-                    description: >-
-                        Limit of the total moment in x-direction (N * m).
-                    type: number
-                    default: 1500.0
-                my:
-                    description: >-
-                        Limit of the total moment in y-direction (N * m).
-                    type: number
-                    default: 40.0
-                mz:
-                    description: >-
-                        Limit of the total moment in z-direction (N * m).
-                    type: number
-                    default: 300.0
+                    default: 10.0
                 poll_interval:
                     description: Time delay between polling updates (second).
                     type: number
                     default: 1.0
 
             required:
-            - fx
-            - fy
-            - fz
-            - mx
-            - my
-            - mz
+            - ring
+            - intake
+            - gradient
             - poll_interval
             additionalProperties: false
         """
@@ -145,60 +129,25 @@ class MTM2TotalForceMoment(watcher.PollingRule):
 
         assert self._remote is not None
 
-        list_forces = list()
-        if self._remote.tel_netForcesTotal.has_data:
-            list_forces = self._check_out_of_range(
-                self._remote.tel_netForcesTotal.get(), ["fx", "fy", "fz"]
+        sources = list()
+        if self._remote.tel_temperature.has_data:
+            data = self._remote.tel_temperature.get()
+
+            temperature_ring = np.array(data.ring)
+            if np.any(temperature_ring > self.config.ring):
+                sources.append("ring")
+
+            if (temperature_ring.max() - temperature_ring.min()) > self.config.gradient:
+                sources.append("gradient")
+
+            if np.any(np.array(data.intake) > self.config.intake):
+                sources.append("intake/plenum")
+
+        return (
+            NoneNoReason
+            if (len(sources) == 0)
+            else (
+                AlarmSeverity.WARNING,
+                "Mirror temperature out of normal range.",
             )
-
-        list_moments = list()
-        if self._remote.tel_netMomentsTotal.has_data:
-            list_moments = self._check_out_of_range(
-                self._remote.tel_netMomentsTotal.get(), ["mx", "my", "mz"]
-            )
-
-        if (len(list_forces) != 0) and (len(list_moments) != 0):
-            return (
-                AlarmSeverity.SERIOUS,
-                f"Force ({list_forces}) and moment ({list_moments}) out of normal range.",
-            )
-
-        elif len(list_forces) != 0:
-            return (
-                AlarmSeverity.SERIOUS,
-                f"Force ({list_forces}) out of normal range.",
-            )
-
-        elif len(list_moments) != 0:
-            return (
-                AlarmSeverity.SERIOUS,
-                f"Moment ({list_moments}) out of normal range.",
-            )
-
-        else:
-            return NoneNoReason
-
-    def _check_out_of_range(
-        self, data: salobj.BaseMsgType, components: list[str]
-    ) -> list[str]:
-        """Check the data that is out of the range.
-
-        Parameters
-        ----------
-        data : `salobj.BaseMsgType`
-            Data.
-        components : `list` [`str`]
-            Components to check in data.
-
-        Returns
-        -------
-        list_components : `list`
-            List of the components that are out of the normal range.
-        """
-
-        list_components = list()
-        for component in components:
-            if abs(getattr(data, component)) > getattr(self.config, component):
-                list_components.append(component)
-
-        return list_components
+        )

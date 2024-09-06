@@ -23,85 +23,107 @@ import asyncio
 import types
 import unittest
 
-import numpy as np
 from lsst.ts import salobj, watcher
-from lsst.ts.watcher.rules import MTM2TangentLinkTemperature
+from lsst.ts.watcher.rules import MTMirrorTemperature
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
-class MTM2TangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
+class MTMirrorTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
 
-        schema = watcher.rules.MTM2TangentLinkTemperature.get_schema()
+        schema = watcher.rules.MTMirrorTemperature.get_schema()
         assert schema is not None
 
-        rule = MTM2TangentLinkTemperature(None)
-        assert len(rule.remote_info_list) == 2
+        rule = MTMirrorTemperature(None)
+        assert len(rule.remote_info_list) == 1
         assert len(rule.remote_info_list[0].poll_names) == 1
-        assert len(rule.remote_info_list[1].poll_names) == 1
 
     async def test_operation(self) -> None:
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTM2TangentLinkTemperature", configs=[{}])],
+            rules=[dict(classname="MTMirrorTemperature", configs=[{}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        # 106 is the ESS SAL index for the M2 tangent link temperature
-        async with salobj.Controller("ESS", 106) as controller_ess, salobj.Controller(
-            "MTM2", 0
-        ) as controller_m2, watcher.Model(
-            domain=controller_ess.domain, config=watcher_config
+        async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
+            domain=controller.domain, config=watcher_config
         ) as model:
 
-            rule_name = "MTM2TangentLinkTemperature.ESS"
+            rule_name = "MTMirrorTemperature.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
             await model.enable()
 
-            # 12 ring temperature values and 16 tangent link temperature
-            # channels in ESS (but only 6 are used).
-            tangent_normal = [np.nan] * 16
-            tangent_normal[1:7] = [0.0] * 6
+            # 12 ring temperature values and 2 intake temperature values
+            normal_ring = [0.0] * 12
+            normal_intake = [0.0] * 2
 
-            tangent_bad = [np.nan] * 16
-            tangent_bad[1:7] = [rule.config.buffer + 1.0] * 6
-
+            gradient_ring = [0.0] * 12
+            gradient_ring[0] = rule.config.gradient + 1.0
             test_data_items = [
                 {
-                    "topic": controller_m2.tel_temperature,
+                    "topic": controller.tel_temperature,
                     "fields": {
-                        "ring": [0.0] * 12,
+                        "ring": normal_ring,
+                        "intake": normal_intake,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller_ess.tel_temperature,
+                    "topic": controller.tel_temperature,
                     "fields": {
-                        "temperatureItem": tangent_normal,
-                    },
-                },
-                {
-                    "topic": controller_ess.tel_temperature,
-                    "fields": {
-                        "temperatureItem": tangent_bad,
+                        "ring": normal_ring,
+                        "intake": [rule.config.intake + 1.0] * 2,
                     },
                     "expected_severity": AlarmSeverity.WARNING,
                 },
                 {
-                    "topic": controller_ess.tel_temperature,
+                    "topic": controller.tel_temperature,
                     "fields": {
-                        "temperatureItem": tangent_normal,
+                        "ring": normal_ring,
+                        "intake": normal_intake,
+                    },
+                    "expected_severity": AlarmSeverity.NONE,
+                },
+                {
+                    "topic": controller.tel_temperature,
+                    "fields": {
+                        "ring": [rule.config.ring + 1.0] * 12,
+                        "intake": normal_intake,
+                    },
+                    "expected_severity": AlarmSeverity.WARNING,
+                },
+                {
+                    "topic": controller.tel_temperature,
+                    "fields": {
+                        "ring": normal_ring,
+                        "intake": normal_intake,
+                    },
+                    "expected_severity": AlarmSeverity.NONE,
+                },
+                {
+                    "topic": controller.tel_temperature,
+                    "fields": {
+                        "ring": gradient_ring,
+                        "intake": normal_intake,
+                    },
+                    "expected_severity": AlarmSeverity.WARNING,
+                },
+                {
+                    "topic": controller.tel_temperature,
+                    "fields": {
+                        "ring": normal_ring,
+                        "intake": normal_intake,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
