@@ -75,7 +75,8 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             tangent_normal[1:7] = [0.0] * 6
 
             tangent_bad = [np.nan] * 16
-            tangent_bad[1:7] = [rule.config.buffer + 1.0] * 6
+            tangent_bad[1:4] = [rule.config.buffer + 3.0 - idx for idx in range(3)]
+            tangent_bad[4:7] = [0.0] * 3
 
             test_data_items = [
                 {
