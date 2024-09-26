@@ -75,12 +75,12 @@ class MTForceError(watcher.PollingRule):
                     description: >-
                         Limit of the force error of axial actuator (N).
                     type: number
-                    default: 5.0
+                    default: 10.0
                 force_error_tangent:
                     description: >-
                         Limit of the force error of tangent link (N).
                     type: number
-                    default: 10.0
+                    default: 25.0
                 poll_interval:
                     description: >-
                         Time delay between polling updates (second).
