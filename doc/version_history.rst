@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.19.1
+-------
+
+* Improve the `rules.MTTangentLinkTemperature` and `rules.MTForceError` rules.
+
 v1.19.0
 -------
 

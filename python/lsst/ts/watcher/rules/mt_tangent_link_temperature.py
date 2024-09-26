@@ -169,19 +169,21 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         temperature_tangent = temperature_tangent_contain_nan[
             ~np.isnan(temperature_tangent_contain_nan)
         ]
+        temperature_tangent.sort()
 
         temperature_ring = np.array(self._remote_m2.tel_temperature.get().ring)
 
+        # 3 active and 3 passive tangent links. The active ones have the
+        # higher temperature.
+        threshold = np.median(temperature_ring) + self.config.buffer
         return (
-            NoneNoReason
-            if (
-                np.all(
-                    temperature_tangent
-                    < (np.median(temperature_ring) + self.config.buffer)
-                )
-            )
-            else (
+            (
                 AlarmSeverity(int(self.config.severity)),
                 f"Tangent link temperature above ambient threshold of {self.config.buffer} degree C.",
             )
+            if (
+                np.all(temperature_tangent[3:] > threshold)
+                or np.any(temperature_tangent[:3] > threshold)
+            )
+            else NoneNoReason
         )
