@@ -26,6 +26,7 @@ from .dew_point_depression import *
 from .enabled import *
 from .heartbeat import *
 from .humidity import *
+from .hvac import *
 from .mt_air_compressors_state import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *
