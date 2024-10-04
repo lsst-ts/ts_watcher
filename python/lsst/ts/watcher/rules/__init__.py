@@ -41,3 +41,4 @@ from .over_temperature import *
 from .power_outage import *
 from .script_failed import *
 from .under_pressure import *
+from .cp_verify_alarm import *
