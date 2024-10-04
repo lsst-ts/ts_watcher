@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.19.2
+-------
+
+* Add rules for `HVAC`.
+
 v1.19.1
 -------
 
