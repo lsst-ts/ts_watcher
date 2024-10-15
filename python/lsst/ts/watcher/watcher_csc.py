@@ -36,6 +36,10 @@ from .model import Model
 # URL suffix for the SquadCast Incident Webhook API
 INCIDENT_WEBHOOK_URL_SUFFIX = "/v2/incidents/api/"
 
+# Standard timeout applied to some regular CSC
+# operations (in seconds).
+STD_TIMEOUT = 120
+
 
 class WatcherCsc(salobj.ConfigurableCsc):
     """The Watcher CSC.
@@ -94,6 +98,13 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await self.http_client.close()
         # aiohttp.ClientSession needs a bit more time to fully close.
         await asyncio.sleep(0.1)
+
+    async def begin_start(self, data):
+        await self.cmd_start.ack_in_progress(
+            data=data,
+            timeout=STD_TIMEOUT,
+        )
+        await super().begin_start(data)
 
     async def configure(self, config):
         if self.model is not None:
