@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.19.3
+-------
+
+* Add the `rules.MTMirrorSafety` rule.
+
 v1.19.2
 -------
 

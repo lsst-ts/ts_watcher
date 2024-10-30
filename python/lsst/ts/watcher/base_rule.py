@@ -332,7 +332,7 @@ class BaseRule(abc.ABC):
 
         severity, reason = severity_reason
         if severity == self.current_severity and reason == self.current_reason:
-            self.log.debug(f"alarm {severity=}, {reason=} didn't changed.")
+            self.log.debug(f"alarm {severity=}, {reason=} didn't change.")
             return None
         else:
             self.log.debug(
