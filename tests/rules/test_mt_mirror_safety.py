@@ -45,8 +45,6 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
             "time_range_end": 12,
             "temperature_change_interval": 3600,
             "mtdome_humidity_threshold": 70,
-            "weatherstation_humidity_threshold": 80,
-            "ess_temperature_change_threshold": 1.0,
             "m1m3_temperature_difference_threshold": 5.0,
             "m1m3_temperature_change_threshold": 0.75,
             "mtmount_azimuth_low_threshold": 0.0,
@@ -62,7 +60,7 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
-        assert len(rule.remote_info_list) == 7
+        assert len(rule.remote_info_list) == 3
 
     async def test_operation(self):
         watcher_config_dict = dict(
@@ -74,14 +72,10 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with (
-            salobj.Controller(name="ESS", index=111) as ess_111,
-            salobj.Controller(name="ESS", index=112),
-            salobj.Controller(name="ESS", index=113) as ess_113,
-            salobj.Controller(name="ESS", index=301),
             salobj.Controller(name="MTDome", index=0) as mtdome,
             salobj.Controller(name="MTM1M3TS", index=0) as mtm1m3ts,
             salobj.Controller(name="MTMount", index=0) as mtmount,
-            watcher.Model(domain=ess_111.domain, config=watcher_config) as model,
+            watcher.Model(domain=mtdome.domain, config=watcher_config) as model,
         ):
             rule: watcher.rules.MTMirrorSafety = model.rules["MTMirrorSafety"]
 
@@ -145,52 +139,12 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
             # trigger or silence the alarm.
             test_data_items = [
                 {
-                    "topic": ess_111.tel_relativeHumidity,
-                    "items": {"relativeHumidityItem": 75},
-                    "expected_severity": AlarmSeverity.CRITICAL,
-                    "expected_reason": "ESS:111 humidity too high",
-                    "hour": 8,
-                    "minute": 0,
-                },
-                {
-                    "topic": ess_111.tel_relativeHumidity,
-                    "items": {"relativeHumidityItem": 65},
-                    "expected_severity": AlarmSeverity.NONE,
-                    "expected_reason": "ESS:111 humidity too high",
-                    "hour": 8,
-                    "minute": 0,
-                },
-                {
-                    "topic": ess_113.tel_temperature,
-                    "items": {"temperatureItem": [10] + [math.nan] * 15},
-                    "expected_severity": AlarmSeverity.NONE,
-                    "expected_reason": "ESS:111 humidity too high",
-                    "hour": 8,
-                    "minute": 0,
-                },
-                {
-                    "topic": ess_113.tel_temperature,
-                    "items": {"temperatureItem": [15] + [math.nan] * 15},
-                    "expected_severity": AlarmSeverity.CRITICAL,
-                    "expected_reason": "ESS:113 temperature change too high",
-                    "hour": 8,
-                    "minute": 10,
-                },
-                {
-                    "topic": ess_113.tel_temperature,
-                    "items": {"temperatureItem": [15] + [math.nan] * 15},
-                    "expected_severity": AlarmSeverity.NONE,
-                    "expected_reason": "ESS:113 temperature change too high",
-                    "hour": 9,
-                    "minute": 5,
-                },
-                {
                     "topic": mtm1m3ts.tel_thermalData,
                     "items": {
                         "absoluteTemperature": [15, 15, 19, 15] + [math.nan] * 92
                     },
                     "expected_severity": AlarmSeverity.NONE,
-                    "expected_reason": "ESS:113 temperature change too high",
+                    "expected_reason": "",
                     "hour": 16,
                     "minute": 23,
                 },
@@ -228,8 +182,8 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
                     "minute": 24,
                 },
             ]
-            previous_severity = None
-            previous_reason = None
+            previous_severity = AlarmSeverity.NONE
+            previous_reason = ""
             for test_data_item in test_data_items:
                 get_now_utc.return_value = datetime.time(
                     hour=test_data_item["hour"],
@@ -242,10 +196,6 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
                     timestamp=(test_data_item["hour"] * 60 + test_data_item["minute"])
                     * 60.0,
                     **test_data_item["items"],
-                )
-                self.log.debug(
-                    f"WOUTER {previous_severity=}, {test_data_item['expected_severity']=} "
-                    f"{previous_reason=}, {test_data_item['expected_reason']=}"
                 )
                 if (
                     previous_severity == test_data_item["expected_severity"]

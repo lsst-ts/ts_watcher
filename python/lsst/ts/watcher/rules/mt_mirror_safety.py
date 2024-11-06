@@ -33,7 +33,7 @@ from ..remote_info import RemoteInfo
 
 
 class MTMirrorSafety(BaseRule):
-    """Monitor several ESS, M1M3 and MTDome items.
+    """Monitor several M1M3 and MTDome items.
 
     Parameters
     ----------
@@ -45,30 +45,6 @@ class MTMirrorSafety(BaseRule):
 
     def __init__(self, config, log=None):
         remote_info_list = [
-            RemoteInfo(
-                name="ESS",
-                index=111,
-                callback_names=["tel_relativeHumidity"],
-                poll_names=[],
-            ),
-            RemoteInfo(
-                name="ESS",
-                index=112,
-                callback_names=["tel_relativeHumidity"],
-                poll_names=[],
-            ),
-            RemoteInfo(
-                name="ESS",
-                index=113,
-                callback_names=["tel_relativeHumidity", "tel_temperature"],
-                poll_names=[],
-            ),
-            RemoteInfo(
-                name="ESS",
-                index=301,
-                callback_names=["tel_relativeHumidity", "tel_temperature"],
-                poll_names=[],
-            ),
             RemoteInfo(
                 name="MTDome",
                 index=0,
@@ -97,12 +73,6 @@ class MTMirrorSafety(BaseRule):
 
         # Booleans to determine if an alarm needs to be triggered or not.
         self._mtdome_aperture_open = True  # Assume open unless telemetry received.
-        self._ess_111_humidity_too_high = False
-        self._ess_112_humidity_too_high = False
-        self._ess_113_humidity_too_high = False
-        self._ess_301_humidity_too_high = False
-        self._ess_113_temp_change_too_high = False
-        self._ess_301_temp_change_too_high = False
         self._m1m3_temperature_difference_too_high = False
         self._m1m3_temperature_change_too_high = False
         self._mtmount_azimuth_in_range = False
@@ -110,11 +80,9 @@ class MTMirrorSafety(BaseRule):
         # Keep track of MTMount azimuth for logging purposes.
         self.mtmount_azimuth = 0
 
-        # Dicts of TAI time [UNIX seconds] and temperature to determine if
+        # Dict of TAI time [UNIX seconds] and temperature to determine if
         # there were too large temperature changes during an established time
         # interval.
-        self._ess_113_temp_dict: dict[float, float] = {}
-        self._ess_301_temp_dict: dict[float, float] = {}
         self._m1m3_temp_dict_list: list[dict[float, float]] = [{}] * 96
 
         # Time limits and other thresholds.
@@ -126,12 +94,6 @@ class MTMirrorSafety(BaseRule):
         )
         self.temperature_change_interval = self.config.temperature_change_interval
         self.mtdome_humidity_threshold = self.config.mtdome_humidity_threshold
-        self.weatherstation_humidity_threshold = (
-            self.config.weatherstation_humidity_threshold
-        )
-        self.ess_temperature_change_threshold = (
-            self.config.ess_temperature_change_threshold
-        )
         self.m1m3_temperature_difference_threshold = (
             self.config.m1m3_temperature_difference_threshold
         )
@@ -160,12 +122,6 @@ properties:
   mtdome_humidity_threshold:
     description: Humidity threshold [%] for the MTDome above which an alarm will be triggered.
     type: number
-  weatherstation_humidity_threshold:
-    description: Humidity threshold [%] for the Weather Station above which an alarm will be triggered.
-    type: number
-  ess_temperature_change_threshold:
-    description: Temperature change threshold [degC] for the ESS above which an alarm will be triggered.
-    type: number
   m1m3_temperature_difference_threshold:
     description:
       Temperature difference threshold [degC] for the M1M3 above which an alarm will be triggered.
@@ -187,8 +143,6 @@ required:
   - time_range_end
   - temperature_change_interval
   - mtdome_humidity_threshold
-  - weatherstation_humidity_threshold
-  - ess_temperature_change_threshold
   - m1m3_temperature_difference_threshold
   - m1m3_temperature_change_threshold
   - mtmount_azimuth_low_threshold
@@ -245,11 +199,9 @@ additionalProperties: false
         """
 
         topic_callback = kwargs["topic_callback"]
-        csc_name, csc_index, topic_name = topic_callback.topic_key
+        csc_name, _, topic_name = topic_callback.topic_key
 
         match csc_name:
-            case "ESS":
-                self.process_ess_data(csc_index, topic_name, data)
             case "MTDome":
                 self.process_mtdome_data(data)
             case "MTM1M3TS":
@@ -294,24 +246,6 @@ additionalProperties: false
         """
         reasons: list[str] = []
         in_alarm_state = False
-        if self._ess_111_humidity_too_high:
-            in_alarm_state = True
-            reasons.append("ESS:111 humidity too high")
-        if self._ess_112_humidity_too_high:
-            in_alarm_state = in_alarm_state or True
-            reasons.append("ESS:112 humidity too high")
-        if self._ess_113_humidity_too_high:
-            in_alarm_state = in_alarm_state or True
-            reasons.append("ESS:113 humidity too high")
-        if self._ess_301_humidity_too_high:
-            in_alarm_state = in_alarm_state or True
-            reasons.append("ESS:301 humidity too high")
-        if self._ess_113_temp_change_too_high:
-            in_alarm_state = in_alarm_state or True
-            reasons.append("ESS:113 temperature change too high")
-        if self._ess_301_temp_change_too_high:
-            in_alarm_state = in_alarm_state or True
-            reasons.append("ESS:301 temperature change too high")
         if self._m1m3_temperature_difference_too_high:
             in_alarm_state = in_alarm_state or True
             reasons.append("M1M3 absolute temperature difference too high")
@@ -341,70 +275,6 @@ additionalProperties: false
         else:
             self.log.debug("No thresholds exceeded. Not triggering alarm.")
             return NoneNoReason
-
-    def process_ess_data(
-        self, csc_index: int, topic_name: str, data: salobj.BaseMsgType
-    ) -> None:
-        """Process the ESS data.
-
-        For some ESS CSC indices only the relative humidity needs to be
-        monitored. If the value exceeds the threshold then an alarm needs to
-        be raised.
-
-        For some ESS CSC indices also the temperature needs to be monitored. If
-        within one hour the temperature changes for more than 1 degree C, an
-        alarm needs to be raised.
-
-        Parameters
-        ----------
-        csc_index : `int`
-            The CSC index.
-        topic_name : `str`
-            The topic name.
-        data : `salobj.BaseMsgType`
-            The topic data.
-        """
-        match csc_index:
-            case 111:
-                self._ess_111_humidity_too_high = (
-                    data.relativeHumidityItem >= self.mtdome_humidity_threshold
-                )
-            case 112:
-                self._ess_112_humidity_too_high = (
-                    data.relativeHumidityItem >= self.mtdome_humidity_threshold
-                )
-            case 113:
-                if topic_name == "tel_relativeHumidity":
-                    self._ess_113_humidity_too_high = (
-                        data.relativeHumidityItem >= self.mtdome_humidity_threshold
-                    )
-                else:
-                    self._ess_113_temp_change_too_high = (
-                        self.get_temperature_change_too_high(
-                            data.temperatureItem[0],
-                            self.ess_temperature_change_threshold,
-                            data.timestamp,
-                            self._ess_113_temp_dict,
-                        )
-                    )
-            case 301:
-                if topic_name == "tel_relativeHumidity":
-                    self._ess_301_humidity_too_high = (
-                        data.relativeHumidityItem
-                        >= self.weatherstation_humidity_threshold
-                    )
-                else:
-                    self._ess_301_temp_change_too_high = (
-                        self.get_temperature_change_too_high(
-                            data.temperatureItem[0],
-                            self.ess_temperature_change_threshold,
-                            data.timestamp,
-                            self._ess_301_temp_dict,
-                        )
-                    )
-            case _:
-                # This case should never trigger.
-                self.log.warning(f"Unknown ESS {csc_index=}. Ignoring.")
 
     def get_temperature_change_too_high(
         self,
