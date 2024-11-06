@@ -62,7 +62,7 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
-        assert len(rule.remote_info_list) == 8
+        assert len(rule.remote_info_list) == 7
 
     async def test_operation(self):
         watcher_config_dict = dict(
@@ -74,7 +74,6 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with (
-            salobj.Controller(name="CCCamera", index=0) as cccamera,
             salobj.Controller(name="ESS", index=111) as ess_111,
             salobj.Controller(name="ESS", index=112),
             salobj.Controller(name="ESS", index=113) as ess_113,
@@ -125,17 +124,6 @@ class MTMirrorSafetyTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 topic=mtdome.tel_apertureShutter,
                 positionActual=[10.0, 10.0],
-            )
-            # The alarm doesn't change so no new alarm raised.
-            with pytest.raises(TimeoutError):
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
-
-            # Make sure that the cccamera shutter is open.
-            get_now_utc.return_value = datetime.time(hour=8, tzinfo=datetime.UTC)
-            await watcher.write_and_wait(
-                model=model, topic=cccamera.evt_startShutterOpen
             )
             # The alarm doesn't change so no new alarm raised.
             with pytest.raises(TimeoutError):

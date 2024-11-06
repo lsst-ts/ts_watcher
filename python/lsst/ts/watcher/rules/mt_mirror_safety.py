@@ -46,12 +46,6 @@ class MTMirrorSafety(BaseRule):
     def __init__(self, config, log=None):
         remote_info_list = [
             RemoteInfo(
-                name="CCCamera",
-                index=0,
-                callback_names=["evt_startShutterOpen", "evt_endShutterClose"],
-                poll_names=[],
-            ),
-            RemoteInfo(
                 name="ESS",
                 index=111,
                 callback_names=["tel_relativeHumidity"],
@@ -102,8 +96,7 @@ class MTMirrorSafety(BaseRule):
         )
 
         # Booleans to determine if an alarm needs to be triggered or not.
-        self._mtdome_aperture_open = False
-        self._cccamera_shutter_open = False
+        self._mtdome_aperture_open = True  # Assume open unless telemetry received.
         self._ess_111_humidity_too_high = False
         self._ess_112_humidity_too_high = False
         self._ess_113_humidity_too_high = False
@@ -255,8 +248,6 @@ additionalProperties: false
         csc_name, csc_index, topic_name = topic_callback.topic_key
 
         match csc_name:
-            case "CCCamera":
-                self.process_cccamera_data(topic_name, data)
             case "ESS":
                 self.process_ess_data(csc_index, topic_name, data)
             case "MTDome":
@@ -270,11 +261,8 @@ additionalProperties: false
                 self.log.warning(f"Unknown {csc_name=}. Ignoring.")
 
         # No alarm if the MTDome is closed.
-        if not (self._mtdome_aperture_open or self._cccamera_shutter_open):
-            self.log.debug(
-                "MTDome aperture and/or CCCamera shutter are closed. "
-                "Not triggering alarm."
-            )
+        if not self._mtdome_aperture_open:
+            self.log.debug("MTDome aperture is closed. Not triggering alarm.")
             return NoneNoReason
 
         # No alarm if the MTMount azimuth is not within the configured range.
@@ -353,25 +341,6 @@ additionalProperties: false
         else:
             self.log.debug("No thresholds exceeded. Not triggering alarm.")
             return NoneNoReason
-
-    def process_cccamera_data(self, topic_name: str, data: salobj.BaseMsgType) -> None:
-        """Process CCCamrea events.
-
-        In the absence of MTDome aperture shutter telemetry, the CCCamera
-        events are used to determine whether there is a safety problem or not.
-
-        This method processes two events (evt_startShutterOpen and
-        evt_endShutterClose) so it can easily be determined whether the
-        cccamera shutter is open or not.
-
-        Parameters
-        ----------
-        topic_name : `str`
-            The topic name.
-        data : `salobj.BaseMsgType`
-            The topic data.
-        """
-        self._cccamera_shutter_open = topic_name == "evt_startShutterOpen"
 
     def process_ess_data(
         self, csc_index: int, topic_name: str, data: salobj.BaseMsgType

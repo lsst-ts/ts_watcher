@@ -193,6 +193,9 @@ class ATCameraDewar(watcher.BaseRule):
             )
         category = "temperature" if info.is_temperature else "vacuum"
         return watcher.ThresholdHandler(
+            warning_period=0,
+            serious_period=0,
+            critical_period=0,
             hysteresis=getattr(config, f"{category}_hysteresis"),
             big_is_bad=big_is_bad,
             value_name=info.descr,

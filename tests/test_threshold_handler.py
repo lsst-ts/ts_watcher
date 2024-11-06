@@ -44,6 +44,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             warning_level=warning_level,
             serious_level=None,
             critical_level=critical_level,
+            warning_period=0,
+            serious_period=0,
+            critical_period=0,
             hysteresis=hysteresis,
             big_is_bad=False,
             value_name=value_name,
@@ -92,6 +95,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             warning_level=warning_level,
             serious_level=serious_level,
             critical_level=None,
+            warning_period=0,
+            serious_period=0,
+            critical_period=0,
             hysteresis=hysteresis,
             big_is_bad=True,
             value_name=value_name,
@@ -128,6 +134,55 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             )
             assert severity == expected_severity
             current_severity = severity
+
+    def test_specific_big_bad_values_with_time_period(self):
+        """Test some manually selected big-is-bad values."""
+        value_name = "big_is_bad_value"
+        units = "bales"
+        warning_level = 1
+        serious_level = 2
+        hysteresis = 0
+        source_descr = "the source of this value"
+        handler = watcher.ThresholdHandler(
+            warning_level=warning_level,
+            serious_level=serious_level,
+            critical_level=None,
+            warning_period=10,
+            serious_period=10,
+            critical_period=10,
+            hysteresis=hysteresis,
+            big_is_bad=True,
+            value_name=value_name,
+            units=units,
+        )
+        handler.get_current_tai = self.get_current_tai
+
+        current_severity = AlarmSeverity.NONE
+
+        value = 20
+        self.current_tai = 100.0
+        expected_severity = AlarmSeverity.NONE
+        severity, reason = handler.get_severity_reason(
+            value=value,
+            current_severity=current_severity,
+            source_descr=source_descr,
+        )
+        assert severity == expected_severity
+        current_severity = severity
+
+        value = 21.5
+        self.current_tai = 101.0
+        expected_severity = AlarmSeverity.WARNING
+        severity, reason = handler.get_severity_reason(
+            value=value,
+            current_severity=current_severity,
+            source_descr=source_descr,
+        )
+        assert severity == expected_severity
+        current_severity = severity
+
+    def get_current_tai(self) -> float:
+        return self.current_tai
 
     def test_auto_generated_values(self):
         for all_levels_dict, big_is_bad in (
@@ -181,6 +236,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             warning_level=warning_level,
             serious_level=serious_level,
             critical_level=critical_level,
+            warning_period=0,
+            serious_period=0,
+            critical_period=0,
             hysteresis=hysteresis,
             big_is_bad=True,
             value_name=value_name,
@@ -220,6 +278,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
                     warning_level=None,
                     serious_level=None,
                     critical_level=None,
+                    warning_period=0,
+                    serious_period=0,
+                    critical_period=0,
                     hysteresis=1,
                     big_is_bad=big_is_bad,
                     value_name=value_name,
@@ -240,6 +301,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
                     with pytest.raises(ValueError):
                         watcher.ThresholdHandler(
                             **bad_kwargs,
+                            warning_period=0,
+                            serious_period=0,
+                            critical_period=0,
                             big_is_bad=big_is_bad,
                             value_name=value_name,
                             units=units,
@@ -251,6 +315,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
                     warning_level=None,
                     serious_level=None,
                     critical_level=None,
+                    warning_period=0,
+                    serious_period=0,
+                    critical_period=0,
                     hysteresis=1,
                     big_is_bad=big_is_bad,
                     value_name=value_name,
@@ -278,6 +345,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             with pytest.raises(ValueError):
                 watcher.ThresholdHandler(
                     **levels_dict,
+                    warning_period=0,
+                    serious_period=0,
+                    critical_period=0,
                     hysteresis=0.1,
                     big_is_bad=big_is_bad,
                     value_name=value_name,
@@ -304,6 +374,9 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
             with pytest.raises(ValueError):
                 watcher.ThresholdHandler(
                     **levels_dict,
+                    warning_period=0,
+                    serious_period=0,
+                    critical_period=0,
                     hysteresis=1 / 1.09,
                     big_is_bad=big_is_bad,
                     value_name=value_name,

@@ -10,6 +10,8 @@ pressure_sensors:
       - sensor_name: inside
 warning_level: 29
 critical_level: 10
+warning_period: 0
+serious_period: 0
 warning_msg: "performance may be degraded"
 critical_msg: "disable the widget"
 hysteresis: 1
