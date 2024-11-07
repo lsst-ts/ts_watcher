@@ -32,6 +32,7 @@ from .mt_ccw_following_rotator import *
 from .mt_force_error import *
 from .mt_mirror_safety import *
 from .mt_mirror_temperature import *
+from .mt_mount_azimuth import *
 from .mt_out_closed_loop_control import *
 from .mt_tangent_link_temperature import *
 from .mt_total_force_moment import *
