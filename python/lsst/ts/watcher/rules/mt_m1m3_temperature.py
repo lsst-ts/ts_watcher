@@ -156,6 +156,7 @@ additionalProperties: false
             case _:
                 # This case should never trigger.
                 self.log.warning(f"Unknown {csc_name=}. Ignoring.")
+                return None
 
         if (
             not self._m1m3_temperature_change_too_high

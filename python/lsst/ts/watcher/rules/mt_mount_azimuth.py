@@ -24,7 +24,9 @@ __all__ = ["MTMountAzimuth"]
 import datetime
 import typing
 
+import astropy.units as u
 import yaml
+from astropy.coordinates import Angle
 from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
@@ -70,7 +72,7 @@ class MTMountAzimuth(BaseRule):
         self._mtmount_azimuth_in_range = False
 
         # Keep track of MTMount azimuth for logging purposes.
-        self.mtmount_azimuth = 0
+        self.mtmount_azimuth = Angle(0 * u.deg)
 
         # Time limits and other thresholds.
         self.time_range_start = datetime.time(
@@ -79,8 +81,12 @@ class MTMountAzimuth(BaseRule):
         self.time_range_end = datetime.time(
             hour=self.config.time_range_end, tzinfo=datetime.UTC
         )
-        self.mtmount_azimuth_low_threshold = self.config.mtmount_azimuth_low_threshold
-        self.mtmount_azimuth_high_threshold = self.config.mtmount_azimuth_high_threshold
+        self.mtmount_azimuth_low_threshold = Angle(
+            self.config.mtmount_azimuth_low_threshold, unit=u.deg
+        )
+        self.mtmount_azimuth_high_threshold = Angle(
+            self.config.mtmount_azimuth_high_threshold, unit=u.deg
+        )
 
     @classmethod
     def get_schema(cls):
@@ -168,6 +174,7 @@ additionalProperties: false
             case _:
                 # This case should never trigger.
                 self.log.warning(f"Unknown {csc_name=}. Ignoring.")
+                return None
 
         # No alarm if the MTMount azimuth is not within the configured range.
         if not self._mtmount_azimuth_in_range:
@@ -229,9 +236,7 @@ additionalProperties: false
             f"{time_now} inside time range [{self.time_range_start}, {self.time_range_end}]."
         )
 
-        self.mtmount_azimuth = data.actualPosition
-        self._mtmount_azimuth_in_range = (
-            self.mtmount_azimuth_low_threshold
-            < self.mtmount_azimuth
-            < self.mtmount_azimuth_high_threshold
+        self.mtmount_azimuth = Angle(data.actualPosition, unit=u.deg)
+        self._mtmount_azimuth_in_range = self.mtmount_azimuth.is_within_bounds(
+            self.mtmount_azimuth_low_threshold, self.mtmount_azimuth_high_threshold
         )
