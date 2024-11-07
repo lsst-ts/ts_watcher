@@ -30,7 +30,7 @@ from .hvac import *
 from .mt_air_compressors_state import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *
-from .mt_mirror_safety import *
+from .mt_m1m3_temperature import *
 from .mt_mirror_temperature import *
 from .mt_mount_azimuth import *
 from .mt_out_closed_loop_control import *
