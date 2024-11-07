@@ -24,6 +24,7 @@ __all__ = ["ThresholdHandler"]
 import functools
 import math
 
+from lsst.ts import utils
 from lsst.ts.idl.enums.Watcher import AlarmSeverity
 
 from .base_rule import NoneNoReason
@@ -45,6 +46,12 @@ class ThresholdHandler:
         Serious level. None to not use this level.
     critical_level : `float` | `None`
         Critical level. None to not use this level.
+    warning_period : `float`
+        Period after which a warning alarm is raised.
+    serious_period : `float`
+        Period after which a serious alarm is raised.
+    critical_period : `float`
+        Period after which a critical alarm is raised.
     hysteresis : `float`
         The amount by which the measurement must decrease below
         (or increase above if ``big_is_bad`` false) a severity level,
@@ -88,6 +95,9 @@ class ThresholdHandler:
         warning_level,
         serious_level,
         critical_level,
+        warning_period,
+        serious_period,
+        critical_period,
         hysteresis,
         big_is_bad,
         value_name,
@@ -192,6 +202,16 @@ class ThresholdHandler:
                     )
             prev_severity_scaled_level = (severity, scaled_level)
 
+        # Keep track of level periods.
+        self.level_periods = {
+            AlarmSeverity.WARNING: warning_period,
+            AlarmSeverity.SERIOUS: serious_period,
+            AlarmSeverity.CRITICAL: critical_period,
+        }
+        # Dict of TAI time [UNIX seconds] and value to determine if there were
+        # too large changes during an established time interval.
+        self.value_dict: dict[float, float] = {}
+
     def get_severity_reason(self, value, current_severity, source_descr):
         """Compute alarm severity and reason string.
 
@@ -213,16 +233,52 @@ class ThresholdHandler:
             value=value,
             source_descr=source_descr,
         )
+
+        tai_now = self.get_current_tai()
         for severity, scaled_level in self.severity_scaled_level_dict.items():
-            if scaled_value > scaled_level:
-                return make_severity_reason(severity=severity, with_hysteresis=False)
-            elif (
-                current_severity == severity
-                and scaled_value > scaled_level - self.hysteresis
-            ):
-                return make_severity_reason(severity=severity, with_hysteresis=True)
+            if math.isclose(self.level_periods[severity], 0.0):
+                # Immediately trigger an alarm if a value exceeds a threshold.
+                if scaled_value > scaled_level:
+                    return make_severity_reason(
+                        severity=severity, with_hysteresis=False
+                    )
+                elif (
+                    current_severity == severity
+                    and scaled_value > scaled_level - self.hysteresis
+                ):
+                    return make_severity_reason(severity=severity, with_hysteresis=True)
+            else:
+                # Only trigger an alarm if the change in a value exceeds a
+                # threshold within the given time range.
+                self.value_dict[tai_now] = value
+                # Remove too old items.
+                self.value_dict = {
+                    time: temp
+                    for time, temp in self.value_dict.items()
+                    if tai_now - time < self.level_periods[severity]
+                }
+                # Get all temperatures.
+                temperatures = [temp for temp in self.value_dict.values()]
+                # Determine if the temp change is too high.
+                if max(temperatures) - min(temperatures) > scaled_level:
+                    return make_severity_reason(
+                        severity=severity, with_hysteresis=False
+                    )
 
         return NoneNoReason
+
+    def get_current_tai(self) -> float:
+        """Get the current TAI time [UNIX seconds].
+
+        This method is designed to be overridden in unit tests.
+
+        Returns
+        -------
+        float
+            The current TAI time [UNIX seconds].
+
+        """
+        return utils.current_tai()
 
     def get_test_value_severities(self):
         """Get a list of (value, expected_severity), for testing.

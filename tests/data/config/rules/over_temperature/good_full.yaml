@@ -10,6 +10,8 @@ temperature_sensors:
       - sensor_name: inside
 warning_level: 19
 critical_level: 30
+warning_period: 0
+serious_period: 0
 warning_msg: "performance may be degraded"
 critical_msg: "disable the widget"
 hysteresis: 1

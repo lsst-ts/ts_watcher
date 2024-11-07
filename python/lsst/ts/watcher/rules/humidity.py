@@ -115,6 +115,21 @@ properties:
         The relative humidity (%) above which a serious alarm is issued.
         Omit for no serious alarm.
     type: number
+  warning_period:
+    description: >-
+        The time period [s] after which the warning alarm is raised.
+    type: number
+    default: 0
+  serious_period:
+    description: >-
+        The time period [s] after which the serious alarm is raised.
+    type: number
+    default: 0
+  critical_period:
+    description: >-
+        The time period [s] after which the critical alarm is raised.
+    type: number
+    default: 0
   warning_msg:
     description: >-
         The main message for a warning alarm.

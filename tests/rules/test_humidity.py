@@ -77,6 +77,9 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             assert remote_info.index == expected_sal_indices[i]
             assert remote_info.poll_names == expected_poll_names
 
+    def get_current_tai(self) -> float:
+        return self.current_tai
+
     async def test_operation(self):
         # max_data_age must be long enough to reliably
         # write and process all data, so the main part of the test
