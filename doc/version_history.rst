@@ -9,7 +9,7 @@ Version History
 v1.19.3
 -------
 
-* Add the `rules.MTMirrorSafety` rule.
+* Add the `rules.MTMountAzimuth` and `rules.MTM1M3Temperature` rules.
 
 v1.19.2
 -------
