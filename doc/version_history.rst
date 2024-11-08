@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.20.1
+-------
+
+* Improve the `rules.MTForceError` rule.
+
 v1.20.0
 -------
 
