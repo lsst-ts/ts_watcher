@@ -58,8 +58,9 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
         assert schema is not None
 
         rule = MTForceError(None)
-        assert len(rule.remote_info_list) == 1
+        assert len(rule.remote_info_list) == 2
         assert len(rule.remote_info_list[0].poll_names) == 2
+        assert len(rule.remote_info_list[1].poll_names) == 2
 
     async def test_operation(self) -> None:
         watcher_config_dict = dict(
@@ -71,8 +72,10 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
+        async with salobj.Controller("MTM2", 0) as controller_m2, salobj.Controller(
+            "MTMount", 0
+        ) as controller_mtmount, watcher.Model(
+            domain=controller_m2.domain, config=watcher_config
         ) as model:
 
             rule_name = "MTForceError.MTM2"
@@ -86,7 +89,7 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
             hardpoint_correction_tangent = [1.0] * 6
             test_data_items = [
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller_m2.tel_axialForce,
                     "fields": {
                         "measured": [0.0] * 72,
                         "hardpointCorrection": hardpoint_correction_axial,
@@ -94,7 +97,13 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller_mtmount.tel_azimuth,
+                    "fields": {
+                        "actualAcceleration": rule.config.threshold_mtmount_acceleration,
+                    },
+                },
+                {
+                    "topic": controller_m2.tel_axialForce,
                     "fields": {
                         "measured": [100.0] * 72,
                         "hardpointCorrection": hardpoint_correction_axial,
@@ -102,15 +111,21 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
                     "expected_severity": AlarmSeverity.SERIOUS,
                 },
                 {
-                    "topic": controller.tel_axialForce,
+                    "topic": controller_m2.tel_axialForce,
                     "fields": {
-                        "measured": [0.0] * 72,
+                        "measured": [100.0] * 10 + [0.0] * 62,
                         "hardpointCorrection": hardpoint_correction_axial,
                     },
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
-                    "topic": controller.tel_tangentForce,
+                    "topic": controller_mtmount.tel_elevation,
+                    "fields": {
+                        "actualAcceleration": rule.config.threshold_mtmount_acceleration,
+                    },
+                },
+                {
+                    "topic": controller_m2.tel_tangentForce,
                     "fields": {
                         "measured": [100.0] * 6,
                         "hardpointCorrection": hardpoint_correction_tangent,
@@ -118,9 +133,32 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
                     "expected_severity": AlarmSeverity.SERIOUS,
                 },
                 {
-                    "topic": controller.tel_tangentForce,
+                    "topic": controller_m2.tel_tangentForce,
                     "fields": {
-                        "measured": [0.0] * 6,
+                        "measured": [100.0] * 2 + [0.0] * 4,
+                        "hardpointCorrection": hardpoint_correction_tangent,
+                    },
+                    "expected_severity": AlarmSeverity.NONE,
+                },
+                {
+                    "topic": controller_m2.tel_tangentForce,
+                    "fields": {
+                        "measured": [100.0] * 6,
+                        "hardpointCorrection": hardpoint_correction_tangent,
+                    },
+                    "expected_severity": AlarmSeverity.SERIOUS,
+                },
+                {
+                    "topic": controller_mtmount.tel_elevation,
+                    "fields": {
+                        "actualAcceleration": -rule.config.threshold_mtmount_acceleration
+                        - 1.0,
+                    },
+                },
+                {
+                    "topic": controller_m2.tel_tangentForce,
+                    "fields": {
+                        "measured": [100.0] * 6,
                         "hardpointCorrection": hardpoint_correction_tangent,
                     },
                     "expected_severity": AlarmSeverity.NONE,

@@ -49,6 +49,12 @@ class BaseEssRule(PollingRule):
           Serious level. None to not use this level.
         * critical_level : `float` | `None`
           Critical level. None to not use this level.
+        * warning_period : `float`
+          Period [s] after which the warning alarm will be raised.
+        * serious_period : `float`
+          Period [s] after which the serious alarm will be raised.
+        * critical_period : `float`
+          Period [s] after which the critical alarm will be raised.
         * hysteresis : `float`
           The amount by which the measurement must decrease below
           (or increase above if ``big_is_bad`` false) a severity level,
@@ -152,6 +158,9 @@ class BaseEssRule(PollingRule):
             warning_level=getattr(config, "warning_level", None),
             serious_level=getattr(config, "serious_level", None),
             critical_level=getattr(config, "critical_level", None),
+            warning_period=getattr(config, "warning_period", None),
+            serious_period=getattr(config, "serious_period", None),
+            critical_period=getattr(config, "critical_period", None),
             warning_msg=getattr(config, "warning_msg", None),
             serious_msg=getattr(config, "serious_msg", None),
             critical_msg=getattr(config, "critical_msg", None),

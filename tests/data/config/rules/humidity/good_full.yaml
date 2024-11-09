@@ -10,6 +10,8 @@ humidity_sensors:
       - inside
 warning_level: 73
 serious_level: 98
+warning_period: 0
+serious_period: 0
 hysteresis: 1
 poll_interval: 10
 max_data_age: 60
