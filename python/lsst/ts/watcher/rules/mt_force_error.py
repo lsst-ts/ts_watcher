@@ -49,20 +49,31 @@ class MTForceError(watcher.PollingRule):
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
 
-        remote_name = "MTM2"
-        remote_info = RemoteInfo(
-            remote_name,
+        # M2
+        remote_name_m2 = "MTM2"
+        remote_info_m2 = RemoteInfo(
+            remote_name_m2,
             0,
             poll_names=["tel_axialForce", "tel_tangentForce"],
         )
+
+        # MTMount
+        remote_name_mount = "MTMount"
+        remote_info_mount = RemoteInfo(
+            remote_name_mount,
+            0,
+            poll_names=["tel_azimuth", "tel_elevation"],
+        )
+
         super().__init__(
             config,
-            f"MTForceError.{remote_name}",
-            [remote_info],
+            f"MTForceError.{remote_name_m2}",
+            [remote_info_m2, remote_info_mount],
             log=log,
         )
 
-        self._remote: salobj.Remote | None = None
+        self._remote_m2: salobj.Remote | None = None
+        self._remote_mtmount: salobj.Remote | None = None
 
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
@@ -75,12 +86,33 @@ class MTForceError(watcher.PollingRule):
                     description: >-
                         Limit of the force error of axial actuator (N).
                     type: number
-                    default: 10.0
+                    default: 15.0
                 force_error_tangent:
                     description: >-
                         Limit of the force error of tangent link (N).
                     type: number
-                    default: 25.0
+                    default: 50.0
+                max_num_axial:
+                    description: >-
+                        Maximum number of the axial actuators that can have the
+                        excess force error.
+                    type: number
+                    default: 10
+                max_num_tangent:
+                    description: >-
+                        Maximum number of the tangent links that can have the
+                        excess force error.
+                    type: number
+                    default: 2
+                threshold_mtmount_acceleration:
+                    description: >-
+                        Threshold of the MTMount acceleration. The force error
+                        will not be checked if the acceleration is higher than
+                        this threshold. This is to avoid the wrong alarm from
+                        the overshoot of the control algorithm. The unit is
+                        deg/s^2.
+                    type: number
+                    default: 0.05
                 poll_interval:
                     description: >-
                         Time delay between polling updates (second).
@@ -102,7 +134,8 @@ class MTForceError(watcher.PollingRule):
 
     def setup(self, model) -> None:
 
-        self._remote = model.remotes[("MTM2", 0)]
+        self._remote_m2 = model.remotes[("MTM2", 0)]
+        self._remote_mtmount = model.remotes[("MTMount", 0)]
 
     def compute_alarm_severity(self) -> AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
@@ -125,34 +158,53 @@ class MTForceError(watcher.PollingRule):
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
 
-        assert self._remote is not None
+        assert self._remote_m2 is not None
+        assert self._remote_mtmount is not None
 
+        # If the acceleration is higher than the threshold, no need to check
+        # the force error.
+        if self._remote_mtmount.tel_azimuth.has_data and (
+            abs(self._remote_mtmount.tel_azimuth.get().actualAcceleration)
+            > self.config.threshold_mtmount_acceleration
+        ):
+            return NoneNoReason
+
+        if self._remote_mtmount.tel_elevation.has_data and (
+            abs(self._remote_mtmount.tel_elevation.get().actualAcceleration)
+            > self.config.threshold_mtmount_acceleration
+        ):
+            return NoneNoReason
+
+        # Check the force error
         list_axial = list()
-        if self._remote.tel_axialForce.has_data:
+        if self._remote_m2.tel_axialForce.has_data:
             list_axial = self._check_out_of_range(
-                self._remote.tel_axialForce.get(), self.config.force_error_axial
+                self._remote_m2.tel_axialForce.get(), self.config.force_error_axial
             )
 
         list_tangent = list()
-        if self._remote.tel_tangentForce.has_data:
+        if self._remote_m2.tel_tangentForce.has_data:
             list_tangent = self._check_out_of_range(
-                self._remote.tel_tangentForce.get(), self.config.force_error_tangent
+                self._remote_m2.tel_tangentForce.get(), self.config.force_error_tangent
             )
 
+        has_error_axial = len(list_axial) > self.config.max_num_axial
+        has_error_tangent = len(list_tangent) > self.config.max_num_tangent
+
         severity = AlarmSeverity(int(self.config.severity))
-        if list_axial and list_tangent:
+        if has_error_axial and has_error_tangent:
             return (
                 severity,
                 "Axial and tangent force errors out of normal range.",
             )
 
-        elif list_axial:
+        elif has_error_axial:
             return (
                 severity,
                 "Axial force error out of normal range.",
             )
 
-        elif list_tangent:
+        elif has_error_tangent:
             return (
                 severity,
                 "Tangent force error out of normal range.",
