@@ -6,15 +6,11 @@
 Version History
 ###############
 
-v1.20.1
--------
-
-* Improve the `rules.MTForceError` rule.
-
 v1.20.0
 -------
 
 * Add the `rules.MTMountAzimuth` and `rules.MTM1M3Temperature` rules.
+* Improve the `rules.MTForceError` rule.
 
 v1.19.2
 -------
