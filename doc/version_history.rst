@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.20.1
+-------
+
+* Send in_progress ack when starting the CSC.
+
 v1.20.0
 -------
 
