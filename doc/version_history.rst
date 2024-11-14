@@ -6,6 +6,12 @@
 Version History
 ###############
 
+v1.20.1
+-------
+
+* Send in_progress ack when starting the CSC.
+* Add the `rules.Telemetry` rule.
+
 v1.20.0
 -------
 

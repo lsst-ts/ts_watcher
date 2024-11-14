@@ -42,4 +42,5 @@ from .mtdome_capacitor_banks import *
 from .over_temperature import *
 from .power_outage import *
 from .script_failed import *
+from .telemetry import *
 from .under_pressure import *
