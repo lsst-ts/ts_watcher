@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.20.2
+-------
+
+* Make sure `rules.MTM1M3Temperature` only acts on `thermalData` telemetry.
+
 v1.20.1
 -------
 

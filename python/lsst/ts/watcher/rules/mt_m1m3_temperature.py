@@ -53,7 +53,7 @@ class MTM1M3Temperature(BaseRule):
             RemoteInfo(
                 name="MTM1M3TS",
                 index=0,
-                callback_names=["tel_glycolLoopTemperature", "tel_thermalData"],
+                callback_names=["tel_thermalData"],
                 poll_names=[],
             ),
         ]
