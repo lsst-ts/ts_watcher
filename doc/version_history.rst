@@ -6,6 +6,11 @@
 Version History
 ###############
 
+v1.21.0
+-------
+
+* Add the `rules.MTHexapodHighCurrent` and `rules.MTHexapodTransitionToIdle` rules.
+
 v1.20.2
 -------
 
