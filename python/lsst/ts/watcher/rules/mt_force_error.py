@@ -48,7 +48,6 @@ class MTForceError(watcher.PollingRule):
     def __init__(
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
-
         # M2
         remote_name_m2 = "MTM2"
         remote_info_m2 = RemoteInfo(
@@ -133,7 +132,6 @@ class MTForceError(watcher.PollingRule):
         return yaml.safe_load(schema_yaml)
 
     def setup(self, model) -> None:
-
         self._remote_m2 = model.remotes[("MTM2", 0)]
         self._remote_mtmount = model.remotes[("MTMount", 0)]
 
@@ -233,7 +231,6 @@ class MTForceError(watcher.PollingRule):
 
         list_actuators = list()
         for idx in range(len(data.measured)):
-
             # Skip the hardpoints
             hardpoint_correction = data.hardpointCorrection[idx]
             if hardpoint_correction == 0.0:

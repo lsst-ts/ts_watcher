@@ -47,7 +47,6 @@ class MTOutClosedLoopControl(watcher.BaseRule):
     def __init__(
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
-
         remote_name = "MTM2"
         remote_info = RemoteInfo(
             remote_name,

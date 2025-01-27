@@ -48,7 +48,6 @@ class MTTotalForceMoment(watcher.PollingRule):
     def __init__(
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
-
         remote_name = "MTM2"
         remote_info = RemoteInfo(
             remote_name,
@@ -125,7 +124,6 @@ class MTTotalForceMoment(watcher.PollingRule):
         return yaml.safe_load(schema_yaml)
 
     def setup(self, model) -> None:
-
         self._remote = model.remotes[("MTM2", 0)]
 
     def compute_alarm_severity(self) -> AlarmSeverityReasonType:

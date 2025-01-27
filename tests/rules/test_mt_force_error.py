@@ -31,7 +31,6 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class TestData:
-
     def __init__(
         self,
         lut_gravity: list[float],
@@ -48,12 +47,10 @@ class TestData:
 
 
 class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
-
         schema = watcher.rules.MTForceError.get_schema()
         assert schema is not None
 
@@ -77,7 +74,6 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
         ) as controller_mtmount, watcher.Model(
             domain=controller_m2.domain, config=watcher_config
         ) as model:
-
             rule_name = "MTForceError.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
@@ -177,7 +173,6 @@ class MTForceErrorTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.severity_queue.empty()
 
     def test_check_out_of_range(self) -> None:
-
         # Normal
         data_normal = TestData(
             [0.0] * 5,

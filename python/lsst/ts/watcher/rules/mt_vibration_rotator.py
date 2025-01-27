@@ -47,7 +47,6 @@ class MTVibrationRotator(watcher.BaseRule):
     def __init__(
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ):
-
         remote_name = "MTRotator"
         remote_info = RemoteInfo(
             remote_name,
