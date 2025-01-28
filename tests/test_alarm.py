@@ -810,7 +810,7 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
         assert self.ncalls == desired_ncalls
 
     async def test_escalation(self):
-        escalation_delay = 0.1
+        escalation_delay = 0.5
         escalation_responder = "chaos"
 
         async for alarm in self.alarm_iter(
