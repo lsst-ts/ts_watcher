@@ -123,6 +123,8 @@ class ATCameraDewar(watcher.BaseRule):
         self.max_data_age: float = max(config.temperature_window, config.vacuum_window)
         self.min_values = config.min_values
         self.had_enough_data = False
+        self.no_data_alarm_triggered_time = None
+
         self.threshold_handlers: typing.Dict[
             str, typing.List[watcher.ThresholdHandler]
         ] = collections.defaultdict(list)
@@ -334,6 +336,7 @@ class ATCameraDewar(watcher.BaseRule):
             severity=AlarmSeverity.SERIOUS,
             reason=f"No data seen in {self.config.max_data_age} seconds",
         )
+        self.no_data_alarm_triggered_time = utils.current_tai()
 
     def reset_all(self):
         """Reset the alarm, clear the data queue, and restart the no-data
@@ -348,6 +351,7 @@ class ATCameraDewar(watcher.BaseRule):
         """Start or restart the no-data timer."""
         self.no_data_timer_task.cancel()
         self.no_data_timer_task = asyncio.create_task(self.no_data_timer())
+        self.no_data_alarm_triggered_time = None
 
     def start(self):
         self.reset_all()
@@ -359,6 +363,18 @@ class ATCameraDewar(watcher.BaseRule):
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs
     ) -> watcher.AlarmSeverityReasonType:
+        if self.no_data_alarm_triggered_time is not None:
+            no_data_delay = (
+                utils.current_tai()
+                - self.no_data_alarm_triggered_time
+                + self.config.max_data_age
+            )
+            self.restart_no_data_timer()
+            return (
+                AlarmSeverity.WARNING,
+                f"Data stream returning after {no_data_delay:.1f}s delay.",
+            )
+
         self.restart_no_data_timer()
         self.data_queue.append(data)
         curr_tai = utils.current_tai()
