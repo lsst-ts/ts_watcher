@@ -8,6 +8,23 @@ Version History
 
 .. towncrier release notes start
 
+v1.20.3 (2025-01-29)
+====================
+
+Bug Fixes
+---------
+
+- Fixes issue with alarm not resetting from missing data alarm. (`DM-48621 <https://rubinobs.atlassian.net//browse/DM-48621>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Add support for towncrier. (`DM-48621 <https://rubinobs.atlassian.net//browse/DM-48621>`_)
+- Add github workflow to run linting checks. (`DM-48621 <https://rubinobs.atlassian.net//browse/DM-48621>`_)
+- Fix formatting issues. (`DM-48621 <https://rubinobs.atlassian.net//browse/DM-48621>`_)
+
+
 v1.20.2
 -------
 
