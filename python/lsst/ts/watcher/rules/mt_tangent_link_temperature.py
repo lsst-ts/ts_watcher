@@ -49,7 +49,6 @@ class MTTangentLinkTemperature(watcher.PollingRule):
     def __init__(
         self, config: types.SimpleNamespace, log: logging.Logger | None = None
     ) -> None:
-
         # ESS
         # 106 is the ESS SAL index for the M2 tangent link temperature
         remote_name_ess = "ESS"
@@ -116,7 +115,6 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         return yaml.safe_load(schema_yaml)
 
     def setup(self, model) -> None:
-
         # 106 is the ESS SAL index for the M2 tangent link temperature
         self._remote_ess = model.remotes[("ESS", 106)]
 

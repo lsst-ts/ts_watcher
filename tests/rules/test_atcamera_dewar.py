@@ -300,3 +300,67 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model, topic=controller.tel_vacuum, **nominal_data_dict
             )
             assert rule.alarm.severity == AlarmSeverity.NONE
+
+    async def test_no_data(self):
+        """Test that the alarm works correctly after a data
+        interruption.
+        """
+        rule_config_path = self.configpath / "good_full.yaml"
+
+        with open(rule_config_path, "r") as f:
+            rule_config_dict = yaml.safe_load(f)
+            # use 1 second max data age so it doesn't take
+            # too long to run the test.
+            rule_config_dict["max_data_age"] = 1.0
+
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="ATCameraDewar", configs=[rule_config_dict])],
+            escalation=(),
+        )
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with salobj.Controller(name="ATCamera") as controller, watcher.Model(
+            domain=controller.domain, config=watcher_config
+        ) as model:
+            assert len(model.rules) == 1
+            rule = list(model.rules.values())[0]
+            assert rule.alarm.nominal
+
+            await model.enable()
+
+            # Nominal values, based on good_full.yaml,
+            # translated to topic field names.
+            nominal_data_dict = dict(
+                tempCCD=-95,
+                tempColdPlate=-140,
+                tempCryoHead=-180,
+                vacuum=0.5e-6,
+            )
+
+            for i in range(rule_config_dict["min_values"]):
+                await watcher.write_and_wait(
+                    model=model, topic=controller.tel_vacuum, **nominal_data_dict
+                )
+                assert rule.alarm.severity == AlarmSeverity.NONE
+
+            # Wait for the timer to expire and make sure alarm goes to Seious
+            await asyncio.sleep(rule_config_dict["max_data_age"] * 2)
+
+            assert rule.alarm.severity == AlarmSeverity.SERIOUS
+
+            # writes data again, alarm will go to Warning
+            await watcher.write_and_wait(
+                model=model, topic=controller.tel_vacuum, **nominal_data_dict
+            )
+            assert rule.alarm.severity == AlarmSeverity.WARNING
+
+            # writes data again, alarm will go to None
+            for i in range(rule_config_dict["min_values"]):
+                await watcher.write_and_wait(
+                    model=model, topic=controller.tel_vacuum, **nominal_data_dict
+                )
+                assert rule.alarm.severity == AlarmSeverity.NONE
+
+            assert rule.alarm.severity == AlarmSeverity.NONE

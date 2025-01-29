@@ -32,12 +32,10 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
-
         schema = watcher.rules.MTTangentLinkTemperature.get_schema()
         assert schema is not None
 
@@ -62,7 +60,6 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         ) as controller_m2, watcher.Model(
             domain=controller_ess.domain, config=watcher_config
         ) as model:
-
             rule_name = "MTTangentLinkTemperature.ESS"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
@@ -135,7 +132,6 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         ) as _, watcher.Model(
             domain=controller_ess.domain, config=watcher_config
         ) as model:
-
             rule_name = "MTTangentLinkTemperature.ESS"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()

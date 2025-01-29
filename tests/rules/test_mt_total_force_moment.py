@@ -31,12 +31,10 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class MTTotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self) -> None:
-
         schema = watcher.rules.MTTotalForceMoment.get_schema()
         assert schema is not None
 
@@ -57,7 +55,6 @@ class MTTotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
         async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
             domain=controller.domain, config=watcher_config
         ) as model:
-
             rule_name = "MTTotalForceMoment.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
