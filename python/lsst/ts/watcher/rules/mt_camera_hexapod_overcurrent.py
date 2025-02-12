@@ -19,29 +19,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-try:
-    from .version import *
-except ImportError:
-    __version__ = "?"
+__all__ = ["MTCameraHexapodOvercurrent"]
 
-from .alarm import *
-from .base_ess_rule import *
-from .base_hexapod_overcurrent_rule import *
-from .base_rule import *
-from .config_schema import *
-from .field_wrapper_list import *
-from .filtered_field_wrapper import *
-from .filtered_topic_wrapper import *
-from .mock_opsgenie import *
-from .mock_pagerduty import *
-from .mock_squadcast import *
-from .polling_rule import *
-from .remote_info import *
-from .remote_wrapper import *
-from .testutils import *
-from .threshold_handler import *
-from .topic_callback import *
+import logging
+import types
 
-from .model import *  # isort:skip
-from .watcher_csc import *  # isort:skip
-from . import rules  # isort:skip
+from lsst.ts.xml.enums.MTHexapod import SalIndex
+
+from ..base_hexapod_overcurrent_rule import BaseHexapodOvercurrentRule
+
+
+class MTCameraHexapodOvercurrent(BaseHexapodOvercurrentRule):
+    """Monitor the main telescope camera hexapod overcurrent event.
+
+    Parameters
+    ----------
+    config : `types.SimpleNamespace`
+        Rule configuration, as validated by the schema.
+    log : `logging.Logger` or None, optional
+        Parent logger. (the default is None)
+    """
+
+    def __init__(
+        self, config: types.SimpleNamespace, log: logging.Logger | None = None
+    ):
+        super().__init__(
+            SalIndex.CAMERA_HEXAPOD,
+            config=config,
+            log=log,
+        )
