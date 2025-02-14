@@ -1,0 +1,1 @@
+Add the rule to watch the hexapod overcurrent event.
