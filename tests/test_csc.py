@@ -28,7 +28,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from lsst.ts import salobj, utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)

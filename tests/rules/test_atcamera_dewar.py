@@ -28,8 +28,8 @@ import jsonschema
 import pytest
 import yaml
 from lsst.ts import salobj, utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts.watcher.rules import ATCameraDewar
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Standard timeout (seconds)
 STD_TIMEOUT = 10

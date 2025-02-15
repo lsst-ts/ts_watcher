@@ -27,7 +27,7 @@ import unittest
 
 import pytest
 from lsst.ts import salobj, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Timeout for normal operations (seconds)
 STD_TIMEOUT = 5
@@ -216,7 +216,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         ----------
         alarm : `lsst.ts.watcher.Alarm`
             Alarm to test.
-        muted_severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+        muted_severity : `lsst.ts.xml.enums.Watcher.AlarmSeverity`
             Expected value for rule.severity.
         muted_by : `str`
             Expected value for rule.muted_by.

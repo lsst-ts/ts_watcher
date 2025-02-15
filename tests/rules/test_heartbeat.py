@@ -28,7 +28,7 @@ import jsonschema
 import pytest
 import yaml
 from lsst.ts import salobj, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 
 class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):

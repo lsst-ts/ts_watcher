@@ -26,9 +26,9 @@ import unittest
 
 import yaml
 from lsst.ts import salobj, watcher
-from lsst.ts.idl.enums.Script import ScriptState
-from lsst.ts.idl.enums.ScriptQueue import ScriptProcessState
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Script import ScriptState
+from lsst.ts.xml.enums.ScriptQueue import ScriptProcessState
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 

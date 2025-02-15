@@ -29,7 +29,7 @@ import types
 import typing
 
 from lsst.ts import salobj
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from . import alarm
 
@@ -289,7 +289,7 @@ class BaseRule(abc.ABC):
         -------
         None, if no change or unknown, or a tuple of two values:
 
-        severity: `lsst.ts.idl.enums.Watcher.AlarmSeverity`
+        severity: `lsst.ts.xml.enums.Watcher.AlarmSeverity`
             The new alarm severity.
         reason : `str`
             Detailed reason for the severity, e.g. a string describing

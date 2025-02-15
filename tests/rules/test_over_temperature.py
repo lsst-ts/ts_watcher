@@ -31,8 +31,8 @@ import numpy.random
 import pytest
 import yaml
 from lsst.ts import salobj, utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts.watcher.rules import OverTemperature
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 index_gen = utils.index_generator()
 

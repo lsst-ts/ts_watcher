@@ -26,7 +26,7 @@ import unittest
 
 import pytest
 from lsst.ts import utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 2  # seconds
 
