@@ -112,7 +112,6 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
-                await model.enable()
 
                 assert len(model.rules) == 1
                 rule_name = f"Heartbeat.{name}:{index}"
@@ -122,6 +121,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Start a heartbeat loop and check severity=None.
                 async with self.heart_beat_loop(controller=controller):
+                    await model.enable()
                     await alarm.assert_next_severity(AlarmSeverity.NONE)
                     assert alarm.nominal
 
