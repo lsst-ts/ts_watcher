@@ -827,6 +827,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         ), salobj.Controller(name="ATDome", write_only=True) as atdome:
             atdome_alarm_name = "Enabled.ATDome:0"
 
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )
