@@ -27,8 +27,8 @@ import typing
 
 import yaml
 from lsst.ts import watcher
-from lsst.ts.idl.enums.Script import ScriptState
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Script import ScriptState
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 if typing.TYPE_CHECKING:
     from lsst.ts.salobj import BaseMsgType

@@ -24,7 +24,7 @@ __all__ = ["Clock"]
 import numpy as np
 import yaml
 from lsst.ts import salobj, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 
 class Clock(watcher.BaseRule):

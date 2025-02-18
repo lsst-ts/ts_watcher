@@ -26,7 +26,7 @@ __all__ = ["MTCCWFollowingRotator"]
 import typing
 
 from lsst.ts import watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 if typing.TYPE_CHECKING:
     from lsst.ts.salobj import BaseMsgType

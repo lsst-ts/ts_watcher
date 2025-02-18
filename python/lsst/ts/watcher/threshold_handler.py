@@ -25,7 +25,7 @@ import functools
 import math
 
 from lsst.ts import utils
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from .base_rule import NoneNoReason
 

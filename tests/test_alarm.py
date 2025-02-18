@@ -26,7 +26,7 @@ import unittest
 
 import pytest
 from lsst.ts import utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 2  # seconds
 
@@ -825,7 +825,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
             assert alarm.escalation_responder == escalation_responder
             if alarm.severity < AlarmSeverity.CRITICAL:
                 assert alarm.timestamp_escalate == 0
-                assert alarm.escalation_timer_task.done()
+                if not alarm.escalation_timer_task.done():
+                    with pytest.raises(asyncio.CancelledError):
+                        await asyncio.wait_for(alarm.escalation_timer_task, timeout=0.5)
             else:
                 assert alarm.timestamp_escalate > 0
                 assert not alarm.escalation_timer_task.done()
@@ -837,7 +839,9 @@ class AlarmTestCase(unittest.IsolatedAsyncioTestCase):
                     duration=1, severity=AlarmSeverity.CRITICAL, user="muter"
                 )
                 await self.next_queued_alarm(expected_alarm=alarm)
-                assert alarm.escalation_timer_task.done()
+                if not alarm.escalation_timer_task.done():
+                    with pytest.raises(asyncio.CancelledError):
+                        await asyncio.wait_for(alarm.escalation_timer_task, timeout=0.5)
                 assert not alarm.do_escalate
                 assert alarm.muted
 

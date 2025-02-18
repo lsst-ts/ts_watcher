@@ -24,7 +24,7 @@ import unittest
 
 import pytest
 from lsst.ts import watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Maximum time (seconds) to wait for the next severity to be reported.
 NEXT_SEVERITY_TIMEOUT = 1

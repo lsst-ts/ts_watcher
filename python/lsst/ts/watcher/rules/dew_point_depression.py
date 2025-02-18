@@ -23,7 +23,7 @@ __all__ = ["DewPointDepression"]
 
 import yaml
 from lsst.ts import utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Name of dew point field in ESS telemetry topics
 # for dew point and humidity sensors.

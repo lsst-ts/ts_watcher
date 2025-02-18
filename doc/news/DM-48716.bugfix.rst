@@ -1,0 +1,1 @@
+Fixes issue causing memory leak in MTM1M3Temperature rule.
