@@ -71,7 +71,9 @@ class MTHexapodOvercurrentTestCase(unittest.IsolatedAsyncioTestCase):
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
-            rule.config.max_count = 2
+            assert model.rules[rule_name]._max_count != 0
+
+            model.rules[rule_name]._max_count = 2
 
             await model.enable()
 

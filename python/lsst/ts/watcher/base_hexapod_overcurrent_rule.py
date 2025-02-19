@@ -47,6 +47,9 @@ class BaseHexapodOvercurrentRule(BaseRule):
         Parent logger. (the default is None)
     """
 
+    # This is actually the max value of int32.
+    MAX_COUNT = 2147483647
+
     def __init__(
         self,
         salIndex: SalIndex,
@@ -78,6 +81,7 @@ class BaseHexapodOvercurrentRule(BaseRule):
         self._enabled_state = EnabledSubstate.STATIONARY
 
         self._count = 0
+        self._max_count = 0
 
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
@@ -91,13 +95,13 @@ class BaseHexapodOvercurrentRule(BaseRule):
                         Threshold of the current in ampere.
                     type: number
                     default: 4.0
-                max_count:
+                time_window:
                     description: >-
-                        Maximum count to check the hexapod current in idle.
-                        The telemetry rate is 20 Hz. Therefore, 10 mins are
-                        12000 times of telemetry.
+                        Maximum time window in minute to check the hexapod
+                        current in idle. The telemetry rate is 20 Hz.
+                        Therefore, 10 mins are 12000 times of telemetry.
                     type: number
-                    default: 12000
+                    default: 10
                 severity:
                     description: >-
                         Alarm severity defined in enum AlarmSeverity.
@@ -106,10 +110,14 @@ class BaseHexapodOvercurrentRule(BaseRule):
 
             required:
             - threshold_current
-            - max_count
+            - time_window
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
+
+    def setup(self, model) -> None:
+        # The telemetry rate is 20 Hz
+        self._max_count = int(self.config.time_window * 60 * 20)
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: dict[str, typing.Any]
@@ -163,16 +171,16 @@ class BaseHexapodOvercurrentRule(BaseRule):
         if self._is_enabled_and_stationary() and any(
             [current >= self.config.threshold_current for current in data.motorCurrent]
         ):
-            self._count += 1
+            self._count += 1 if (self._count < self.MAX_COUNT) else 0
         else:
-            self._count = 0
+            self._count -= 1 if (self._count > 0) else 0
 
         return (
             NoneNoReason
-            if (self._count < self.config.max_count)
+            if (self._count < self._max_count)
             else (
                 AlarmSeverity(self.config.severity),
-                f"{self._hexapod} has the overcurrent.",
+                f"{self._hexapod} overcurrent above threshold.",
             )
         )
 
