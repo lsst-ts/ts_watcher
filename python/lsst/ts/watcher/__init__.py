@@ -26,7 +26,6 @@ except ImportError:
 
 from .alarm import *
 from .base_ess_rule import *
-from .base_hexapod_overcurrent_rule import *
 from .base_rule import *
 from .config_schema import *
 from .field_wrapper_list import *

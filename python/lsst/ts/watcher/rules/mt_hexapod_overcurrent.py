@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["BaseHexapodOvercurrentRule"]
+__all__ = ["MTHexapodOvercurrent"]
 
 import logging
 import types
@@ -30,17 +30,15 @@ from lsst.ts import salobj
 from lsst.ts.xml.enums.MTHexapod import ControllerState, EnabledSubstate, SalIndex
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from .base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
-from .remote_info import RemoteInfo
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
 
 
-class BaseHexapodOvercurrentRule(BaseRule):
-    """Base rule to monitor the main telescope hexapod overcurrent event.
+class MTHexapodOvercurrent(BaseRule):
+    """Rule to monitor the main telescope hexapod overcurrent event.
 
     Parameters
     ----------
-    salIndex : enum `SalIndex`
-        Hexapod SAL index.
     config : `types.SimpleNamespace`
         Rule configuration, as validated by the schema.
     log : `logging.Logger` or None, optional
@@ -52,36 +50,31 @@ class BaseHexapodOvercurrentRule(BaseRule):
 
     def __init__(
         self,
-        salIndex: SalIndex,
         config: types.SimpleNamespace,
         log: logging.Logger | None = None,
     ):
-        is_camera_hexapod = salIndex == SalIndex.CAMERA_HEXAPOD
-        prefix_warning = (
-            "MTCameraHexapodOvercurrent"
-            if is_camera_hexapod
-            else "MTM2HexapodOvercurrent"
-        )
-        remote_name = "MTHexapod"
+        remote_name, remote_index = salobj.name_to_name_index(config.name)
         remote_info = RemoteInfo(
-            remote_name,
-            salIndex.value,
+            name=remote_name,
+            index=remote_index,
             callback_names=["evt_controllerState", "tel_electrical"],
         )
         super().__init__(
             config,
-            f"{prefix_warning}.{remote_name}",
+            f"MTHexapodOvercurrent.{remote_info.name}:{remote_info.index}",
             [remote_info],
             log=log,
         )
 
-        self._hexapod = "CameraHexapod" if is_camera_hexapod else "M2Hexapod"
+        self._hexapod = SalIndex(remote_index).name
 
         self._controller_state = ControllerState.STANDBY
         self._enabled_state = EnabledSubstate.STATIONARY
 
         self._count = 0
-        self._max_count = 0
+
+        # The telemetry rate is 20 Hz
+        self._max_count = int(config.time_window * 60 * 20)
 
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
@@ -90,6 +83,11 @@ class BaseHexapodOvercurrentRule(BaseRule):
             description: Configuration for BaseHexapodOvercurrentRule rule.
             type: object
             properties:
+                name:
+                    description: >-
+                        CSC name and index in the form `name` or `name:index`.
+                        The default index is 0.
+                    type: string
                 threshold_current:
                     description: >-
                         Threshold of the current in ampere.
@@ -109,15 +107,13 @@ class BaseHexapodOvercurrentRule(BaseRule):
                     default: 2
 
             required:
+            - name
             - threshold_current
             - time_window
+            - severity
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
-
-    def setup(self, model) -> None:
-        # The telemetry rate is 20 Hz
-        self._max_count = int(self.config.time_window * 60 * 20)
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: dict[str, typing.Any]

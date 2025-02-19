@@ -24,8 +24,7 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.watcher.rules import MTCameraHexapodOvercurrent
-from lsst.ts.xml.enums.MTHexapod import SalIndex
+from lsst.ts.watcher.rules import MTHexapodOvercurrent
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -38,36 +37,33 @@ class MTHexapodOvercurrentTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor(self):
 
-        schema = MTCameraHexapodOvercurrent.get_schema()
+        schema = MTHexapodOvercurrent.get_schema()
         assert schema is not None
 
-        rule = MTCameraHexapodOvercurrent(None)
+        config = watcher.rules.MTHexapodOvercurrent.make_config(name="MTHexapod:1")
+        rule = MTHexapodOvercurrent(config)
         assert len(rule.remote_info_list) == 1
         assert len(rule.remote_info_list[0].callback_names) == 2
 
     async def test_operation(self):
 
-        await self._test_operation(
-            "MTCameraHexapodOvercurrent", SalIndex.CAMERA_HEXAPOD
-        )
-        await self._test_operation("MTM2HexapodOvercurrent", SalIndex.M2_HEXAPOD)
-
-    async def _test_operation(self, classname: str, sal_index: SalIndex):
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[dict(classname=classname, configs=[{}])],
+            rules=[
+                dict(
+                    classname="MTHexapodOvercurrent", configs=[{"name": "MTHexapod:1"}]
+                )
+            ],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller(
-            "MTHexapod", sal_index.value
-        ) as controller, watcher.Model(
+        async with salobj.Controller("MTHexapod", 1) as controller, watcher.Model(
             domain=controller.domain, config=watcher_config
         ) as model:
-            rule_name = f"{classname}.MTHexapod"
+            rule_name = "MTHexapodOvercurrent.MTHexapod:1"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
