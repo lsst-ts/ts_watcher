@@ -8,6 +8,28 @@ Version History
 
 .. towncrier release notes start
 
+v1.21.0 (2025-03-03)
+====================
+
+New Features
+------------
+
+- Add the rule to watch the hexapod overcurrent event. (`DM-48625 <https://rubinobs.atlassian.net//browse/DM-48625>`_)
+
+
+Bug Fixes
+---------
+
+- Fixes issue causing memory leak in MTM1M3Temperature rule. (`DM-48716 <https://rubinobs.atlassian.net//browse/DM-48716>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Replaces all references to lsst.ts.idl with lsst.ts.xml. (`DM-48716 <https://rubinobs.atlassian.net//browse/DM-48716>`_)
+- General improvements to unit tests reliability. (`DM-48716 <https://rubinobs.atlassian.net//browse/DM-48716>`_)
+
+
 v1.20.3 (2025-01-29)
 ====================
 
