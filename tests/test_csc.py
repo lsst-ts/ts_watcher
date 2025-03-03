@@ -28,7 +28,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from lsst.ts import salobj, utils, watcher
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
@@ -827,6 +827,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         ), salobj.Controller(name="ATDome", write_only=True) as atdome:
             atdome_alarm_name = "Enabled.ATDome:0"
 
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
             await salobj.set_summary_state(
                 self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
             )

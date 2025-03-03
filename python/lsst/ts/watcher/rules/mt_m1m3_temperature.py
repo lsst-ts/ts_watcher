@@ -213,16 +213,26 @@ additionalProperties: false
         temp_dict[timestamp] = temperature
 
         # Remove too old items.
-        temp_dict = {
-            time: temp
+        # Need to create a set of items to remove
+        # before removing them to avoid editing the dict
+        # while iterating over it.
+        items_to_remove = {
+            time
             for time, temp in temp_dict.items()
-            if timestamp - time < self.temperature_change_interval
+            if timestamp - time > self.temperature_change_interval
         }
+
+        for item in items_to_remove:
+            del temp_dict[item]
 
         # Get all temperatures.
         temperatures = [temp for temp in temp_dict.values()]
         # Determine if the temp change is too high.
-        return max(temperatures) - min(temperatures) > threshold
+        return (
+            (max(temperatures) - min(temperatures) > threshold)
+            if temperatures
+            else False
+        )
 
     def process_mtdome_data(self, data: salobj.BaseMsgType) -> None:
         """Process the MTDome data.

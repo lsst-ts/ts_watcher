@@ -26,8 +26,8 @@ import logging
 
 import aiohttp
 from lsst.ts import utils
-from lsst.ts.idl.enums.Watcher import AlarmSeverity
 from lsst.ts.salobj.base import get_user_host
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Default timeout for Alarm.assert_next_severity
 DEFAULT_NEXT_SEVERITY_TIMEOUT = 10
@@ -280,7 +280,7 @@ class Alarm:
 
         Parameters
         ----------
-        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+        severity : `lsst.ts.xml.enums.Watcher.AlarmSeverity` or `int`
             Severity to acknowledge. Must be >= self.max_severity.
             If the severity goes above this level the alarm will
             unacknowledge itself.
@@ -353,7 +353,7 @@ class Alarm:
         ----------
         duration : `float`
             How long to mute the alarm (sec).
-        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+        severity : `lsst.ts.xml.enums.Watcher.AlarmSeverity` or `int`
             Severity to mute. If the alarm's current or max severity
             goes above this level the alarm should be displayed.
         user : `str`
@@ -430,7 +430,7 @@ class Alarm:
 
         Parameters
         ----------
-        severity : `lsst.ts.idl.enums.Watcher.AlarmSeverity` or `int`
+        severity : `lsst.ts.xml.enums.Watcher.AlarmSeverity` or `int`
             New severity.
         reason : `str`
             The reason for this state; this should be a brief message

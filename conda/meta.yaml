@@ -14,9 +14,9 @@ test:
   requires:
     - aiohttp >=3.8,<4.0
     - ts-conda-build =0.4
-    - ts-idl {{ idl_version }}
     - ts-utils
     - ts-salobj {{ salobj_version }}
+    - ts-xml {{ xml_conda_version }}
   source_files:
     - python
     - bin
@@ -37,11 +37,14 @@ requirements:
     - setuptools_scm
     - setuptools
     - ts-conda-build =0.4
-    - aiohttp
+    - aiohttp >=3.8,<4.0
+    - ts-salobj {{ salobj_version }}
+    - ts-xml {{ xml_conda_version }}
   run:
+    - aiohttp >=3.8,<4.0
     - python {{ python }}
     - setuptools
     - setuptools_scm
-    - aiohttp >=3.8,<4.0
-    - ts-idl {{ idl_version }}
-    - ts-salobj {{ salobj_version }}
+    - ts-salobj
+    - ts-xml
+
