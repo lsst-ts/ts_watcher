@@ -1,1 +1,0 @@
-Replaces all references to lsst.ts.idl with lsst.ts.xml.
