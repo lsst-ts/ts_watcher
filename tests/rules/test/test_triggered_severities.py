@@ -76,7 +76,6 @@ class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         alarm_seen_event = asyncio.Event()
 
         async def alarm_callback(alarm):
-            nonlocal read_severities
             read_severities.append(alarm.severity)
             alarm_seen_event.set()
 

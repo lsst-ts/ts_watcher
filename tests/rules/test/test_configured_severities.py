@@ -83,7 +83,6 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         done_future = asyncio.Future()
 
         async def alarm_callback(alarm):
-            nonlocal read_severities
             read_severities.append(alarm.severity)
             if (
                 len(read_severities) >= num_expected_severities
