@@ -8,6 +8,16 @@ Version History
 
 .. towncrier release notes start
 
+v1.22.0 (2025-04-09)
+====================
+
+New Features
+------------
+
+- Add a rule to watch the MTM1M3 fans being switched on or off. (`DM-49978 <https://rubinobs.atlassian.net//browse/DM-49978>`_)
+- Fix several flake8 issues in test files. (`DM-49978 <https://rubinobs.atlassian.net//browse/DM-49978>`_)
+
+
 v1.21.0 (2025-03-03)
 ====================
 

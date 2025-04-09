@@ -1,1 +1,0 @@
-Add a rule to watch the MTM1M3 fans being switched on or off.
