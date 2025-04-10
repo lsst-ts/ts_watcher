@@ -23,6 +23,7 @@ from . import test
 from .atcamera_dewar import *
 from .clock import *
 from .dew_point_depression import *
+from .electric_generator_running import *
 from .enabled import *
 from .heartbeat import *
 from .humidity import *
