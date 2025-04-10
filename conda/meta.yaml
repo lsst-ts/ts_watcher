@@ -16,7 +16,7 @@ test:
     - ts-conda-build =0.4
     - ts-utils
     - ts-salobj {{ salobj_version }}
-    - ts-xml {{ xml_conda_version }}
+    - ts-xml {{ xml_version }}
   source_files:
     - python
     - bin
