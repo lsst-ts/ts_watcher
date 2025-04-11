@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.22.2 (2025-04-11)
+====================
+
+Bug Fixes
+---------
+
+- Fix ts-xml parameter in conda recipe once more. (`DM-49978 <https://rubinobs.atlassian.net//browse/DM-49978>`_)
+
+
 v1.22.1 (2025-04-10)
 ====================
 
