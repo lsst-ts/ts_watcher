@@ -39,7 +39,7 @@ requirements:
     - ts-conda-build =0.4
     - aiohttp >=3.8,<4.0
     - ts-salobj {{ salobj_version }}
-    - ts-xml {{ xml_conda_version }}
+    - ts-xml {{ xml_version }}
   run:
     - aiohttp >=3.8,<4.0
     - python {{ python }}
