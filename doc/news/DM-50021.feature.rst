@@ -1,0 +1,1 @@
+Add watcher alarms to monitor power generators.
