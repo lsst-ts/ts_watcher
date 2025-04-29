@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ElectricGeneratorFail"]
+__all__ = ["PowerGeneratorFail"]
 
 import typing
 
@@ -31,8 +31,8 @@ from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class ElectricGeneratorFail(BaseRule):
-    """Monitor the electric generators (ESS_agcGenset150)
+class PowerGeneratorFail(BaseRule):
+    """Monitor the power generators (ESS_agcGenset150)
     for any triggered main failure.
 
     Parameters
@@ -67,7 +67,7 @@ class ElectricGeneratorFail(BaseRule):
         ]
         super().__init__(
             config=config,
-            name="ESS.ElectricGeneratorFail",
+            name="ESS.PowerGeneratorFail",
             remote_info_list=remote_info_list,
             log=log,
         )
@@ -83,22 +83,22 @@ class ElectricGeneratorFail(BaseRule):
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#
 description: >-
-    Configuration for electric generators failure monitoring.
+    Configuration for power generators failure monitoring.
 type: object
 properties:
     name_master:
         description: >-
             CSC name and index in the form `name:index`
-            for the master electric generator.
+            for the master power generator.
         type: string
     name_slave:
         description: >-
             CSC name and index in the form `name:index`
-            for the slave electric generator.
+            for the slave power generator.
         type: string
     severity_individual_fail:
         description: >-
-            Alarm severity for when one electric generator has
+            Alarm severity for when one power generator has
             a main failure.
         type: string
         default: {AlarmSeverity.SERIOUS.name}
@@ -106,7 +106,7 @@ properties:
 {severity_values}
     severity_both_fail:
         description: >-
-            Alarm severity for when both electric generators
+            Alarm severity for when both power generators
             have a main failure.
         type: string
         default: {AlarmSeverity.CRITICAL.name}
@@ -172,14 +172,14 @@ additionalProperties: false
                 self._slave_main_failure = False
 
         if self._master_main_failure and not self._slave_main_failure:
-            reason = f"{remote_name_master}:{remote_index_master} electric generator in main failure."
+            reason = f"{remote_name_master}:{remote_index_master} power generator in main failure."
             severity = AlarmSeverity[self.config.severity_individual_fail]
         elif not self._master_main_failure and self._slave_main_failure:
-            reason = f"{remote_name_slave}:{remote_index_slave} electric generator in main failure."
+            reason = f"{remote_name_slave}:{remote_index_slave} power generator in main failure."
             severity = AlarmSeverity[self.config.severity_individual_fail]
         elif self._master_main_failure and self._slave_main_failure:
             reason = (
-                f"Both electric generators ({remote_name_master}:{remote_index_master}"
+                f"Both power generators ({remote_name_master}:{remote_index_master}"
                 f" and {remote_name_slave}:{remote_index_slave}) in main failure."
             )
             severity = AlarmSeverity[self.config.severity_both_fail]

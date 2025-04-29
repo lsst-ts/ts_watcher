@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ElectricGeneratorRunning"]
+__all__ = ["PowerGeneratorRunning"]
 
 import typing
 
@@ -31,8 +31,8 @@ from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class ElectricGeneratorRunning(BaseRule):
-    """Monitor the electric generators (ESS_agcGenset150)
+class PowerGeneratorRunning(BaseRule):
+    """Monitor the power generators (ESS_agcGenset150)
     to alert users they started running.
 
     Parameters
@@ -55,7 +55,7 @@ class ElectricGeneratorRunning(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{remote_name}.ElectricGeneratorRunning",
+            name=f"{remote_name}.PowerGeneratorRunning",
             remote_info_list=remote_info_list,
             log=log,
         )
@@ -69,7 +69,7 @@ class ElectricGeneratorRunning(BaseRule):
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#
 description: >-
-    Configuration for electric generators running monitoring.
+    Configuration for power generators running monitoring.
 type: object
 properties:
     name:
@@ -78,7 +78,7 @@ properties:
         type: string
     severity:
         description: >-
-            Alarm severity for when the electric generator is running.
+            Alarm severity for when the power generator is running.
         type: string
         default: {AlarmSeverity.WARNING.name}
         enum:
@@ -126,7 +126,7 @@ additionalProperties: false
         severity, reason = NoneNoReason
         genset_running = data.running
         if genset_running:
-            reason = f"{remote_name}:{remote_index} electric generator running."
+            reason = f"{remote_name}:{remote_index} power generator running."
             severity = AlarmSeverity[self.config.severity]
 
         return severity, reason

@@ -32,23 +32,23 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
-class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
+class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_basics(self):
-        schema = watcher.rules.ElectricGeneratorFail.get_schema()
+        schema = watcher.rules.PowerGeneratorFail.get_schema()
         assert schema is not None
         name = "ESS"
         salindex = "1"
         full_name_master = f"{name}:{salindex}"
         full_name_slave = f"{name}:{int(salindex) + 1}"
-        config = watcher.rules.ElectricGeneratorFail.make_config(
+        config = watcher.rules.PowerGeneratorFail.make_config(
             name_master=full_name_master, name_slave=full_name_slave
         )
-        desired_rule_name = f"{name}.ElectricGeneratorFail"
+        desired_rule_name = f"{name}.PowerGeneratorFail"
 
-        rule = watcher.rules.ElectricGeneratorFail(config=config)
+        rule = watcher.rules.PowerGeneratorFail(config=config)
         assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
@@ -61,12 +61,12 @@ class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
         assert remote_info_slave.name == name
         assert remote_info_slave.index == int(salindex) + 1
         assert name in repr(rule)
-        assert "ElectricGeneratorFail" in repr(rule)
+        assert "PowerGeneratorFail" in repr(rule)
 
     def test_config_validation(self):
         # Check defaults
         minimal_config_dict = dict(name_master="ESS:1", name_slave="ESS:2")
-        minimal_config = watcher.rules.ElectricGeneratorFail.make_config(
+        minimal_config = watcher.rules.PowerGeneratorFail.make_config(
             **minimal_config_dict
         )
         assert minimal_config.name_master == minimal_config_dict["name_master"]
@@ -81,9 +81,7 @@ class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
             severity_individual_fail=AlarmSeverity.SERIOUS.name,
             severity_both_fail=AlarmSeverity.CRITICAL.name,
         )
-        good_config = watcher.rules.ElectricGeneratorFail.make_config(
-            **good_config_dict
-        )
+        good_config = watcher.rules.PowerGeneratorFail.make_config(**good_config_dict)
         for key, value in good_config_dict.items():
             assert getattr(good_config, key) == value
 
@@ -97,7 +95,7 @@ class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
             bad_config_dict["severity_individual_fail"] = bad_severity_value
             bad_config_dict["severity_both_fail"] = bad_severity_value
             with pytest.raises(jsonschema.ValidationError):
-                watcher.rules.ElectricGeneratorFail.make_config(**bad_config_dict)
+                watcher.rules.PowerGeneratorFail.make_config(**bad_config_dict)
 
     async def test_call(self):
         name = "ESS"
@@ -111,7 +109,7 @@ class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
             auto_acknowledge_delay: 3600
             auto_unacknowledge_delay: 3600
             rules:
-            - classname: ElectricGeneratorFail
+            - classname: PowerGeneratorFail
               configs:
               - name_master: {full_name_master}
                 name_slave: {full_name_slave}
@@ -142,7 +140,7 @@ class ElectricGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
                 await model.enable()
 
                 assert len(model.rules) == 1
-                rule_name = "ESS.ElectricGeneratorFail"
+                rule_name = "ESS.PowerGeneratorFail"
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
