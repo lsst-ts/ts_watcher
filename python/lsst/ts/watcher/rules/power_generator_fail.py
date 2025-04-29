@@ -44,23 +44,23 @@ class PowerGeneratorFail(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        remote_name_master, remote_index_master = salobj.name_to_name_index(
-            config.name_master
+        remote_name_primary, remote_index_primary = salobj.name_to_name_index(
+            config.name_primary
         )
-        remote_name_slave, remote_index_slave = salobj.name_to_name_index(
-            config.name_slave
+        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(
+            config.name_secondary
         )
 
         remote_info_list = [
             RemoteInfo(
-                name=remote_name_master,
-                index=remote_index_master,
+                name=remote_name_primary,
+                index=remote_index_primary,
                 callback_names=["tel_agcGenset150"],
                 poll_names=[],
             ),
             RemoteInfo(
-                name=remote_name_slave,
-                index=remote_index_slave,
+                name=remote_name_secondary,
+                index=remote_index_secondary,
                 callback_names=["tel_agcGenset150"],
                 poll_names=[],
             ),
@@ -71,8 +71,8 @@ class PowerGeneratorFail(BaseRule):
             remote_info_list=remote_info_list,
             log=log,
         )
-        self._master_main_failure = False
-        self._slave_main_failure = False
+        self._primary_main_failure = False
+        self._secondary_main_failure = False
 
     @classmethod
     def get_schema(cls):
@@ -86,15 +86,15 @@ description: >-
     Configuration for power generators failure monitoring.
 type: object
 properties:
-    name_master:
+    name_primary:
         description: >-
             CSC name and index in the form `name:index`
-            for the master power generator.
+            for the primary power generator.
         type: string
-    name_slave:
+    name_secondary:
         description: >-
             CSC name and index in the form `name:index`
-            for the slave power generator.
+            for the secondary power generator.
         type: string
     severity_individual_fail:
         description: >-
@@ -113,8 +113,8 @@ properties:
         enum:
 {severity_values}
 required:
-  - name_master
-  - name_slave
+  - name_primary
+  - name_secondary
 additionalProperties: false
        """
         return yaml.safe_load(schema_yaml)
@@ -152,35 +152,35 @@ additionalProperties: false
         -----
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
-        remote_name_master, remote_index_master = salobj.name_to_name_index(
-            self.config.name_master
+        remote_name_primary, remote_index_primary = salobj.name_to_name_index(
+            self.config.name_primary
         )
-        remote_name_slave, remote_index_slave = salobj.name_to_name_index(
-            self.config.name_slave
+        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(
+            self.config.name_secondary
         )
         severity, reason = NoneNoReason
         genset_failure = data.mainFailure
         if genset_failure:
-            if remote_index_master == data.salIndex:
-                self._master_main_failure = True
-            elif remote_index_slave == data.salIndex:
-                self._slave_main_failure = True
+            if remote_index_primary == data.salIndex:
+                self._primary_main_failure = True
+            elif remote_index_secondary == data.salIndex:
+                self._secondary_main_failure = True
         else:
-            if remote_index_master == data.salIndex:
-                self._master_main_failure = False
-            elif remote_index_slave == data.salIndex:
-                self._slave_main_failure = False
+            if remote_index_primary == data.salIndex:
+                self._primary_main_failure = False
+            elif remote_index_secondary == data.salIndex:
+                self._secondary_main_failure = False
 
-        if self._master_main_failure and not self._slave_main_failure:
-            reason = f"{remote_name_master}:{remote_index_master} power generator in main failure."
+        if self._primary_main_failure and not self._secondary_main_failure:
+            reason = f"{remote_name_primary}:{remote_index_primary} power generator in main failure."
             severity = AlarmSeverity[self.config.severity_individual_fail]
-        elif not self._master_main_failure and self._slave_main_failure:
-            reason = f"{remote_name_slave}:{remote_index_slave} power generator in main failure."
+        elif not self._primary_main_failure and self._secondary_main_failure:
+            reason = f"{remote_name_secondary}:{remote_index_secondary} power generator in main failure."
             severity = AlarmSeverity[self.config.severity_individual_fail]
-        elif self._master_main_failure and self._slave_main_failure:
+        elif self._primary_main_failure and self._secondary_main_failure:
             reason = (
-                f"Both power generators ({remote_name_master}:{remote_index_master}"
-                f" and {remote_name_slave}:{remote_index_slave}) in main failure."
+                f"Both power generators ({remote_name_primary}:{remote_index_primary}"
+                f" and {remote_name_secondary}:{remote_index_secondary}) in main failure."
             )
             severity = AlarmSeverity[self.config.severity_both_fail]
 

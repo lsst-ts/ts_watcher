@@ -41,10 +41,10 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
         assert schema is not None
         name = "ESS"
         salindex = "1"
-        full_name_master = f"{name}:{salindex}"
-        full_name_slave = f"{name}:{int(salindex) + 1}"
+        full_name_primary = f"{name}:{salindex}"
+        full_name_secondary = f"{name}:{int(salindex) + 1}"
         config = watcher.rules.PowerGeneratorFail.make_config(
-            name_master=full_name_master, name_slave=full_name_slave
+            name_primary=full_name_primary, name_secondary=full_name_secondary
         )
         desired_rule_name = f"{name}.PowerGeneratorFail"
 
@@ -54,30 +54,30 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
         assert len(rule.remote_info_list) == 2
-        remote_info_master = rule.remote_info_list[0]
-        remote_info_slave = rule.remote_info_list[1]
-        assert remote_info_master.name == name
-        assert remote_info_master.index == int(salindex)
-        assert remote_info_slave.name == name
-        assert remote_info_slave.index == int(salindex) + 1
+        remote_info_primary = rule.remote_info_list[0]
+        remote_info_secondary = rule.remote_info_list[1]
+        assert remote_info_primary.name == name
+        assert remote_info_primary.index == int(salindex)
+        assert remote_info_secondary.name == name
+        assert remote_info_secondary.index == int(salindex) + 1
         assert name in repr(rule)
         assert "PowerGeneratorFail" in repr(rule)
 
     def test_config_validation(self):
         # Check defaults
-        minimal_config_dict = dict(name_master="ESS:1", name_slave="ESS:2")
+        minimal_config_dict = dict(name_primary="ESS:1", name_secondary="ESS:2")
         minimal_config = watcher.rules.PowerGeneratorFail.make_config(
             **minimal_config_dict
         )
-        assert minimal_config.name_master == minimal_config_dict["name_master"]
-        assert minimal_config.name_slave == minimal_config_dict["name_slave"]
+        assert minimal_config.name_primary == minimal_config_dict["name_primary"]
+        assert minimal_config.name_secondary == minimal_config_dict["name_secondary"]
         assert minimal_config.severity_individual_fail == AlarmSeverity.SERIOUS.name
         assert minimal_config.severity_both_fail == AlarmSeverity.CRITICAL.name
 
         # Check all values specified
         good_config_dict = dict(
-            name_master="ESS:1",
-            name_slave="ESS:2",
+            name_primary="ESS:1",
+            name_secondary="ESS:2",
             severity_individual_fail=AlarmSeverity.SERIOUS.name,
             severity_both_fail=AlarmSeverity.CRITICAL.name,
         )
@@ -100,8 +100,8 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_call(self):
         name = "ESS"
         index = 1
-        full_name_master = f"{name}:{index}"
-        full_name_slave = f"{name}:{index + 1}"
+        full_name_primary = f"{name}:{index}"
+        full_name_secondary = f"{name}:{index + 1}"
 
         watcher_config_dict = yaml.safe_load(
             f"""
@@ -111,8 +111,8 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
             rules:
             - classname: PowerGeneratorFail
               configs:
-              - name_master: {full_name_master}
-                name_slave: {full_name_slave}
+              - name_primary: {full_name_primary}
+                name_secondary: {full_name_secondary}
                 severity_individual_fail: {AlarmSeverity.SERIOUS.name}
                 severity_both_fail: {AlarmSeverity.CRITICAL.name}
             escalation: []
@@ -122,16 +122,16 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
 
         async with salobj.Controller(
             name=name, index=index
-        ) as controllerMaster, salobj.Controller(
+        ) as controllerprimary, salobj.Controller(
             name=name, index=index + 1
-        ) as controllerSlave:
+        ) as controllersecondary:
             async with watcher.Model(
-                domain=controllerMaster.domain, config=watcher_config
+                domain=controllerprimary.domain, config=watcher_config
             ) as model:
-                await controllerMaster.tel_agcGenset150.set_write(
+                await controllerprimary.tel_agcGenset150.set_write(
                     mainFailure=False, force_output=True
                 )
-                await controllerSlave.tel_agcGenset150.set_write(
+                await controllersecondary.tel_agcGenset150.set_write(
                     mainFailure=False, force_output=True
                 )
 
@@ -144,58 +144,58 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
-                def calculate_expected_severity(master_failure, slave_failure):
-                    if not master_failure and not slave_failure:
+                def calculate_expected_severity(primary_failure, secondary_failure):
+                    if not primary_failure and not secondary_failure:
                         return AlarmSeverity.NONE
-                    elif (master_failure and not slave_failure) or (
-                        not master_failure and slave_failure
+                    elif (primary_failure and not secondary_failure) or (
+                        not primary_failure and secondary_failure
                     ):
                         return AlarmSeverity.SERIOUS
-                    elif master_failure and slave_failure:
+                    elif primary_failure and secondary_failure:
                         return AlarmSeverity.CRITICAL
 
-                for failure_state_master, failure_state_slave in (
+                for failure_state_primary, failure_state_secondary in (
                     (True, False),
                     (False, True),
                     (True, True),
                     (False, False),
                 ):
-                    initial_failure_state_master = (
-                        controllerMaster.tel_agcGenset150.data.mainFailure
+                    initial_failure_state_primary = (
+                        controllerprimary.tel_agcGenset150.data.mainFailure
                     )
-                    initial_failure_state_slave = (
-                        controllerSlave.tel_agcGenset150.data.mainFailure
-                    )
-
-                    await controllerMaster.tel_agcGenset150.set_write(
-                        mainFailure=failure_state_master, force_output=True
+                    initial_failure_state_secondary = (
+                        controllersecondary.tel_agcGenset150.data.mainFailure
                     )
 
-                    if initial_failure_state_master != failure_state_master:
+                    await controllerprimary.tel_agcGenset150.set_write(
+                        mainFailure=failure_state_primary, force_output=True
+                    )
+
+                    if initial_failure_state_primary != failure_state_primary:
                         severity = await asyncio.wait_for(
                             rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
                         )
 
                         expected_severity = calculate_expected_severity(
-                            controllerMaster.tel_agcGenset150.data.mainFailure,
-                            controllerSlave.tel_agcGenset150.data.mainFailure,
+                            controllerprimary.tel_agcGenset150.data.mainFailure,
+                            controllersecondary.tel_agcGenset150.data.mainFailure,
                         )
 
                         assert severity == expected_severity
                         assert rule.alarm.severity_queue.empty()
 
-                    await controllerSlave.tel_agcGenset150.set_write(
-                        mainFailure=failure_state_slave, force_output=True
+                    await controllersecondary.tel_agcGenset150.set_write(
+                        mainFailure=failure_state_secondary, force_output=True
                     )
 
-                    if initial_failure_state_slave != failure_state_slave:
+                    if initial_failure_state_secondary != failure_state_secondary:
                         severity = await asyncio.wait_for(
                             rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
                         )
 
                         expected_severity = calculate_expected_severity(
-                            controllerMaster.tel_agcGenset150.data.mainFailure,
-                            controllerSlave.tel_agcGenset150.data.mainFailure,
+                            controllerprimary.tel_agcGenset150.data.mainFailure,
+                            controllersecondary.tel_agcGenset150.data.mainFailure,
                         )
 
                         assert severity == expected_severity
