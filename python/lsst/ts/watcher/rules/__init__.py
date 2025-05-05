@@ -42,6 +42,8 @@ from .mt_vibration_rotator import *
 from .mtdome_az_enabled import *
 from .mtdome_capacitor_banks import *
 from .over_temperature import *
+from .power_generator_fail import *
+from .power_generator_running import *
 from .power_outage import *
 from .script_failed import *
 from .telemetry import *
