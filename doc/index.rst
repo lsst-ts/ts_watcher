@@ -6,6 +6,12 @@
 lsst.ts.Watcher
 ###############
 
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   alarm_list
+
 .. image:: https://img.shields.io/badge/Project Metadata-gray.svg
     :target: https://ts-xml.lsst.io/index.html#index-csc-table-watcher
 .. image:: https://img.shields.io/badge/SAL\ Interface-gray.svg
@@ -133,6 +139,11 @@ An alarm will be automatically acknowledged only if its current severity stays N
 
 An alarm will be automatically unacknowledged only if the condition does not get worse than the level at which it was ackowledged,
 and does not get resolved (go to NONE), during the full ``auto_unacknowledge_delay`` period after being acknowledged.
+
+List of Watcher Alarms
+======================
+
+* :doc:`View the complete list of Watcher alarms <alarm_list>`
 
 SquadCast Notes
 ===============
