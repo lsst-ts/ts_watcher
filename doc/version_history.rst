@@ -8,6 +8,22 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.0 (2025-05-20)
+====================
+
+New Features
+------------
+
+- Add watcher alarms to monitor power generators. (`DM-50021 <https://rubinobs.atlassian.net//browse/DM-50021>`_)
+- Add alarm list to documentation. (`DM-50911 <https://rubinobs.atlassian.net//browse/DM-50911>`_)
+
+
+Bug Fixes
+---------
+
+- Remove warnings from document generation. (`DM-50911 <https://rubinobs.atlassian.net//browse/DM-50911>`_)
+
+
 v1.22.2 (2025-04-11)
 ====================
 
