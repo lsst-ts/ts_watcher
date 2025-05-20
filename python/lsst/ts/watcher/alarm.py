@@ -57,7 +57,7 @@ class Alarm:
         acknowledged. Never if 0 (the default).
     auto_unacknowledge_delay : `float`
         The delay (seconds) after which an alarm will be automatically
-        unacknowleddged. Never if 0 (the default).
+        unacknowledged. Never if 0 (the default).
     do_escalate : `bool`
         Should the alarm be escalated? The value is set by this class
         and is intended to be read by the alarm callback.
@@ -225,17 +225,17 @@ class Alarm:
         self._cancel_unmute()
 
     async def make_log_entry(self, log_server_url):
-        """Post message to narrative log entry in response to alarm
+        """Post message to narrative log entry in response to alarm.
+
         Parameters
         ----------
-        log_server_url: `str`
+        log_server_url : `str`
             URL of the narrativelog service.
 
         Returns
         -------
-        response: `dict`
-           JSON respose from Post
-
+        response : `dict`
+            JSON response from Post.
         """
         alarm_severity_level = {
             AlarmSeverity.NONE: logging.DEBUG,
