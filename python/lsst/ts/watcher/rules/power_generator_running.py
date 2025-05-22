@@ -55,7 +55,7 @@ class PowerGeneratorRunning(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{remote_name}.PowerGeneratorRunning",
+            name=f"{remote_name}:{remote_index}.PowerGeneratorRunning",
             remote_info_list=remote_info_list,
             log=log,
         )
