@@ -43,7 +43,7 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
         salindex = "1"
         full_name = f"{name}:{salindex}"
         config = watcher.rules.PowerGeneratorRunning.make_config(name=full_name)
-        desired_rule_name = f"{name}.PowerGeneratorRunning"
+        desired_rule_name = f"{name}:{salindex}.PowerGeneratorRunning"
 
         rule = watcher.rules.PowerGeneratorRunning(config=config)
         assert rule.name == desired_rule_name
@@ -120,7 +120,7 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
                 await model.enable()
 
                 assert len(model.rules) == 1
-                rule_name = "ESS.PowerGeneratorRunning"
+                rule_name = "{name}:{index}.PowerGeneratorRunning"
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
