@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.1 (2025-05-22)
+====================
+
+Bug Fixes
+---------
+
+- Add salindex identificator to PowerGeneratorRunning rule to have an unique name. (`DM-51055 <https://rubinobs.atlassian.net//browse/DM-51055>`_)
+
+
 v1.23.0 (2025-05-20)
 ====================
 

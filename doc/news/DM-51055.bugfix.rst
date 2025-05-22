@@ -1,1 +1,0 @@
-Add salindex identificator to PowerGeneratorRunning rule to have an unique name.
