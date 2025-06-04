@@ -21,6 +21,7 @@
 
 import asyncio
 import contextlib
+import logging
 import types
 import unittest
 
@@ -30,13 +31,12 @@ import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
+NEXT_SEVERITY_WAIT_TIME = 10
+
 
 class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        if hasattr(salobj, "set_random_topic_subname"):
-            salobj.set_random_topic_subname()
-        else:
-            salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname()
 
     async def test_basics(self):
         schema = watcher.rules.Telemetry.get_schema()
@@ -98,8 +98,8 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
                 watcher.rules.Telemetry.make_config(**bad_config_dict)
 
     async def test_operation(self):
-        name = "MTDome"
-        callback_name = "tel_azimuth"
+        name = "HVAC"
+        callback_name = "tel_airInletFan01P01"
         index = 0
         timeout = 2.0
         alarm_severity = AlarmSeverity.CRITICAL
@@ -136,7 +136,9 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Start a Telemetry loop and check severity=None.
                 async with self.telemetry_loop(controller=controller):
-                    await alarm.assert_next_severity(AlarmSeverity.NONE)
+                    await alarm.assert_next_severity(
+                        AlarmSeverity.NONE, timeout=NEXT_SEVERITY_WAIT_TIME
+                    )
                     assert alarm.nominal
 
                     # Make sure alarm is not republished
@@ -154,14 +156,16 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
                 await self._publish_disabled_event(controller)
 
                 # Now wait until the alarm occurs.
-                await alarm.assert_next_severity(alarm_severity, timeout=timeout * 2.5)
+                await alarm.assert_next_severity(
+                    alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME
+                )
                 assert not alarm.nominal
                 assert alarm.max_severity == alarm_severity
 
                 # Make sure alarm is not republished
                 with pytest.raises(asyncio.TimeoutError):
                     await alarm.assert_next_severity(
-                        alarm_severity, timeout=timeout * 2.5
+                        alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME
                     )
 
                 # Start Telemetry loop again event and check that severity is
@@ -191,7 +195,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
     @contextlib.asynccontextmanager
     async def telemetry_loop(self, controller):
         try:
-            _task = asyncio.create_task(self._publish_azimuth_telemetry(controller))
+            _task = asyncio.create_task(self._publish_telemetry(controller))
             yield
             _task.cancel()
             await _task
@@ -202,9 +206,10 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
             raise
 
     @staticmethod
-    async def _publish_azimuth_telemetry(controller):
+    async def _publish_telemetry(controller):
         while True:
-            await controller.tel_azimuth.write()
+            logging.debug("Writing telemetry.")
+            await controller.tel_airInletFan01P01.write()
             await asyncio.sleep(1.0)
 
     async def _publish_disabled_event(self, controller):
