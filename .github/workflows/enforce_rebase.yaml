@@ -5,5 +5,3 @@ on: push
 jobs:
   call-workflow:
     uses: lsst-ts/tssw_workflows/.github/workflows/enforce_rebase.yaml@main
-
-
