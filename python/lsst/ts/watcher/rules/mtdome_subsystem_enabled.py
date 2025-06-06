@@ -19,20 +19,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTDomeAzEnabled"]
+__all__ = ["MTDomeSubsystemEnabled"]
 
 import typing
+from dataclasses import dataclass
 
+import yaml
 from lsst.ts import salobj
+from lsst.ts.xml import component_info
 from lsst.ts.xml.enums.MTDome import EnabledState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTDomeAzEnabled(BaseRule):
-    """Monitor the MTDome azEnabled event for any alarming states.
+@dataclass
+class SubsystemState:
+    state: str
+    fault_code: str
+
+
+class MTDomeSubsystemEnabled(BaseRule):
+    """Monitor the MTDome subsystem Enabled events for any alarming states.
 
     Parameters
     ----------
@@ -49,21 +59,65 @@ class MTDomeAzEnabled(BaseRule):
             RemoteInfo(
                 name=remote_name,
                 index=remote_index,
-                callback_names=["evt_azEnabled"],
+                callback_names=[config.event_name, "evt_summaryState"],
                 poll_names=[],
             )
         ]
+        event_name: str = config.event_name
+        rule_name = "MTDome" + event_name[4].upper() + event_name[5:]
         super().__init__(
             config=config,
-            name=f"MTDomeAzEnabled.{remote_name}",
+            name=f"{rule_name}.{remote_name}",
             remote_info_list=remote_info_list,
             log=log,
         )
 
+        self.may_raise = False
+        self.subsystem_state: SubsystemState | None = None
+
     @classmethod
-    def get_schema(cls):
-        # No schema necessary for this rule.
-        return None
+    def get_schema(cls) -> dict[str, typing.Any]:
+        enum_str = ", ".join(
+            f"{severity.name}"
+            for severity in AlarmSeverity
+            if severity is not AlarmSeverity.NONE
+        )
+        state_str = ", ".join(state.name for state in State)
+        ci = component_info.ComponentInfo(name="MTDome", topic_subname="")
+        events = [
+            topic
+            for topic in ci.topics
+            if topic.startswith("evt_") and topic.endswith("Enabled")
+        ]
+        schema_yaml = f"""
+$schema: 'http://json-schema.org/draft-07/schema#'
+description: Configuration for MTDomeSubsystemEnabled rule.
+type: object
+properties:
+    subsystem_name:
+        description: The name of the MTDome subsystem.
+        type: string
+    event_name:
+        description: The name of the event to monitor.
+        enum: {events}
+    csc_state:
+        description: The state(s) of the CSC for which the alarm is active.
+        type: array
+        minItems: 1
+        items:
+            enum: [{state_str}]
+    severity:
+          description: Alarm severity.
+          enum: [{enum_str}]
+
+required:
+- subsystem_name
+- event_name
+- csc_state
+- severity
+additionalProperties: false
+        """
+        return yaml.safe_load(schema_yaml)
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
@@ -99,11 +153,23 @@ class MTDomeAzEnabled(BaseRule):
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
 
-        return (
-            NoneNoReason
-            if not data.faultCode
-            else (
-                AlarmSeverity.CRITICAL,
-                f"Dome az rotation state {EnabledState(data.state)!r}: {data.faultCode}.",
+        if hasattr(data, "faultCode"):
+            self.subsystem_state = SubsystemState(
+                state=EnabledState(data.state), fault_code=data.faultCode
             )
-        )
+            self.log.debug(f"{self.subsystem_state.fault_code=!r}")
+        if hasattr(data, "summaryState"):
+            self.may_raise = State(data.summaryState).name in self.config.csc_state
+            self.log.debug(f"{State(data.summaryState).name=!r}, {self.may_raise=}")
+
+        if not self.may_raise or (
+            not self.subsystem_state or not self.subsystem_state.fault_code
+        ):
+            severity_and_reason = NoneNoReason
+        else:
+            severity_and_reason = (
+                AlarmSeverity[self.config.severity],
+                f"MTDome {self.config.subsystem_name} state {self.subsystem_state.state!r}: "
+                f"{self.subsystem_state.fault_code}.",
+            )
+        return severity_and_reason
