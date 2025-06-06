@@ -8,6 +8,16 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.2 (2025-06-06)
+====================
+
+Performance Enhancement
+-----------------------
+
+- Improved GitHub workflow actions. (`OSW-337 <https://rubinobs.atlassian.net//browse/OSW-337>`_)
+- Improved MTDome subsystem enabled alarm to only raise when the MTDome CSC is in ENABLED state and to work for all subsystem Enabled events. (`OSW-337 <https://rubinobs.atlassian.net//browse/OSW-337>`_)
+
+
 v1.23.1 (2025-05-22)
 ====================
 
