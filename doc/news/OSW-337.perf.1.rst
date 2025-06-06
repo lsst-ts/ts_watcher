@@ -1,1 +1,0 @@
-Improved MTDome subsystem enabled alarm to only raise when the MTDome CSC is in ENABLED state and to work for all subsystem Enabled events.
