@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from . import test
+from .at_estop import *
 from .atcamera_dewar import *
 from .clock import *
 from .dew_point_depression import *
