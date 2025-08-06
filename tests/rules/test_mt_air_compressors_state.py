@@ -57,8 +57,8 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
     def test_config_validation(self):
         # Check defaults.
         minimal_config = watcher.rules.MTAirCompressorsState.make_config()
-        assert minimal_config.one_severity == AlarmSeverity.WARNING
-        assert minimal_config.both_severity == AlarmSeverity.CRITICAL
+        assert minimal_config.one_severity == AlarmSeverity.WARNING.name
+        assert minimal_config.both_severity == AlarmSeverity.CRITICAL.name
 
         # Check all values specified.
         for severity in AlarmSeverity:
@@ -67,21 +67,21 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
 
             with self.subTest(severity=severity):
                 good_config = watcher.rules.MTAirCompressorsState.make_config(
-                    both_severity=severity
+                    both_severity=severity.name
                 )
-                assert good_config.both_severity == severity
-                assert good_config.one_severity == AlarmSeverity.WARNING
+                assert good_config.both_severity == severity.name
+                assert good_config.one_severity == AlarmSeverity.WARNING.name
 
                 good_config = watcher.rules.MTAirCompressorsState.make_config(
-                    one_severity=severity
+                    one_severity=severity.name
                 )
-                assert good_config.one_severity == severity
-                assert good_config.both_severity == AlarmSeverity.CRITICAL
+                assert good_config.one_severity == severity.name
+                assert good_config.both_severity == AlarmSeverity.CRITICAL.name
 
         for bad_severity in (
-            "not a number",
-            AlarmSeverity.NONE,
-            AlarmSeverity.CRITICAL + 1,
+            "not a severity",
+            "1",
+            AlarmSeverity.NONE.name,
         ):
             with self.subTest(bad_severity=bad_severity):
                 bad_config_dict = dict(one_severity=bad_severity)
@@ -120,8 +120,8 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
             rules:
             - classname: MTAirCompressorsState
               configs:
-              - one_severity: {one_severity.value}
-                both_severity: {both_severity.value}
+              - one_severity: {one_severity.name}
+                both_severity: {both_severity.name}
             escalation: []
             """
         )

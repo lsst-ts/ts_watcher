@@ -76,7 +76,7 @@ class MTAirCompressorsPressure(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.value}"
+            f"{severity.name}"
             for severity in AlarmSeverity
             if severity is not AlarmSeverity.NONE
         )
@@ -89,14 +89,14 @@ class MTAirCompressorsPressure(watcher.BaseRule):
                 description: >-
                   Alarm severity if one MTAirCompressor is in enabled or disabled state,
                   and the other is not (or its state has not been seen).
-                type: integer
-                default: {AlarmSeverity.WARNING.value}
+                type: string
+                default: {AlarmSeverity.WARNING.name}
                 enum: [{enum_str}]
               both_severity:
                 description: >-
                   Alarm severity if neither MTAirCompressor is in enabled or disabled state.
-                type: integer
-                default: {AlarmSeverity.CRITICAL.value}
+                type: string
+                default: {AlarmSeverity.CRITICAL.name}
                 enum: [{enum_str}]
               minimal_pressure:
                 description: >-
@@ -143,5 +143,11 @@ class MTAirCompressorsPressure(watcher.BaseRule):
             f"{key}={value!r}" for key, value in self.line_pressures.items()
         )
         if num_good == 1:
-            return self.config.one_severity, "MTAirCompressor linePressure:" + pressures
-        return self.config.both_severity, "MTAirCompressor linePressure:" + pressures
+            return (
+                AlarmSeverity[self.config.one_severity],
+                "MTAirCompressor linePressure:" + pressures,
+            )
+        return (
+            AlarmSeverity[self.config.both_severity],
+            "MTAirCompressor linePressure:" + pressures,
+        )

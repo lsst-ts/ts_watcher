@@ -77,7 +77,7 @@ class MTAirCompressorsState(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.value}"
+            f"{severity.name}"
             for severity in AlarmSeverity
             if severity is not AlarmSeverity.NONE
         )
@@ -90,14 +90,14 @@ class MTAirCompressorsState(watcher.BaseRule):
                 description: >-
                   Alarm severity if one MTAirCompressor is in enabled or disabled state,
                   and the other is not (or its state has not been seen).
-                type: integer
-                default: {AlarmSeverity.WARNING.value}
+                type: string
+                default: {AlarmSeverity.WARNING.name}
                 enum: [{enum_str}]
               both_severity:
                 description: >-
                   Alarm severity if neither MTAirCompressor is in enabled or disabled state.
-                type: integer
-                default: {AlarmSeverity.CRITICAL.value}
+                type: string
+                default: {AlarmSeverity.CRITICAL.name}
                 enum: [{enum_str}]
             required:
             - one_severity
@@ -105,6 +105,10 @@ class MTAirCompressorsState(watcher.BaseRule):
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
+
+    def setup(self, model) -> None:
+        self.one_severity = AlarmSeverity[self.config.one_severity]
+        self.both_severity = AlarmSeverity[self.config.both_severity]
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
@@ -128,5 +132,5 @@ class MTAirCompressorsState(watcher.BaseRule):
 
         states = ", ".join(f"{key}={value!r}" for key, value in self.states.items())
         if num_good == 1:
-            return self.config.one_severity, "MTAirCompressor summaryStates:" + states
-        return self.config.both_severity, "MTAirCompressor summaryStates:" + states
+            return self.one_severity, "MTAirCompressor summaryStates:" + states
+        return self.both_severity, "MTAirCompressor summaryStates:" + states
