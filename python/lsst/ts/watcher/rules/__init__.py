@@ -25,6 +25,7 @@ from .atcamera_dewar import *
 from .clock import *
 from .dew_point_depression import *
 from .enabled import *
+from .generic_boolean import *
 from .heartbeat import *
 from .humidity import *
 from .hvac import *
