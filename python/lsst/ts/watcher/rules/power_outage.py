@@ -52,7 +52,7 @@ class PowerOutage(BaseRule):
             RemoteInfo(
                 name=remote_name,
                 index=remote_index,
-                callback_names=["tel_scheiderPm5xxx"],
+                callback_names=["tel_schneiderPm5xxx"],
                 poll_names=[],
             ),
             RemoteInfo(

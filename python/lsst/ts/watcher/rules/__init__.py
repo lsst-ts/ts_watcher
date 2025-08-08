@@ -20,13 +20,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from . import test
+from .at_estop import *
 from .atcamera_dewar import *
 from .clock import *
 from .dew_point_depression import *
 from .enabled import *
+from .generic_boolean import *
 from .heartbeat import *
 from .humidity import *
 from .hvac import *
+from .mt_air_compressors_pressure import MTAirCompressorsPressure
 from .mt_air_compressors_state import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *

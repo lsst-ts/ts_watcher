@@ -30,20 +30,21 @@ from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
+DEFAULT_MIN_PRESSURE = 9000
 
 
-class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
+class MTAirCompressorsPressureTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
     # Note: making this method async eliminates a warning in ts_utils.
     async def test_basics(self):
-        schema = watcher.rules.MTAirCompressorsState.get_schema()
+        schema = watcher.rules.MTAirCompressorsPressure.get_schema()
         assert schema is not None
-        config = watcher.rules.MTAirCompressorsState.make_config()
-        desired_rule_name = "MTAirCompressorsState"
+        config = watcher.rules.MTAirCompressorsPressure.make_config()
+        desired_rule_name = "MTAirCompressorsPressure"
 
-        rule = watcher.rules.MTAirCompressorsState(config=config)
+        rule = watcher.rules.MTAirCompressorsPressure(config=config)
         assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
@@ -56,9 +57,10 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
 
     def test_config_validation(self):
         # Check defaults.
-        minimal_config = watcher.rules.MTAirCompressorsState.make_config()
+        minimal_config = watcher.rules.MTAirCompressorsPressure.make_config()
         assert minimal_config.one_severity == AlarmSeverity.WARNING.name
         assert minimal_config.both_severity == AlarmSeverity.CRITICAL.name
+        assert minimal_config.minimal_pressure == DEFAULT_MIN_PRESSURE
 
         # Check all values specified.
         for severity in AlarmSeverity:
@@ -66,17 +68,19 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                 continue
 
             with self.subTest(severity=severity):
-                good_config = watcher.rules.MTAirCompressorsState.make_config(
+                good_config = watcher.rules.MTAirCompressorsPressure.make_config(
                     both_severity=severity.name
                 )
                 assert good_config.both_severity == severity.name
                 assert good_config.one_severity == AlarmSeverity.WARNING.name
+                assert good_config.minimal_pressure == DEFAULT_MIN_PRESSURE
 
-                good_config = watcher.rules.MTAirCompressorsState.make_config(
+                good_config = watcher.rules.MTAirCompressorsPressure.make_config(
                     one_severity=severity.name
                 )
                 assert good_config.one_severity == severity.name
                 assert good_config.both_severity == AlarmSeverity.CRITICAL.name
+                assert good_config.minimal_pressure == DEFAULT_MIN_PRESSURE
 
         for bad_severity in (
             "not a severity",
@@ -86,11 +90,23 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
             with self.subTest(bad_severity=bad_severity):
                 bad_config_dict = dict(one_severity=bad_severity)
                 with pytest.raises(jsonschema.ValidationError):
-                    watcher.rules.MTAirCompressorsState.make_config(**bad_config_dict)
+                    watcher.rules.MTAirCompressorsPressure.make_config(
+                        **bad_config_dict
+                    )
 
                 bad_config_dict = dict(both_severity=bad_severity)
                 with pytest.raises(jsonschema.ValidationError):
-                    watcher.rules.MTAirCompressorsState.make_config(**bad_config_dict)
+                    watcher.rules.MTAirCompressorsPressure.make_config(
+                        **bad_config_dict
+                    )
+
+        for bad_minimal_pressure in ("nan", "aaa", "default"):
+            with self.subTest(minimal_pressure=bad_minimal_pressure):
+                bad_config_dict = dict(minimal_pressure=bad_minimal_pressure)
+                with pytest.raises(jsonschema.ValidationError):
+                    watcher.rules.MTAirCompressorsPressure.make_config(
+                        **bad_config_dict
+                    )
 
     async def test_call(self):
         for first_index in (1, 2):
@@ -112,16 +128,18 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
         # have to be inverted: with one bad state being worse than both.
         one_severity = AlarmSeverity.CRITICAL
         both_severity = AlarmSeverity.SERIOUS
+        minimal_pressure = 1000
         watcher_config_dict = yaml.safe_load(
             f"""
             disabled_sal_components: []
             auto_acknowledge_delay: 3600
             auto_unacknowledge_delay: 3600
             rules:
-            - classname: MTAirCompressorsState
+            - classname: MTAirCompressorsPressure
               configs:
               - one_severity: {one_severity.name}
                 both_severity: {both_severity.name}
+                minimal_pressure: {minimal_pressure}
             escalation: []
             """
         )
@@ -131,17 +149,26 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
             async with watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
-                # Set state of the second index as OFFLINE
+                # Set state of the second index as ENABLED
                 await controller.evt_summaryState.set_write(
-                    summaryState=salobj.State.OFFLINE, salIndex=1, force_output=True
+                    summaryState=salobj.State.ENABLED, salIndex=1, force_output=True
                 )
                 await controller.evt_summaryState.set_write(
-                    summaryState=salobj.State.OFFLINE, salIndex=2, force_output=True
+                    summaryState=salobj.State.ENABLED, salIndex=2, force_output=True
                 )
+
+                # set pressure
+                await controller.tel_analogData.set_write(
+                    linePressure=minimal_pressure - 1, salIndex=1, force_output=True
+                )
+                await controller.tel_analogData.set_write(
+                    linePressure=minimal_pressure - 1, salIndex=2, force_output=True
+                )
+
                 await model.enable()
 
                 assert len(model.rules) == 1
-                rule_name = "MTAirCompressorsState"
+                rule_name = "MTAirCompressorsPressure"
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
@@ -154,22 +181,22 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                     except asyncio.TimeoutError:
                         break
 
-                # Iterate the state for the main index; leaving
-                # the second index in STANDBY.
-                for state in (
-                    salobj.State.DISABLED,
-                    salobj.State.STANDBY,
-                    salobj.State.ENABLED,
-                    salobj.State.FAULT,
-                    salobj.State.DISABLED,
-                ):
-                    if state in {salobj.State.DISABLED, salobj.State.ENABLED}:
+                # Iterate the pressure for the main index; leaving
+                # the second index in standard pressure.
+                for pressure in [
+                    minimal_pressure + 1,
+                    minimal_pressure - 1,
+                    minimal_pressure + 1,
+                    minimal_pressure - 1,
+                    minimal_pressure + 1,
+                ]:
+                    if pressure > minimal_pressure:
                         expected_severity = one_severity
                     else:
                         expected_severity = both_severity
-                    print(f"{state=!r}::{expected_severity=!r}")
-                    await controller.evt_summaryState.set_write(
-                        summaryState=state, salIndex=first_index, force_output=True
+                    print(f"primary {pressure:.2f}::{expected_severity=!r}")
+                    await controller.tel_analogData.set_write(
+                        linePressure=pressure, salIndex=first_index, force_output=True
                     )
                     severity = await asyncio.wait_for(
                         rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
@@ -177,20 +204,22 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()
 
-                # Now set the state of the other index
-                for state in (
-                    salobj.State.DISABLED,
-                    salobj.State.STANDBY,
-                    salobj.State.ENABLED,
-                    salobj.State.FAULT,
-                    salobj.State.DISABLED,
-                ):
-                    if state in {salobj.State.DISABLED, salobj.State.ENABLED}:
+                # Now set the pressure of the other index
+                for pressure in [
+                    minimal_pressure + 1,
+                    minimal_pressure - 1,
+                    minimal_pressure + 1,
+                    minimal_pressure - 1,
+                    minimal_pressure + 1,
+                    minimal_pressure - 1,
+                ]:
+                    if pressure > minimal_pressure:
                         expected_severity = AlarmSeverity.NONE
                     else:
                         expected_severity = one_severity
-                    await controller.evt_summaryState.set_write(
-                        summaryState=state, salIndex=second_index, force_output=True
+                    print(f"secondary {pressure:.2f}::{expected_severity=!r}")
+                    await controller.tel_analogData.set_write(
+                        linePressure=pressure, salIndex=second_index, force_output=True
                     )
                     severity = await asyncio.wait_for(
                         rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT

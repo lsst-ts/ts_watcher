@@ -67,9 +67,9 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
         config = self.get_config(filepath=self.configpath / "good_full.yaml")
         rule = PowerOutage(config=config)
         assert len(rule.remote_info_list) == 2
-        expected_sal_index = 301
+        expected_sal_index = 303
         for i, remote_info in enumerate(rule.remote_info_list):
-            assert remote_info.name == "EPM"
+            assert remote_info.name == "ESS"
             assert remote_info.index == expected_sal_index
 
     async def test_operation(self):
@@ -88,7 +88,7 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
             "lsst.ts.watcher.rules.power_outage.utils.current_tai", self.current_tai
         ):
             async with salobj.Controller(
-                name="EPM", index=301
+                name="ESS", index=303
             ) as controller, watcher.Model(
                 domain=controller.domain, config=watcher_config
             ) as model:
@@ -109,28 +109,28 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
                         "expected_severity": AlarmSeverity.CRITICAL,
                     },
                     {
-                        "topic": controller.tel_scheiderPm5xxx,
+                        "topic": controller.tel_schneiderPm5xxx,
                         "is_power_outage": False,
                         "expected_severity": AlarmSeverity.NONE,
                     },
                     {
-                        "topic": controller.tel_scheiderPm5xxx,
+                        "topic": controller.tel_schneiderPm5xxx,
                         "is_power_outage": True,
                         "expected_severity": AlarmSeverity.NONE,
                     },
                     {
-                        "topic": controller.tel_scheiderPm5xxx,
+                        "topic": controller.tel_schneiderPm5xxx,
                         "is_power_outage": True,
                         "expected_severity": AlarmSeverity.NONE,
                     },
                     {
-                        "topic": controller.tel_scheiderPm5xxx,
+                        "topic": controller.tel_schneiderPm5xxx,
                         "is_power_outage": True,
                         "expected_severity": AlarmSeverity.WARNING,
                     },
                 ]
 
-                rule_name = "PowerOutage.EPM:301"
+                rule_name = "PowerOutage.ESS:303"
                 rule = model.rules[rule_name]
                 rule.alarm.init_severity_queue()
 
@@ -145,7 +145,7 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
                             ]
                             + 1.0
                         )
-                    await self.send_epm_data(
+                    await self.send_ess_data(
                         model=model,
                         topic=data_item["topic"],
                         is_power_outage=data_item["is_power_outage"],
@@ -162,13 +162,13 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
                         assert severity == data_item["expected_severity"]
                     assert rule.alarm.severity_queue.empty()
 
-    async def send_epm_data(
+    async def send_ess_data(
         self,
         model,
         topic,
         is_power_outage,
     ):
-        """Send EPM data and wait for the rule to be triggered.
+        """Send ESS data and wait for the rule to be triggered.
 
         Parameters
         ----------
