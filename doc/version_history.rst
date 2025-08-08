@@ -8,6 +8,17 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.4 (2025-08-08)
+====================
+
+New Features
+------------
+
+- Rule for minimal MTAirCompressor linePressure. (`OSW-399 <https://rubinobs.atlassian.net//browse/OSW-399>`_)
+- Added a generic boolean rule for alarm telemetry/event items. (`OSW-547 <https://rubinobs.atlassian.net//browse/OSW-547>`_)
+- Added AT eStop alarm for when ATPneumatics is ENABLED. (`OSW-748 <https://rubinobs.atlassian.net//browse/OSW-748>`_)
+
+
 v1.23.3 (2025-07-23)
 ====================
 
