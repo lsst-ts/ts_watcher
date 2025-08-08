@@ -1,1 +1,0 @@
-Added a generic boolean rule for alarm telemetry/event items.
