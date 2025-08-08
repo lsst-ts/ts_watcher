@@ -19,8 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTAirCompressorsState"]
+__all__ = ["MTAirCompressorsPressure"]
 
+import math
 import typing
 
 import yaml
@@ -31,11 +32,9 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 SAL_INDICES = (1, 2)
 SAL_INDICES_STR = ", ".join(str(index) for index in sorted(SAL_INDICES))
 
-GOOD_STATES = frozenset((salobj.State.DISABLED, salobj.State.ENABLED))
 
-
-class MTAirCompressorsState(watcher.BaseRule):
-    """Monitor the summary state of the two MTAirCompressor instances.
+class MTAirCompressorsPressure(watcher.BaseRule):
+    """Monitor the pressure reported by two compressors.
 
     Set alarm severity None if both instances are disabled or enabled
     (both states are equally good from the perspective of providing
@@ -52,7 +51,7 @@ class MTAirCompressorsState(watcher.BaseRule):
 
     Notes
     -----
-    The alarm name is "MTAirCompressorsState".
+    The alarm name is "MTAirCompressorsPressure".
     """
 
     def __init__(self, config, log=None):
@@ -60,16 +59,16 @@ class MTAirCompressorsState(watcher.BaseRule):
             watcher.RemoteInfo(
                 name="MTAirCompressor",
                 index=0,
-                callback_names=["evt_summaryState"],
+                callback_names=["tel_analogData"],
                 poll_names=[],
                 index_required=False,
             )
         ]
         # Dict of sal_index: summary state.
-        self.states = {index: "UNKNOWN" for index in SAL_INDICES}
+        self.line_pressures = {index: math.nan for index in SAL_INDICES}
         super().__init__(
             config=config,
-            name="MTAirCompressorsState",
+            name="MTAirCompressorsPressure",
             remote_info_list=remote_infos,
             log=log,
         )
@@ -99,16 +98,17 @@ class MTAirCompressorsState(watcher.BaseRule):
                 type: string
                 default: {AlarmSeverity.CRITICAL.name}
                 enum: [{enum_str}]
+              minimal_pressure:
+                description: >-
+                  Minimal expected line pressure (mbar).
+                type: number
+                default: 9000
             required:
             - one_severity
             - both_severity
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
-
-    def setup(self, model) -> None:
-        self.one_severity = AlarmSeverity[self.config.one_severity]
-        self.both_severity = AlarmSeverity[self.config.both_severity]
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
@@ -119,18 +119,35 @@ class MTAirCompressorsState(watcher.BaseRule):
             )
             return None
         try:
-            self.states[data.salIndex] = salobj.State(data.summaryState)
+            self.line_pressures[data.salIndex] = data.linePressure
         except ValueError:
             self.log.warning(
-                f"Ignoring unknown summaryState={data.summaryState} for MTAirCompressors:{data.salIndex}"
+                f"Ignoring unknown linePressure={data.linePressure} for MTAirCompressors:{data.salIndex}"
             )
             return None
 
-        num_good = len([True for state in self.states.values() if state in GOOD_STATES])
+        num_good = len(
+            [
+                True
+                for pressure in self.line_pressures.values()
+                if (
+                    not (math.isnan(pressure))
+                    and pressure > self.config.minimal_pressure
+                )
+            ]
+        )
         if num_good >= 2:
             return watcher.NoneNoReason
 
-        states = ", ".join(f"{key}={value!r}" for key, value in self.states.items())
+        pressures = ", ".join(
+            f"{key}={value!r}" for key, value in self.line_pressures.items()
+        )
         if num_good == 1:
-            return self.one_severity, "MTAirCompressor summaryStates:" + states
-        return self.both_severity, "MTAirCompressor summaryStates:" + states
+            return (
+                AlarmSeverity[self.config.one_severity],
+                "MTAirCompressor linePressure:" + pressures,
+            )
+        return (
+            AlarmSeverity[self.config.both_severity],
+            "MTAirCompressor linePressure:" + pressures,
+        )
