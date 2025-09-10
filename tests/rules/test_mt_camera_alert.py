@@ -32,7 +32,7 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        self.remote_name = "CCCamera"
+        self.remote_name = "MTCamera"
         self.rule_name = f"MTCameraAlert.{self.remote_name}.evt_alertRaised"
         self.rule_config_dict = {}
 

@@ -48,7 +48,7 @@ class MTCameraAlert(BaseRule):
 
     def __init__(self, config, log=None):
         rule_name = "MTCameraAlert"
-        remote_name = "CCCamera"
+        remote_name = "MTCamera"
         remote_index = 0
         callback_name = "evt_alertRaised"
 
