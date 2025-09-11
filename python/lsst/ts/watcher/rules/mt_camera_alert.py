@@ -129,6 +129,6 @@ class MTCameraAlert(BaseRule):
 class CameraSeverity(enum.IntEnum):
     """Enum that represents CCCamera severity levels."""
 
-    NOMINAL = 0
-    WARNING = 1
-    ALARM = 2
+    NOMINAL = 1
+    WARNING = 2
+    ALARM = 3

@@ -83,7 +83,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     "alertId": alert_id,
                     "description": description,
                     "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                    "highestSeverity": watcher.rules.CameraSeverity.ALARM,
+                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
                     "isCleared": is_cleared,
                     "cause": cause,
                     "origin": origin,
