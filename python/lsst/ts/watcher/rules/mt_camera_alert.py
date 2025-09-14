@@ -114,8 +114,10 @@ class MTCameraAlert(BaseRule):
                 f"cause={data.cause}, origin={data.origin}, additionalInfo={data.additionalInfo}"
             )
             match data.currentSeverity:
-                case CameraSeverity.WARNING:
+                case CameraSeverity.NOMINAL:
                     severity = AlarmSeverity.WARNING
+                case CameraSeverity.WARNING:
+                    severity = AlarmSeverity.SERIOUS
                 case CameraSeverity.ALARM:
                     severity = AlarmSeverity.CRITICAL
                 case _:
