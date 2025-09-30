@@ -8,6 +8,16 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.5 (2025-09-30)
+====================
+
+New Features
+------------
+
+- Restore categorize version of ts_watcher alarm list (`DM-50911 <https://rubinobs.atlassian.net//browse/DM-50911>`_)
+- Added MTCameraAlert rule. (`OSW-1039 <https://rubinobs.atlassian.net//browse/OSW-1039>`_)
+
+
 v1.23.4 (2025-08-08)
 ====================
 
