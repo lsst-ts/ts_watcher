@@ -52,9 +52,10 @@ class MTTotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("MTM2", 0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             rule_name = "MTTotalForceMoment.MTM2"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
@@ -114,9 +115,7 @@ class MTTotalForceMomentTestCase(unittest.IsolatedAsyncioTestCase):
                 await data_item["topic"].set_write(**data_item["fields"])
 
                 if "expected_severity" in data_item.keys():
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == data_item["expected_severity"]
 
             assert rule.alarm.severity_queue.empty()

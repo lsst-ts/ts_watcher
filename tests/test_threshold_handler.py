@@ -205,17 +205,13 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
         ):
             hysteresis = 0.1
             none_name_list = [None] + list(all_levels_dict)
-            for none_name1, none_name2 in itertools.product(
-                none_name_list, none_name_list
-            ):
+            for none_name1, none_name2 in itertools.product(none_name_list, none_name_list):
                 levels_dict = all_levels_dict.copy()
                 if none_name1 is not None:
                     levels_dict[none_name1] = None
                 if none_name2 is not None:
                     levels_dict[none_name2] = None
-                self.check_auto_generated_values(
-                    **levels_dict, hysteresis=hysteresis, big_is_bad=big_is_bad
-                )
+                self.check_auto_generated_values(**levels_dict, hysteresis=hysteresis, big_is_bad=big_is_bad)
 
     def check_auto_generated_values(
         self, warning_level, serious_level, critical_level, hysteresis, big_is_bad
@@ -339,8 +335,7 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
         ):
             assert len(levels) == 3
             levels_dict = {
-                f"{name}_level": value
-                for name, value in zip(("warning", "serious", "critical"), levels)
+                f"{name}_level": value for name, value in zip(("warning", "serious", "critical"), levels)
             }
             with pytest.raises(ValueError):
                 watcher.ThresholdHandler(
@@ -368,8 +363,7 @@ class ThresholdHandlerTestCase(unittest.IsolatedAsyncioTestCase):
         ):
             assert len(levels) == 3
             levels_dict = {
-                f"{name}_level": value
-                for name, value in zip(("warning", "serious", "critical"), levels)
+                f"{name}_level": value for name, value in zip(("warning", "serious", "critical"), levels)
             }
             with pytest.raises(ValueError):
                 watcher.ThresholdHandler(

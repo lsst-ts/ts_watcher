@@ -90,10 +90,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             raise ValueError("Must specify one or more CSCs")
         self.name_index_list = [salobj.name_to_name_index(name) for name in names]
 
-        configs = [
-            dict(name=name_index, disabled_severity=2, standby_severity=2)
-            for name_index in names
-        ]
+        configs = [dict(name=name_index, disabled_severity=2, standby_severity=2) for name_index in names]
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
@@ -115,9 +112,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         # no severity.
         for controller in self.controllers:
             await controller.start_task
-            await controller.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
-            )
+            await controller.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
 
         if use_bad_callback:
 
@@ -139,9 +134,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             self.read_severities[name] = []
             self.read_max_severities[name] = []
 
-        controller_start_tasks = [
-            controller.start_task for controller in self.controllers
-        ]
+        controller_start_tasks = [controller.start_task for controller in self.controllers]
         await asyncio.gather(self.model.start_task, *controller_start_tasks)
         if enable:
             await self.model.enable()
@@ -151,9 +144,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             assert not rule.alarm.acknowledged
             assert not rule.alarm.muted
             if enable:
-                await rule.alarm.assert_next_severity(
-                    expected_severity=AlarmSeverity.NONE
-                )
+                await rule.alarm.assert_next_severity(expected_severity=AlarmSeverity.NONE)
             self.assert_not_muted(rule.alarm)
 
         try:
@@ -161,8 +152,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         finally:
             await self.model.close()
             controller_close_tasks = [
-                asyncio.create_task(controller.close())
-                for controller in self.controllers
+                asyncio.create_task(controller.close()) for controller in self.controllers
             ]
             await asyncio.gather(*controller_close_tasks)
 
@@ -188,20 +178,14 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         rule = self.model.rules[rule_name]
         previous_state = None
         for state in states:
-            await controller.evt_summaryState.set_write(
-                summaryState=state, force_output=True
-            )
+            await controller.evt_summaryState.set_write(summaryState=state, force_output=True)
             if self.model.enabled and previous_state != state:
-                await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 assert rule.alarm.severity_queue.empty()
             elif self.model.enabled:
                 # State didn't changed should not receive any new event
                 with pytest.raises(asyncio.TimeoutError):
-                    await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 assert rule.alarm.severity_queue.empty()
             else:
                 # We don't have any event we can wait for, so sleep a bit
@@ -240,9 +224,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_constructor_bad_callback(self):
         remote_names = ["ScriptQueue:5", "Test:7"]
         with pytest.raises(TypeError):
-            async with self.make_model(
-                names=remote_names, enable=False, use_bad_callback=True
-            ):
+            async with self.make_model(names=remote_names, enable=False, use_bad_callback=True):
                 pass
 
     async def test_acknowledge_full_name(self):
@@ -264,9 +246,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
                 assert rule.alarm.max_severity == AlarmSeverity.WARNING
 
             # Acknowledge one rule by full name but not the other.
-            await self.model.acknowledge_alarm(
-                name=full_rule_name, severity=AlarmSeverity.WARNING, user=user
-            )
+            await self.model.acknowledge_alarm(name=full_rule_name, severity=AlarmSeverity.WARNING, user=user)
             for name, rule in self.model.rules.items():
                 if name == full_rule_name:
                     assert rule.alarm.acknowledged
@@ -342,9 +322,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             # model is disabled the alarm does not change states.
             self.model.disable()
             for index in range(len(remote_names)):
-                await self.write_states(
-                    index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
-                )
+                await self.write_states(index=index, states=(salobj.State.FAULT, salobj.State.STANDBY))
 
             for name, rule in self.model.rules.items():
                 assert not rule.alarm.nominal  # state was DISABLED
@@ -384,9 +362,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Issue more events; they should be processed normally.
             for index in range(len(remote_names)):
-                await self.write_states(
-                    index=index, states=(salobj.State.FAULT, salobj.State.STANDBY)
-                )
+                await self.write_states(index=index, states=(salobj.State.FAULT, salobj.State.STANDBY))
 
             for name, rule in self.model.rules.items():
                 assert not rule.alarm.nominal
@@ -492,9 +468,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             )
             for name, rule in self.model.rules.items():
                 if name == full_rule_name:
-                    self.assert_muted(
-                        rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
-                    )
+                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
                 else:
                     self.assert_not_muted(rule.alarm)
 
@@ -521,9 +495,7 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
             )
             for name, rule in self.model.rules.items():
                 if "ScriptQueue" in name:
-                    self.assert_muted(
-                        rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user
-                    )
+                    self.assert_muted(rule.alarm, muted_severity=AlarmSeverity.WARNING, muted_by=user)
                 else:
                     self.assert_not_muted(rule.alarm)
 

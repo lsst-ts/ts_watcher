@@ -123,9 +123,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
                 await model.enable()
 
                 assert len(model.rules) == 1
@@ -136,9 +134,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Start a Telemetry loop and check severity=None.
                 async with self.telemetry_loop(controller=controller):
-                    await alarm.assert_next_severity(
-                        AlarmSeverity.NONE, timeout=NEXT_SEVERITY_WAIT_TIME
-                    )
+                    await alarm.assert_next_severity(AlarmSeverity.NONE, timeout=NEXT_SEVERITY_WAIT_TIME)
                     assert alarm.nominal
 
                     # Make sure alarm is not republished
@@ -156,17 +152,13 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
                 await self._publish_disabled_event(controller)
 
                 # Now wait until the alarm occurs.
-                await alarm.assert_next_severity(
-                    alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME
-                )
+                await alarm.assert_next_severity(alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME)
                 assert not alarm.nominal
                 assert alarm.max_severity == alarm_severity
 
                 # Make sure alarm is not republished
                 with pytest.raises(asyncio.TimeoutError):
-                    await alarm.assert_next_severity(
-                        alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME
-                    )
+                    await alarm.assert_next_severity(alarm_severity, timeout=NEXT_SEVERITY_WAIT_TIME)
 
                 # Start Telemetry loop again event and check that severity is
                 # None but that max_severity is still high (since the alarm

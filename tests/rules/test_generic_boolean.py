@@ -73,11 +73,10 @@ class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name=self.remote_name, index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name=self.remote_name, index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             rule = model.rules["HVAC_chiller01P01.HVAC.evt_chiller01P01"]
             rule.alarm.init_severity_queue()
             await model.enable()
@@ -89,9 +88,7 @@ class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
                     alarmDevice=value,
                     compressor1StatusAlarmActive=False,
                 )
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 if value:
                     assert severity == AlarmSeverity.CRITICAL
                     assert rule.alarm.reason != ""

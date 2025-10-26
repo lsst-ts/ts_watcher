@@ -36,9 +36,7 @@ class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         assert schema is not None
         name = "arulename"
         severities = [AlarmSeverity.WARNING, AlarmSeverity.CRITICAL, AlarmSeverity.NONE]
-        config = watcher.rules.test.TriggeredSeverities.make_config(
-            name=name, severities=severities
-        )
+        config = watcher.rules.test.TriggeredSeverities.make_config(name=name, severities=severities)
         assert config.repeats == 0  # The default value.
 
         desired_rule_name = f"test.TriggeredSeverities.{name}"
@@ -84,9 +82,7 @@ class TestTriggeredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
         for i in range(len(expected_severities)):
             alarm_seen_event.clear()
             rule.trigger_next_severity_event.set()
-            await asyncio.wait_for(
-                alarm_seen_event.wait(), timeout=NEXT_SEVERITY_TIMEOUT
-            )
+            await asyncio.wait_for(alarm_seen_event.wait(), timeout=NEXT_SEVERITY_TIMEOUT)
         assert rule.run_task.done()
         rule.stop()
         assert read_severities == expected_severities

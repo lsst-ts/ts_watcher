@@ -156,9 +156,7 @@ class MockPagerDuty:
         server = self._site._server
         if self.port == 0:
             if len(server.sockets) != 1:
-                raise RuntimeError(
-                    "Serving on more than one socket; cannot determine the port"
-                )
+                raise RuntimeError("Serving on more than one socket; cannot determine the port")
             self.port = server.sockets[0].getsockname()[1]  # type: ignore
         self.url = f"http://127.0.0.1:{self.port}"
 
@@ -186,9 +184,7 @@ class MockPagerDuty:
         """
         if self.reject_next_request:
             self.reject_next_request = False
-            raise web.HTTPInternalServerError(
-                text="Failed by request: reject_next_request true"
-            )
+            raise web.HTTPInternalServerError(text="Failed by request: reject_next_request true")
 
         if routing_key != self.escalation_key:
             raise web.HTTPForbidden(text="Authorization key does not match")
@@ -214,9 +210,7 @@ class MockPagerDuty:
                     payload = event_data["payload"]
                     extra_payload_keys = payload.keys() - self.ALLOWED_PAYLOAD_KEYS
                     if extra_payload_keys:
-                        raise RuntimeError(
-                            text=f"Unknown payload keys {sorted(extra_payload_keys)}"
-                        )
+                        raise RuntimeError(text=f"Unknown payload keys {sorted(extra_payload_keys)}")
 
                     event_key = get_event_key()
                     event_data["dedup_key"] = event_key

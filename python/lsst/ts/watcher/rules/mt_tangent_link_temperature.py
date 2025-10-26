@@ -46,9 +46,7 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         Parent logger. (the default is None)
     """
 
-    def __init__(
-        self, config: types.SimpleNamespace, log: logging.Logger | None = None
-    ) -> None:
+    def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         # ESS
         # 106 is the ESS SAL index for the M2 tangent link temperature
         remote_name_ess = "ESS"
@@ -144,9 +142,7 @@ class MTTangentLinkTemperature(watcher.PollingRule):
         assert self._remote_ess is not None
         assert self._remote_m2 is not None
 
-        if (not self._remote_ess.tel_temperature.has_data) or (
-            not self._remote_m2.tel_temperature.has_data
-        ):
+        if (not self._remote_ess.tel_temperature.has_data) or (not self._remote_m2.tel_temperature.has_data):
             self._timeout += 1.0
             return (
                 NoneNoReason
@@ -161,12 +157,8 @@ class MTTangentLinkTemperature(watcher.PollingRule):
 
         # There are 16 channels in total. Only 6 are used for the M2 tangent
         # links. Other 10 elements are NaN.
-        temperature_tangent_contain_nan = np.array(
-            self._remote_ess.tel_temperature.get().temperatureItem
-        )
-        temperature_tangent = temperature_tangent_contain_nan[
-            ~np.isnan(temperature_tangent_contain_nan)
-        ]
+        temperature_tangent_contain_nan = np.array(self._remote_ess.tel_temperature.get().temperatureItem)
+        temperature_tangent = temperature_tangent_contain_nan[~np.isnan(temperature_tangent_contain_nan)]
         temperature_tangent.sort()
 
         temperature_ring = np.array(self._remote_m2.tel_temperature.get().ring)
@@ -179,9 +171,6 @@ class MTTangentLinkTemperature(watcher.PollingRule):
                 AlarmSeverity(int(self.config.severity)),
                 f"Tangent link temperature above ambient threshold of {self.config.buffer} degree C.",
             )
-            if (
-                np.all(temperature_tangent[3:] > threshold)
-                or np.any(temperature_tangent[:3] > threshold)
-            )
+            if (np.all(temperature_tangent[3:] > threshold) or np.any(temperature_tangent[:3] > threshold))
             else NoneNoReason
         )

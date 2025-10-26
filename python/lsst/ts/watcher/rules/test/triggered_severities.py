@@ -107,9 +107,7 @@ class TriggeredSeverities(watcher.BaseRule):
             for severity in self.config.severities:
                 await self.trigger_next_severity_event.wait()
                 self.trigger_next_severity_event.clear()
-                await self.alarm.set_severity(
-                    severity=severity, reason="Commanded severity"
-                )
+                await self.alarm.set_severity(severity=severity, reason="Commanded severity")
             repeat += 1
             if self.config.repeats > 0 and repeat >= self.config.repeats:
                 break

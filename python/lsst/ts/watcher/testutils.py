@@ -52,9 +52,7 @@ class MockModel:
         KeyError
             If the wrapper is not in the registry.
         """
-        key = get_filtered_topic_wrapper_key(
-            topic_key=get_topic_key(topic), filter_field=filter_field
-        )
+        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         return self.filtered_topic_wrappers[key]
 
     def make_filtered_topic_wrapper(self, topic, filter_field):
@@ -74,21 +72,15 @@ class MockModel:
             It should also have a smallish number of expected values,
             in order to avoid caching too much data.
         """
-        key = get_filtered_topic_wrapper_key(
-            topic_key=get_topic_key(topic), filter_field=filter_field
-        )
+        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         wrapper = self.filtered_topic_wrappers.get(key, None)
         if wrapper is None:
-            wrapper = FilteredTopicWrapper(
-                model=self, topic=topic, filter_field=filter_field
-            )
+            wrapper = FilteredTopicWrapper(model=self, topic=topic, filter_field=filter_field)
             self.filtered_topic_wrappers[key] = wrapper
         return wrapper
 
 
-async def write_and_wait(
-    model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, verbose=False, **kwargs
-):
+async def write_and_wait(model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, verbose=False, **kwargs):
     """Write data and wait for it to be processed by the topic callback.
 
     Parmeters

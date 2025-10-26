@@ -58,9 +58,7 @@ class HeartbeatWriter(salobj.topics.ControllerEvent):
         else:
             data = copy.copy(self.data)
             data_dict = vars(data)
-            await self.salinfo.write_data(
-                topic_info=self.topic_info, data_dict=data_dict
-            )
+            await self.salinfo.write_data(topic_info=self.topic_info, data_dict=data_dict)
             return data
 
     async def write(self):

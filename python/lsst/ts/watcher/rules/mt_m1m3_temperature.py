@@ -76,12 +76,8 @@ class MTM1M3Temperature(BaseRule):
 
         # Time limit and other thresholds.
         self.temperature_change_interval = self.config.temperature_change_interval
-        self.m1m3_temperature_difference_threshold = (
-            self.config.m1m3_temperature_difference_threshold
-        )
-        self.m1m3_temperature_change_threshold = (
-            self.config.m1m3_temperature_change_threshold
-        )
+        self.m1m3_temperature_difference_threshold = self.config.m1m3_temperature_difference_threshold
+        self.m1m3_temperature_change_threshold = self.config.m1m3_temperature_change_threshold
 
     @classmethod
     def get_schema(cls):
@@ -158,10 +154,7 @@ additionalProperties: false
                 self.log.warning(f"Unknown {csc_name=}. Ignoring.")
                 return None
 
-        if (
-            not self._m1m3_temperature_change_too_high
-            and not self._m1m3_temperature_difference_too_high
-        ):
+        if not self._m1m3_temperature_change_too_high and not self._m1m3_temperature_difference_too_high:
             return NoneNoReason
 
         if self._mtdome_aperture_open:
@@ -217,9 +210,7 @@ additionalProperties: false
         # before removing them to avoid editing the dict
         # while iterating over it.
         items_to_remove = {
-            time
-            for time, temp in temp_dict.items()
-            if timestamp - time > self.temperature_change_interval
+            time for time, temp in temp_dict.items() if timestamp - time > self.temperature_change_interval
         }
 
         for item in items_to_remove:
@@ -228,11 +219,7 @@ additionalProperties: false
         # Get all temperatures.
         temperatures = [temp for temp in temp_dict.values()]
         # Determine if the temp change is too high.
-        return (
-            (max(temperatures) - min(temperatures) > threshold)
-            if temperatures
-            else False
-        )
+        return (max(temperatures) - min(temperatures) > threshold) if temperatures else False
 
     def process_mtdome_data(self, data: salobj.BaseMsgType) -> None:
         """Process the MTDome data.
@@ -244,9 +231,7 @@ additionalProperties: false
         data : `salobj.BaseMsgType`
             The topic data.
         """
-        self._mtdome_aperture_open = (
-            data.positionActual[0] > 0 or data.positionActual[1] > 0
-        )
+        self._mtdome_aperture_open = data.positionActual[0] > 0 or data.positionActual[1] > 0
 
     def process_mtm1m3ts_data(self, topic_name: str, data: salobj.BaseMsgType) -> None:
         """Process the M1M3 thermal system data.

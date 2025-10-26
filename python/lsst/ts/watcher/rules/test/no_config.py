@@ -50,9 +50,7 @@ class NoConfig(watcher.BaseRule):
     """
 
     def __init__(self, config, log=None):
-        super().__init__(
-            config=config, name="test.NoConfig", remote_info_list=[], log=log
-        )
+        super().__init__(config=config, name="test.NoConfig", remote_info_list=[], log=log)
 
     @classmethod
     def get_schema(cls):

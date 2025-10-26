@@ -55,9 +55,7 @@ class GenericBoolean(BaseRule):
         remote_index = config.remote_index
         callback_name = config.callback_name
 
-        csc_name_index = (
-            f"{remote_name}:{remote_index}" if remote_index > 0 else remote_name
-        )
+        csc_name_index = f"{remote_name}:{remote_index}" if remote_index > 0 else remote_name
         remote_info_list = [
             RemoteInfo(
                 name=remote_name,
@@ -76,9 +74,7 @@ class GenericBoolean(BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.name}"
-            for severity in AlarmSeverity
-            if severity is not AlarmSeverity.NONE
+            f"{severity.name}" for severity in AlarmSeverity if severity is not AlarmSeverity.NONE
         )
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#

@@ -106,9 +106,7 @@ class Hvac(BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.name}"
-            for severity in AlarmSeverity
-            if severity is not AlarmSeverity.NONE
+            f"{severity.name}" for severity in AlarmSeverity if severity is not AlarmSeverity.NONE
         )
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#
@@ -247,9 +245,7 @@ additionalProperties: false
 
         return self._determine_severity_and_reason(curr_tai)
 
-    def _process_individual_limits(
-        self, data: salobj.BaseMsgType, curr_tai: float
-    ) -> None:
+    def _process_individual_limits(self, data: salobj.BaseMsgType, curr_tai: float) -> None:
         """Loop over all individual limits and compare the value with the
         limit.
 
@@ -278,13 +274,9 @@ additionalProperties: false
                     limit_crossed = item_value < limit_value
 
             item_name = f"{individual_limit['item_name']} {limit_type}"
-            self._add_or_update_alarm_info(
-                limit_crossed, item_name, item_value, curr_tai, individual_limit
-            )
+            self._add_or_update_alarm_info(limit_crossed, item_name, item_value, curr_tai, individual_limit)
 
-    def _process_difference_limits(
-        self, data: salobj.BaseMsgType, curr_tai: float
-    ) -> None:
+    def _process_difference_limits(self, data: salobj.BaseMsgType, curr_tai: float) -> None:
         """Loop over all difference limits and compare the difference between
         the two items with the limit.
 
@@ -317,9 +309,7 @@ additionalProperties: false
 
             item_name = f"{first_item_name} - {second_item_name} {limit_type}"
             item_value = first_item_value - second_item_value
-            self._add_or_update_alarm_info(
-                limit_crossed, item_name, item_value, curr_tai, difference_limit
-            )
+            self._add_or_update_alarm_info(limit_crossed, item_name, item_value, curr_tai, difference_limit)
 
     def _add_or_update_alarm_info(
         self,
@@ -379,9 +369,7 @@ additionalProperties: false
                 ),
             )
 
-    def _determine_severity_and_reason(
-        self, curr_tai: float
-    ) -> AlarmSeverityReasonType:
+    def _determine_severity_and_reason(self, curr_tai: float) -> AlarmSeverityReasonType:
         """Determine the severity and reason.
 
         Loop over all `self.alarm_info_dict` items and determine the highest

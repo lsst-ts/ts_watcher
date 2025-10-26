@@ -37,9 +37,7 @@ class WatcherSchemaTestCase(unittest.TestCase):
     def setUp(self):
         self.schema = watcher.CONFIG_SCHEMA
         self.validator = salobj.StandardValidator(schema=self.schema)
-        self.configpath = (
-            pathlib.Path(__file__).resolve().parent / "data" / "config" / "csc"
-        )
+        self.configpath = pathlib.Path(__file__).resolve().parent / "data" / "config" / "csc"
 
     def read_dict(self, path):
         with open(path, "r") as f:
@@ -64,9 +62,7 @@ class WatcherSchemaTestCase(unittest.TestCase):
         assert len(config.rules) == 2
         rule0_dict = config.rules[0]
         assert rule0_dict["classname"] == "test.ConfiguredSeverities"
-        assert rule0_dict["configs"] == [
-            dict(severities=[2, 3, 1], interval=1, name="aname")
-        ]
+        assert rule0_dict["configs"] == [dict(severities=[2, 3, 1], interval=1, name="aname")]
         rule1_dict = config.rules[1]
         assert rule1_dict["classname"] == "test.NoConfig"
         assert rule1_dict["configs"] == [{}]

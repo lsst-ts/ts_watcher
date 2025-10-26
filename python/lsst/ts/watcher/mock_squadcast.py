@@ -175,9 +175,7 @@ class MockSquadCast:
         server = self._site._server
         if self.port == 0:
             if len(server.sockets) != 1:
-                raise RuntimeError(
-                    "Serving on more than one socket; cannot determine the port"
-                )
+                raise RuntimeError("Serving on more than one socket; cannot determine the port")
             self.port = server.sockets[0].getsockname()[1]  # type: ignore
         self.url = f"http://127.0.0.1:{self.port}"
         self.endpoint_url = self.url + INCIDENT_WEBHOOK_URL_SUFFIX + self.escalation_key
@@ -204,9 +202,7 @@ class MockSquadCast:
         """
         if self.reject_next_request:
             self.reject_next_request = False
-            raise web.HTTPInternalServerError(
-                reason="Rejected because reject_next_request was true"
-            )
+            raise web.HTTPInternalServerError(reason="Rejected because reject_next_request was true")
 
         data = await request.json()
         json_data = json.dumps(data)

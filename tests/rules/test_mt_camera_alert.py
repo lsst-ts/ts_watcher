@@ -62,11 +62,10 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name=self.remote_name, index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name=self.remote_name, index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             rule = model.rules[self.rule_name]
             rule.alarm.init_severity_queue()
             await model.enable()
@@ -89,13 +88,9 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     "origin": origin,
                     "additionalInfo": additional_info,
                 }
-                await watcher.write_and_wait(
-                    model, controller.evt_alertRaised, **telemetry
-                )
+                await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
 
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 if not is_cleared:
                     assert severity == AlarmSeverity.CRITICAL
                     assert rule.alarm.reason != ""

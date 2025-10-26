@@ -177,9 +177,7 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
 
         bad_id_kwargs = kwargs.copy()
         bad_id_kwargs["url"] = f"{self.server.url}/:no_such_id/close"
-        async with self.http_client.post(
-            **bad_id_kwargs, headers=self.headers
-        ) as response:
+        async with self.http_client.post(**bad_id_kwargs, headers=self.headers) as response:
             # This returns ACCEPTED instead of some kind of error,
             # because that is how the real OpsGenie is documented to work.
             assert response.status == HTTPStatus.ACCEPTED
@@ -217,17 +215,13 @@ class MockOpsGenieTestCase(unittest.IsolatedAsyncioTestCase):
         assert len(self.server.alerts) == NumAlerts
 
         for bad_headers in self.bad_headers_list:
-            async with self.http_client.delete(
-                **kwargs, headers=bad_headers
-            ) as response:
+            async with self.http_client.delete(**kwargs, headers=bad_headers) as response:
                 assert response.status == HTTPStatus.FORBIDDEN
         assert len(self.server.alerts) == NumAlerts
 
         bad_id_kwargs = kwargs.copy()
         bad_id_kwargs["url"] = f"{self.server.url}/:no_such_id"
-        async with self.http_client.delete(
-            **bad_id_kwargs, headers=self.headers
-        ) as response:
+        async with self.http_client.delete(**bad_id_kwargs, headers=self.headers) as response:
             # This returns ACCEPTED instead of some kind of error,
             # because that is how the real OpsGenie is documented to work.
             assert response.status == HTTPStatus.ACCEPTED

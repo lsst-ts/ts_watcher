@@ -78,9 +78,7 @@ class Telemetry(BaseRule):
         )
         self.telemetry_timer_task = utils.make_done_future()
         self.csc_should_receive_telemetry = False
-        self.summary_states = [
-            salobj.State[state] for state in self.config.summary_states
-        ]
+        self.summary_states = [salobj.State[state] for state in self.config.summary_states]
 
     @classmethod
     def get_schema(cls):
@@ -142,9 +140,7 @@ class Telemetry(BaseRule):
         topic_callback = kwargs["topic_callback"]
         _, _, topic_name = topic_callback.topic_key
         if topic_name == "evt_summaryState":
-            self.log.debug(
-                f"Received evt_summaryState for {self.name} with summaryState={data.summaryState}"
-            )
+            self.log.debug(f"Received evt_summaryState for {self.name} with summaryState={data.summaryState}")
             self.csc_should_receive_telemetry = data.summaryState in self.summary_states
             if not self.csc_should_receive_telemetry:
                 self.stop_timer()

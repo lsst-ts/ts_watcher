@@ -48,11 +48,10 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="MTDome", index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="MTDome", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             test_data_items = [
                 {
                     "topic": controller.evt_capacitorBanks,
@@ -83,9 +82,7 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
                     topic=data_item["topic"],
                     topic_items_true=data_item["topic_items_true"],
                 )
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 assert severity == data_item["expected_severity"]
                 reason: str = rule.alarm.reason
                 if len(data_item["topic_items_true"]) == 0:

@@ -41,9 +41,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         assert schema is not None
         name = "ScriptQueue"
         timeout = 1.2
-        config = watcher.rules.Heartbeat.make_config(
-            name=name, timeout=timeout, alarm_severity=3
-        )
+        config = watcher.rules.Heartbeat.make_config(name=name, timeout=timeout, alarm_severity=3)
         desired_rule_name = f"Heartbeat.{name}:0"
 
         rule = watcher.rules.Heartbeat(config=config)
@@ -67,9 +65,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         assert minimal_config.alarm_severity == AlarmSeverity.CRITICAL
 
         # Check all values specified
-        good_config_dict = dict(
-            name="ScriptQueue", timeout=1, alarm_severity=AlarmSeverity.SERIOUS
-        )
+        good_config_dict = dict(name="ScriptQueue", timeout=1, alarm_severity=AlarmSeverity.SERIOUS)
         good_config = watcher.rules.Heartbeat.make_config(**good_config_dict)
         for key, value in good_config_dict.items():
             assert getattr(good_config, key) == value
@@ -109,10 +105,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
-
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
                 assert len(model.rules) == 1
                 rule_name = f"Heartbeat.{name}:{index}"
                 rule = model.rules[rule_name]
@@ -137,9 +130,7 @@ class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
 
                 # Make sure alarm is not republished
                 with pytest.raises(asyncio.TimeoutError):
-                    await alarm.assert_next_severity(
-                        alarm_severity, timeout=timeout * 2.5
-                    )
+                    await alarm.assert_next_severity(alarm_severity, timeout=timeout * 2.5)
 
                 # Start heartbeat loop again event and check that severity is
                 # None but that max_severity is still high (since the alarm

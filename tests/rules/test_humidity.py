@@ -41,11 +41,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
         self.configpath = (
-            pathlib.Path(__file__).resolve().parent.parent
-            / "data"
-            / "config"
-            / "rules"
-            / "humidity"
+            pathlib.Path(__file__).resolve().parent.parent / "data" / "config" / "rules" / "humidity"
         )
         # Number of values to set to real temperatures; the rest are NaN.
         self.num_valid_temperatures = 12
@@ -104,13 +100,11 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="ESS", index=1
-        ) as controller1, salobj.Controller(
-            name="ESS", index=5
-        ) as controller5, watcher.Model(
-            domain=controller1.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ESS", index=1) as controller1,
+            salobj.Controller(name="ESS", index=5) as controller5,
+            watcher.Model(domain=controller1.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             rule.alarm.init_severity_queue()
@@ -164,10 +158,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
-            assert (
-                rule.alarm.reason
-                == f"No tel_relativeHumidity data seen for {max_data_age} seconds"
-            )
+            assert rule.alarm.reason == f"No tel_relativeHumidity data seen for {max_data_age} seconds"
 
             # Check that alarm is not continuously republished
             rule.alarm.flush_severity_queue()
@@ -212,10 +203,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         from any sensor.
         """
         if verbose:
-            print(
-                f"send_ess_data(humidity={humidity}, "
-                f"use_other_filter_values={use_other_filter_values}"
-            )
+            print(f"send_ess_data(humidity={humidity}, use_other_filter_values={use_other_filter_values}")
         delta_humidity = 2
         pessimistic_humidity = humidity
         normal_humidity = humidity - delta_humidity

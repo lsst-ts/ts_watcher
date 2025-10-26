@@ -62,9 +62,7 @@ class PollingRule(BaseRule):
     def __init__(self, config, name, remote_info_list, log=None):
         self.poll_start_tai = utils.current_tai()
         self.poll_loop_task = utils.make_done_future()
-        super().__init__(
-            config=config, name=name, remote_info_list=remote_info_list, log=log
-        )
+        super().__init__(config=config, name=name, remote_info_list=remote_info_list, log=log)
 
     def start(self):
         self.poll_loop_task.cancel()

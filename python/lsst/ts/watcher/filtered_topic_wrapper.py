@@ -95,9 +95,7 @@ class FilteredTopicWrapper:
     """
 
     def __init__(self, model, topic, filter_field):
-        key = get_filtered_topic_wrapper_key(
-            topic_key=get_topic_key(topic), filter_field=filter_field
-        )
+        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         if key in model.filtered_topic_wrappers:
             raise RuntimeError(
                 "This FilteredTopicWrapper already exists in the model; "
@@ -111,9 +109,7 @@ class FilteredTopicWrapper:
         if default_filter_value is None:
             raise ValueError(f"topic {topic} has no field named {filter_field}")
         elif isinstance(default_filter_value, list):
-            raise ValueError(
-                f"topic {topic} filter field {filter_field} must be a scalar"
-            )
+            raise ValueError(f"topic {topic} filter field {filter_field} must be a scalar")
 
         self.topic = topic
         self.filter_field = filter_field

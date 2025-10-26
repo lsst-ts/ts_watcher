@@ -41,19 +41,18 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         filter_field = "int0"
         data_field = "double0"
 
-        async with salobj.Controller(
-            name="Test", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="Test",
-            index=self.index,
-            readonly=True,
-            include=["scalars"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="Test", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=["scalars"],
+            ) as remote,
+        ):
             topic = remote.tel_scalars
-            wrapper = model.make_filtered_topic_wrapper(
-                topic=topic, filter_field=filter_field
-            )
+            wrapper = model.make_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
 
             # Test wrapper attributes
             assert wrapper.filter_field == filter_field
@@ -70,10 +69,7 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Test that the wrapper was added to the filtered topic wrapper
             # registry
-            assert (
-                model.get_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
-                is wrapper
-            )
+            assert model.get_filtered_topic_wrapper(topic=topic, filter_field=filter_field) is wrapper
 
             # Test topic callback handling
             data_dict_list = [
@@ -100,9 +96,7 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
             # Test that make_filtered_topic_wrapper returns an existing
             # wrapper, if possible.
-            wrapper2 = model.make_filtered_topic_wrapper(
-                topic=topic, filter_field=filter_field
-            )
+            wrapper2 = model.make_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
             assert wrapper is wrapper2
 
             # Test get_filtered_topic_wrapper with a non-existent wrapper
@@ -113,30 +107,25 @@ class FilteredTopicWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         model = watcher.MockModel(enabled=True)
         filter_field = "int0"
 
-        async with salobj.Controller(
-            name="Test", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="Test",
-            index=self.index,
-            readonly=True,
-            include=["arrays", "scalars"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="Test", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=["arrays", "scalars"],
+            ) as remote,
+        ):
             # Test a good wrapper
-            wrapper = model.make_filtered_topic_wrapper(
-                topic=remote.evt_scalars, filter_field=filter_field
-            )
+            wrapper = model.make_filtered_topic_wrapper(topic=remote.evt_scalars, filter_field=filter_field)
             assert isinstance(wrapper, watcher.FilteredTopicWrapper)
             assert wrapper.filter_field == filter_field
 
             # Test a nonexistent filter_field
             with pytest.raises(ValueError):
-                model.make_filtered_topic_wrapper(
-                    topic=remote.evt_scalars, filter_field="no_such_field"
-                )
+                model.make_filtered_topic_wrapper(topic=remote.evt_scalars, filter_field="no_such_field")
 
             # Test an array filter_field
             with pytest.raises(ValueError):
-                model.make_filtered_topic_wrapper(
-                    topic=remote.evt_arrays, filter_field=filter_field
-                )
+                model.make_filtered_topic_wrapper(topic=remote.evt_arrays, filter_field=filter_field)

@@ -105,13 +105,11 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="ESS", index=1
-        ) as controller1, salobj.Controller(
-            name="ESS", index=5
-        ) as controller5, watcher.Model(
-            domain=controller1.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ESS", index=1) as controller1,
+            salobj.Controller(name="ESS", index=5) as controller5,
+            watcher.Model(domain=controller1.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             rule.alarm.init_severity_queue()
@@ -167,9 +165,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             rule.alarm.flush_severity_queue()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
-            await rule.alarm.assert_next_severity(
-                AlarmSeverity.SERIOUS, flush=False, check_empty=False
-            )
+            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=False, check_empty=False)
             # should not be published again
             with pytest.raises(asyncio.TimeoutError):
                 await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
@@ -265,16 +261,12 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             print(f"pessimistic_temperature={pessimistic_temperature}")
             print(f"normal_temperature={normal_temperature}")
 
-        pessimistic_temperature_filter_value = rng.choice(
-            list(temperature_topics.keys())
-        )
+        pessimistic_temperature_filter_value = rng.choice(list(temperature_topics.keys()))
         for filter_value, (topic, indices) in temperature_topics.items():
             num_temperatures = len(topic.data.temperatureItem)
             assert self.num_valid_temperatures < num_temperatures
             num_nans = num_temperatures - self.num_valid_temperatures
-            temperatures = [normal_temperature] * self.num_valid_temperatures + [
-                math.nan
-            ] * num_nans
+            temperatures = [normal_temperature] * self.num_valid_temperatures + [math.nan] * num_nans
             if filter_value == pessimistic_temperature_filter_value:
                 if indices is None:
                     pessimistic_index = rng.choice(range(self.num_valid_temperatures))

@@ -50,9 +50,10 @@ class MTOutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTM2", 0) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("MTM2", 0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             test_data_items = [
                 {
                     "topic": controller.evt_powerSystemState,
@@ -107,8 +108,6 @@ class MTOutClosedLoopControlTestCase(unittest.IsolatedAsyncioTestCase):
                 )
 
                 if "expected_severity" in data_item.keys():
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == data_item["expected_severity"]
                     assert rule.alarm.severity_queue.empty()

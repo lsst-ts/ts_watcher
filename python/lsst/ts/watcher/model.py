@@ -78,16 +78,12 @@ class Model:
     """
 
     def __init__(self, domain, config, alarm_callback=None, log=None):
-        if alarm_callback is not None and not inspect.iscoroutinefunction(
-            alarm_callback
-        ):
+        if alarm_callback is not None and not inspect.iscoroutinefunction(alarm_callback):
             raise TypeError(f"alarm_callback={alarm_callback} must be async")
 
         self.domain = domain
         self.log = (
-            logging.getLogger(type(self).__name__)
-            if log is None
-            else log.getChild(type(self).__name__)
+            logging.getLogger(type(self).__name__) if log is None else log.getChild(type(self).__name__)
         )
 
         self.alarm_callback = alarm_callback
@@ -121,13 +117,10 @@ class Model:
                     ruleconfig = ruleclass.make_config(**ruleconfig_dict)
                 except Exception as e:
                     raise ValueError(
-                        f"Config {i+1} for rule class {ruleclassname} not valid: "
-                        f"config={ruleconfig_dict}"
+                        f"Config {i + 1} for rule class {ruleclassname} not valid: config={ruleconfig_dict}"
                     ) from e
                 rule = ruleclass(config=ruleconfig, log=self.log)
-                if rule.is_usable(
-                    disabled_sal_components=config.disabled_sal_components
-                ):
+                if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
                     self.add_rule(rule)
 
         # Accumulate a list of topics that have callback functions.
@@ -145,9 +138,7 @@ class Model:
             for name_glob in escalation_item["alarms"]:
                 name_regex = fnmatch.translate(name_glob)
                 compiled_name_regex = re.compile(name_regex, re.IGNORECASE)
-                matched_names = [
-                    name for name in remaining_names if compiled_name_regex.match(name)
-                ]
+                matched_names = [name for name in remaining_names if compiled_name_regex.match(name)]
                 remaining_names = remaining_names.difference(matched_names)
                 for name in matched_names:
                     alarm = self.rules[name].alarm
@@ -284,11 +275,7 @@ class Model:
                     start=False,
                 )
                 self.remotes[remote_info.key] = remote
-            if (
-                remote_info.index_required
-                and remote_info.index == 0
-                and remote.salinfo.indexed
-            ):
+            if remote_info.index_required and remote_info.index == 0 and remote.salinfo.indexed:
                 raise RuntimeError(
                     f"Rule {rule.name} requires remote {remote_info.name} "
                     "to have index != 0 (for an indexed SAL component)."
@@ -326,9 +313,7 @@ class Model:
         KeyError
             If the wrapper is not in the registry.
         """
-        key = get_filtered_topic_wrapper_key(
-            topic_key=get_topic_key(topic), filter_field=filter_field
-        )
+        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         return self.filtered_topic_wrappers[key]
 
     def get_rules(self, name_regex):
@@ -345,11 +330,7 @@ class Model:
             An iterator over rules.
         """
         compiled_re = re.compile(name_regex)
-        return (
-            rule
-            for name, rule in self.rules.items()
-            if compiled_re.match(name) is not None
-        )
+        return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
 
     def make_filtered_topic_wrapper(self, topic, filter_field):
         """Make a FilteredTopicWrapper, or return an existing one, if found.
@@ -374,14 +355,10 @@ class Model:
         Each filtered field wrapper creates a `FilteredTopicWrapper`
         for internal use.
         """
-        key = get_filtered_topic_wrapper_key(
-            topic_key=get_topic_key(topic), filter_field=filter_field
-        )
+        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         wrapper = self.filtered_topic_wrappers.get(key, None)
         if wrapper is None:
-            wrapper = FilteredTopicWrapper(
-                model=self, topic=topic, filter_field=filter_field
-            )
+            wrapper = FilteredTopicWrapper(model=self, topic=topic, filter_field=filter_field)
         return wrapper
 
     async def mute_alarm(self, name, duration, severity, user):

@@ -77,9 +77,7 @@ class ScriptFailed(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         ident = "                    "
-        severity_values = "\n".join(
-            [f"{ident}- {severity.name}" for severity in AlarmSeverity]
-        )
+        severity_values = "\n".join([f"{ident}- {severity.name}" for severity in AlarmSeverity])
 
         schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#

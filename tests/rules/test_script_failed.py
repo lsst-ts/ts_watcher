@@ -91,9 +91,7 @@ class ScriptFailedTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name="ScriptQueue", index=index) as script_queue:
-            async with watcher.Model(
-                domain=script_queue.domain, config=watcher_config
-            ) as model:
+            async with watcher.Model(domain=script_queue.domain, config=watcher_config) as model:
                 await model.enable()
 
                 assert len(model.rules) == 1

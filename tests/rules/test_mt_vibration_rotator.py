@@ -48,9 +48,10 @@ class MTVibrationRotatorTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTRotator", 0) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("MTRotator", 0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             test_data_items = [
                 {
                     "topic": controller.evt_lowFrequencyVibration,
@@ -76,8 +77,6 @@ class MTVibrationRotatorTestCase(unittest.IsolatedAsyncioTestCase):
                     data_item["topic"],
                     frequency=data_item["frequency"],
                 )
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 assert severity == data_item["expected_severity"]
                 assert rule.alarm.severity_queue.empty()
