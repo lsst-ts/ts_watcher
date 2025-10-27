@@ -24,18 +24,35 @@ __all__ = ["MTDomeCapacitorBanks"]
 import typing
 
 from lsst.ts import salobj
+from lsst.ts.xml.enums.MTDome import MotionState, OperationalMode
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
+# The `lowResidualVoltage` item is handled separately.
 REASON_DICT: dict[str, str] = {
     "doorOpen": "Open door",
     "fuseIntervention": "Broken fuse",
     "highTemperature": "High temperature",
-    "lowResidualVoltage": "Low residual voltage",
     "smokeDetected": "Smoke",
 }
+
+# The MotionStates for which the lowResidualVoltage needs to be monitored.
+MOTION_STATES = [
+    MotionState.MOTOR_POWER_ON,
+    MotionState.GO_NORMAL,
+    MotionState.DISENGAGING_BRAKES,
+    MotionState.BRAKES_DISENGAGED,
+    MotionState.MOVING,
+    MotionState.CRAWLING,
+    MotionState.STOPPED,
+    MotionState.ENGAGING_BRAKES,
+    MotionState.BRAKES_ENGAGED,
+    MotionState.GO_STATIONARY,
+    MotionState.DISABLING_MOTOR_POWER,
+]
 
 
 class MTDomeCapacitorBanks(BaseRule):
@@ -56,7 +73,12 @@ class MTDomeCapacitorBanks(BaseRule):
             RemoteInfo(
                 name=remote_name,
                 index=remote_index,
-                callback_names=["evt_capacitorBanks"],
+                callback_names=[
+                    "evt_capacitorBanks",
+                    "evt_operationalMode",
+                    "evt_summaryState",
+                    "evt_azMotion",
+                ],
                 poll_names=[],
             )
         ]
@@ -66,6 +88,11 @@ class MTDomeCapacitorBanks(BaseRule):
             remote_info_list=remote_info_list,
             log=log,
         )
+
+        # Keep track of MTDome general and azimuth rotation state.
+        self.mtdome_summary_state = State.OFFLINE
+        self.az_operational_mode = OperationalMode.NORMAL
+        self.az_motion_state = MotionState.PARKED
 
     @classmethod
     def get_schema(cls):
@@ -108,12 +135,36 @@ class MTDomeCapacitorBanks(BaseRule):
         severity, reason = NoneNoReason
 
         reason_list: list[str] = []
+
+        # Update MTDome summaryState if possible.
+        if hasattr(data, "summaryState"):
+            self.mtdome_summary_state = State(data.summaryState)
+
+        # Update MTDome az operationalMode if possible.
+        if hasattr(data, "operationalMode"):
+            self.az_operational_mode = OperationalMode(data.operationalMode)
+
+        # Update MTDome az motionState if possible.
+        if hasattr(data, "inPosition"):
+            self.az_motion_state = MotionState(data.state)
+
+        # Low residual voltage only should raise an alarm if the MTDome is
+        # commanded to move in azimuth from the CSC.
+        if hasattr(data, "lowResidualVoltage"):
+            if (
+                self.mtdome_summary_state == State.ENABLED
+                and self.az_operational_mode == OperationalMode.NORMAL
+                and self.az_motion_state in MOTION_STATES
+                and True in getattr(data, "lowResidualVoltage")
+            ):
+                reason_list.append("Low residual voltage detected while MTDome moving in azimuth")
+
         for item_name in REASON_DICT:
             # For any of the attributes, value is a list of bool.
             if hasattr(data, item_name) and True in getattr(data, item_name):
                 reason_list.append(f"{REASON_DICT[item_name]} detected")
         if reason_list:
-            reason = ", ".join(reason_list)
+            reason = ", ".join(reason_list) + "."
             severity = AlarmSeverity.CRITICAL
 
         return severity, reason
