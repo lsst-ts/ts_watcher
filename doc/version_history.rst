@@ -8,6 +8,17 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.6 (2026-01-21)
+====================
+
+Performance Enhancement
+-----------------------
+
+- Improved the MTDome Capacitor Banks alarm. (`OSW-818 <https://rubinobs.atlassian.net//browse/OSW-818>`_)
+- Switched from black, flake8 and isort to ruff. (`OSW-818 <https://rubinobs.atlassian.net//browse/OSW-818>`_)
+- Updated ts-conda-build dependency version and conda build string. (`OSW-1207 <https://rubinobs.atlassian.net//browse/OSW-1207>`_)
+
+
 v1.23.5 (2025-09-30)
 ====================
 
