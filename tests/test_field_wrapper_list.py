@@ -57,15 +57,16 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
         # by the FieldWrapperList.
         other_filter_value = "other"
 
-        async with salobj.Controller(
-            name="ESS", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="ESS",
-            index=self.index,
-            readonly=True,
-            include=["dewPoint", "temperature"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="ESS", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="ESS",
+                index=self.index,
+                readonly=True,
+                include=["dewPoint", "temperature"],
+            ) as remote,
+        ):
             remote_scalar_topic = remote.tel_dewPoint
             remote_array_topic = remote.tel_temperature
             controller_scalar_topic = controller.tel_dewPoint
@@ -94,9 +95,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 data_dict = {filter_field: filter_value, scalar_data_field: scalar_data}
                 scalar_topic_wrapper.call_event.clear()
                 await controller_scalar_topic.set_write(**data_dict)
-                await asyncio.wait_for(
-                    scalar_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
-                )
+                await asyncio.wait_for(scalar_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 return scalar_data
 
             async def write_array(filter_value, array_topic_wrapper):
@@ -107,9 +106,7 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
                 data_dict = {filter_field: filter_value, array_data_field: array_data}
                 array_topic_wrapper.call_event.clear()
                 await controller_array_topic.set_write(**data_dict)
-                await asyncio.wait_for(
-                    array_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
-                )
+                await asyncio.wait_for(array_topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 return array_data
 
             wrapper_list = watcher.FieldWrapperList()
@@ -171,12 +168,8 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             # * the full array, from the array wrapper
             # * the indices from the full array, from the indexed wrapper
             expected_data = [(scalar_data, scalar_field_wrapper, None)]
-            expected_data += [
-                (array_data[i], array_field_wrapper, i) for i in range(valid_array_len)
-            ]
-            expected_data += [
-                (array_data[i], indexed_field_wrapper, i) for i in nonnan_indices
-            ]
+            expected_data += [(array_data[i], array_field_wrapper, i) for i in range(valid_array_len)]
+            expected_data += [(array_data[i], indexed_field_wrapper, i) for i in nonnan_indices]
             assert len(data) == len(expected_data)
             assert data == expected_data
 
@@ -187,12 +180,8 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             # * the full array, from the array wrapper
             # * the indices from the full array, from the indexed wrapper
             expected_data = [(scalar_data, scalar_field_wrapper, None)]
-            expected_data += [
-                (array_data[i], array_field_wrapper, i) for i in range(array_len)
-            ]
-            expected_data += [
-                (array_data[i], indexed_field_wrapper, i) for i in indices
-            ]
+            expected_data += [(array_data[i], array_field_wrapper, i) for i in range(array_len)]
+            expected_data += [(array_data[i], indexed_field_wrapper, i) for i in indices]
             assert len(data) == len(expected_data)
             for item1, item2 in zip(data, expected_data):
                 if math.isnan(item1[0]):
@@ -215,8 +204,6 @@ class FieldWrapperListTestCase(unittest.IsolatedAsyncioTestCase):
             # * the scalar, from the scalar wrapper
             # * the indices from the full array, from the indexed wrapper
             expected_data = [(scalar_data, scalar_field_wrapper, None)]
-            expected_data += [
-                (array_data[i], indexed_field_wrapper, i) for i in nonnan_indices
-            ]
+            expected_data += [(array_data[i], indexed_field_wrapper, i) for i in nonnan_indices]
             assert len(data) == len(expected_data)
             assert data == expected_data

@@ -282,13 +282,9 @@ additionalProperties: false
     def compute_alarm_severity(self):
         current_tai = utils.current_tai()
         # List of (dew_point, wrapper, index)
-        dew_points = self.dew_point_field_wrappers.get_data(
-            max_age=self.config.max_data_age
-        )
+        dew_points = self.dew_point_field_wrappers.get_data(max_age=self.config.max_data_age)
         # List of (temperature, wrapper, index)
-        temperatures = self.temperature_field_wrappers.get_data(
-            max_age=self.config.max_data_age
-        )
+        temperatures = self.temperature_field_wrappers.get_data(max_age=self.config.max_data_age)
         if not dew_points or not temperatures:
             poll_duration = current_tai - self.poll_start_tai
             if poll_duration > self.config.max_data_age:
@@ -307,12 +303,8 @@ additionalProperties: false
                 return watcher.NoneNoReason
 
         # We got data; use the most pessimistic measured value.
-        max_dew_point, dew_point_wrapper, dew_point_index = max(
-            dew_points, key=lambda v: v[0]
-        )
-        min_temperature, temperature_wrapper, temperature_index = min(
-            temperatures, key=lambda v: v[0]
-        )
+        max_dew_point, dew_point_wrapper, dew_point_index = max(dew_points, key=lambda v: v[0])
+        min_temperature, temperature_wrapper, temperature_index = min(temperatures, key=lambda v: v[0])
         dew_point_depression = min_temperature - max_dew_point
 
         source_descr = (

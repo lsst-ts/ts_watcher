@@ -66,15 +66,11 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                 continue
 
             with self.subTest(severity=severity):
-                good_config = watcher.rules.MTAirCompressorsState.make_config(
-                    both_severity=severity.name
-                )
+                good_config = watcher.rules.MTAirCompressorsState.make_config(both_severity=severity.name)
                 assert good_config.both_severity == severity.name
                 assert good_config.one_severity == AlarmSeverity.WARNING.name
 
-                good_config = watcher.rules.MTAirCompressorsState.make_config(
-                    one_severity=severity.name
-                )
+                good_config = watcher.rules.MTAirCompressorsState.make_config(one_severity=severity.name)
                 assert good_config.one_severity == severity.name
                 assert good_config.both_severity == AlarmSeverity.CRITICAL.name
 
@@ -128,9 +124,7 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         # Use index=0 so we can write to 1 or 2 as desired.
         async with salobj.Controller(name="MTAirCompressor", index=0) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
                 # Set state of the second index as OFFLINE
                 await controller.evt_summaryState.set_write(
                     summaryState=salobj.State.OFFLINE, salIndex=1, force_output=True
@@ -171,9 +165,7 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                     await controller.evt_summaryState.set_write(
                         summaryState=state, salIndex=first_index, force_output=True
                     )
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()
 
@@ -192,8 +184,6 @@ class MTAirCompressorsStateTestCase(unittest.IsolatedAsyncioTestCase):
                     await controller.evt_summaryState.set_write(
                         summaryState=state, salIndex=second_index, force_output=True
                     )
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()

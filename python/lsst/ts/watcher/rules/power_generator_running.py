@@ -63,9 +63,7 @@ class PowerGeneratorRunning(BaseRule):
     @classmethod
     def get_schema(cls):
         indent = " " * 8
-        severity_values = "\n".join(
-            [f"{indent}- {severity.name}" for severity in AlarmSeverity]
-        )
+        severity_values = "\n".join([f"{indent}- {severity.name}" for severity in AlarmSeverity])
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#
 description: >-

@@ -120,9 +120,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
                 await controller.evt_summaryState.set_write(
                     summaryState=salobj.State.OFFLINE, force_output=True
                 )
@@ -153,11 +151,7 @@ class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
                     else:
                         expected_severity = state_severity_dict[state]
 
-                    await controller.evt_summaryState.set_write(
-                        summaryState=state, force_output=True
-                    )
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    await controller.evt_summaryState.set_write(summaryState=state, force_output=True)
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()

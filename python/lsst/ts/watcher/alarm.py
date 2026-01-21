@@ -109,9 +109,7 @@ class Alarm:
     def __init__(self, name, log=None):
         self.name = name
         self.log = (
-            logging.getLogger(type(self).__name__)
-            if log is None
-            else log.getChild(type(self).__name__)
+            logging.getLogger(type(self).__name__) if log is None else log.getChild(type(self).__name__)
         )
         self._callback = None
         self.auto_acknowledge_delay = 0
@@ -137,10 +135,7 @@ class Alarm:
         When the alarm is in nominal state it should not be displayed
         in the Watcher GUI.
         """
-        return (
-            self.severity == AlarmSeverity.NONE
-            and self.max_severity == AlarmSeverity.NONE
-        )
+        return self.severity == AlarmSeverity.NONE and self.max_severity == AlarmSeverity.NONE
 
     def configure_basics(
         self,
@@ -168,13 +163,9 @@ class Alarm:
             because an acknowledged alarm is reset if severity goes to NONE.
         """
         if auto_acknowledge_delay < 0:
-            raise ValueError(
-                f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0"
-            )
+            raise ValueError(f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0")
         if auto_unacknowledge_delay < 0:
-            raise ValueError(
-                f"auto_unacknowledge_delay={auto_unacknowledge_delay} must be >= 0"
-            )
+            raise ValueError(f"auto_unacknowledge_delay={auto_unacknowledge_delay} must be >= 0")
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
@@ -209,8 +200,7 @@ class Alarm:
             raise ValueError(f"{escalation_delay=} must be ≥ 0")
         if (escalation_delay == 0) != (len(escalation_responder) == 0):
             raise ValueError(
-                f"{escalation_delay=} must be > 0 if and only if"
-                f"{escalation_responder=} is not empty"
+                f"{escalation_delay=} must be > 0 if and only if{escalation_responder=} is not empty"
             )
         if not isinstance(escalation_responder, str):
             raise TypeError(f"{escalation_responder=!r} must be a str")
@@ -457,10 +447,7 @@ class Alarm:
             self.severity = severity
         if self.severity != AlarmSeverity.NONE:
             self.reason = reason
-        if (
-            self.severity != AlarmSeverity.CRITICAL
-            and not self.escalation_timer_task.done()
-        ):
+        if self.severity != AlarmSeverity.CRITICAL and not self.escalation_timer_task.done():
             # Cancel escalation if alarm is no longer critical. The Observing
             # Specialists will never get used to acknowledging alarms that are
             # no longer critical. It is best to cancel escalation if they
@@ -483,18 +470,11 @@ class Alarm:
                 self.escalating_task.cancel()
             else:
                 # Stale alarm; start auto-acknowledge task, if not running
-                if (
-                    self.auto_acknowledge_delay > 0
-                    and self.auto_acknowledge_task.done()
-                ):
+                if self.auto_acknowledge_delay > 0 and self.auto_acknowledge_task.done():
                     # Set the timestamp here, rather than the timer method,
                     # so it is set before the callback runs.
-                    self.timestamp_auto_acknowledge = (
-                        utils.current_tai() + self.auto_acknowledge_delay
-                    )
-                    self.auto_acknowledge_task = asyncio.create_task(
-                        self._auto_acknowledge_timer()
-                    )
+                    self.timestamp_auto_acknowledge = utils.current_tai() + self.auto_acknowledge_delay
+                    self.auto_acknowledge_task = asyncio.create_task(self._auto_acknowledge_timer())
         else:
             self._cancel_auto_acknowledge()
             if self.severity > self.max_severity:
@@ -628,18 +608,11 @@ class Alarm:
             self.flush_severity_queue()
         severity = await asyncio.wait_for(self.severity_queue.get(), timeout=timeout)
         if check_empty:
-            extra_severities = [
-                self.severity_queue.get_nowait()
-                for i in range(self.severity_queue.qsize())
-            ]
+            extra_severities = [self.severity_queue.get_nowait() for i in range(self.severity_queue.qsize())]
             if extra_severities:
-                raise AssertionError(
-                    f"severity_queue was not empty; it contained {extra_severities}"
-                )
+                raise AssertionError(f"severity_queue was not empty; it contained {extra_severities}")
         if severity != expected_severity:
-            raise AssertionError(
-                f"severity={severity!r} != expected_severity{expected_severity!r}"
-            )
+            raise AssertionError(f"severity={severity!r} != expected_severity{expected_severity!r}")
 
     def flush_severity_queue(self) -> None:
         """Remove all items from the severity queue."""
@@ -670,9 +643,7 @@ class Alarm:
         self_vars = vars(self)
         other_vars = vars(other)
         return all(
-            self_vars[name] == other_vars[name]
-            for name in self_vars
-            if name not in self._eq_ignore_fields
+            self_vars[name] == other_vars[name] for name in self_vars if name not in self._eq_ignore_fields
         )
 
     def __ne__(self, other):
@@ -775,12 +746,8 @@ class Alarm:
         self.auto_unacknowledge_task.cancel()
         # Set the timestamp here, rather than the timer method,
         # so it is set before the background task starts.
-        self.timestamp_auto_unacknowledge = (
-            utils.current_tai() + self.auto_unacknowledge_delay
-        )
-        self.auto_unacknowledge_task = asyncio.create_task(
-            self._auto_unacknowledge_timer()
-        )
+        self.timestamp_auto_unacknowledge = utils.current_tai() + self.auto_unacknowledge_delay
+        self.auto_unacknowledge_task = asyncio.create_task(self._auto_unacknowledge_timer())
 
     def _start_escalation_timer(self):
         """Start or restart the escalation timer, if escalation configured.

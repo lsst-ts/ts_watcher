@@ -44,9 +44,7 @@ class MTOutClosedLoopControl(watcher.BaseRule):
         Parent logger. (the default is None)
     """
 
-    def __init__(
-        self, config: types.SimpleNamespace, log: logging.Logger | None = None
-    ) -> None:
+    def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         remote_name = "MTM2"
         remote_info = RemoteInfo(
             remote_name,
@@ -115,11 +113,7 @@ class MTOutClosedLoopControl(watcher.BaseRule):
         # Deal with the evt_forceBalanceSystemStatus
         is_closed_loop_control = data.status
 
-        if (
-            self._is_communication_power_on
-            and self._was_closed_loop_control
-            and (not is_closed_loop_control)
-        ):
+        if self._is_communication_power_on and self._was_closed_loop_control and (not is_closed_loop_control):
             self._was_closed_loop_control = False
             return (AlarmSeverity.CRITICAL, "MTM2 is out of closed-loop control.")
 

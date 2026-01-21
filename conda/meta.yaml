@@ -9,11 +9,12 @@ source:
 build:
   noarch: generic
   script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
+  string: "py{{ PY_VER | replace('.', '') }}{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 test:
   requires:
     - aiohttp >=3.8,<4.0
-    - ts-conda-build =0.4
+    - ts-conda-build =0.5
     - ts-utils
     - ts-salobj {{ salobj_version }}
     - ts-xml {{ xml_version }}
@@ -36,10 +37,6 @@ requirements:
     - python {{ python }}
     - setuptools_scm
     - setuptools
-    - ts-conda-build =0.4
-    - aiohttp >=3.8,<4.0
-    - ts-salobj {{ salobj_version }}
-    - ts-xml {{ xml_version }}
   run:
     - aiohttp >=3.8,<4.0
     - python {{ python }}

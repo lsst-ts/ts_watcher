@@ -161,9 +161,7 @@ class MockOpsGenie:
         server = self._site._server
         if self.port == 0:
             if len(server.sockets) != 1:
-                raise RuntimeError(
-                    "Serving on more than one socket; cannot determine the port"
-                )
+                raise RuntimeError("Serving on more than one socket; cannot determine the port")
             self.port = server.sockets[0].getsockname()[1]  # type: ignore
         self.url = f"http://127.0.0.1:{self.port}"
 
@@ -191,9 +189,7 @@ class MockOpsGenie:
         """
         if self.reject_next_request:
             self.reject_next_request = False
-            raise web.HTTPInternalServerError(
-                text="Failed by request: reject_next_request true"
-            )
+            raise web.HTTPInternalServerError(text="Failed by request: reject_next_request true")
 
         auth_header = request.headers.get("Authorization", None)
         if auth_header is None:
@@ -201,13 +197,9 @@ class MockOpsGenie:
         try:
             name, value = auth_header.split(None, 1)
         except ValueError:
-            raise web.HTTPForbidden(
-                text="Authorization header must be of the form 'GenieKey {key}'"
-            )
+            raise web.HTTPForbidden(text="Authorization header must be of the form 'GenieKey {key}'")
         if name != "GenieKey":
-            raise web.HTTPForbidden(
-                text="Authorization header must start with GenieKey"
-            )
+            raise web.HTTPForbidden(text="Authorization header must start with GenieKey")
         if value != self.escalation_key:
             raise web.HTTPForbidden(text="Authorization key does not match")
 

@@ -77,9 +77,7 @@ class BaseFilteredFieldWrapper(abc.ABC):
     """
 
     def __init__(self, model, topic, filter_field, filter_value):
-        self.topic_wrapper = model.make_filtered_topic_wrapper(
-            topic=topic, filter_field=filter_field
-        )
+        self.topic_wrapper = model.make_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
         self.filter_value = filter_value
         self.topic_descr = f"{self.topic_wrapper.descr}({filter_field}={filter_value})"
         self.nelts = self._get_nelts(self.topic_wrapper.default_data)
@@ -208,22 +206,16 @@ class FilteredEssFieldWrapper(BaseFilteredFieldWrapper):
         """
         if self.nelts is None:
             if index is not None:
-                raise ValueError(
-                    f"Index={index} must be None for scalar field {self.topic_descr}"
-                )
+                raise ValueError(f"Index={index} must be None for scalar field {self.topic_descr}")
             if self.location_scalar:
                 value_descr = f"{self.location_scalar} from {self.topic_descr}"
             else:
                 value_descr = self.topic_descr
         else:
             if index is None:
-                raise ValueError(
-                    f"Index must not be None for array field {self.topic_descr}"
-                )
+                raise ValueError(f"Index must not be None for array field {self.topic_descr}")
             if index < 0 or index >= self.nelts:
-                raise ValueError(
-                    f"Index {index} out of range [0, {self.nelts}) for {self.topic_descr}"
-                )
+                raise ValueError(f"Index {index} out of range [0, {self.nelts}) for {self.topic_descr}")
             if index < len(self.location_arr):
                 value_descr = f"{self.location_arr[index]} from {self.topic_descr}"
             else:

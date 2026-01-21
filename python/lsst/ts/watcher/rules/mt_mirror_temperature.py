@@ -46,9 +46,7 @@ class MTMirrorTemperature(watcher.PollingRule):
         Parent logger. (the default is None)
     """
 
-    def __init__(
-        self, config: types.SimpleNamespace, log: logging.Logger | None = None
-    ) -> None:
+    def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         remote_name = "MTM2"
         remote_info = RemoteInfo(
             remote_name,

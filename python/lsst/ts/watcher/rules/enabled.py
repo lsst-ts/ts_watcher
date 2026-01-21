@@ -80,9 +80,7 @@ class Enabled(watcher.BaseRule):
 {indent}    type: integer
 {indent}    default: {default_severity.value}
 {indent}    enum:
-""" + "\n".join(
-                f"{indent}    - {severity.value}" for severity in AlarmSeverity
-            )
+""" + "\n".join(f"{indent}    - {severity.value}" for severity in AlarmSeverity)
 
         schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#

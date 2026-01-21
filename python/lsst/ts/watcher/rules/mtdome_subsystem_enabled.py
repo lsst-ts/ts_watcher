@@ -78,17 +78,11 @@ class MTDomeSubsystemEnabled(BaseRule):
     @classmethod
     def get_schema(cls) -> dict[str, typing.Any]:
         enum_str = ", ".join(
-            f"{severity.name}"
-            for severity in AlarmSeverity
-            if severity is not AlarmSeverity.NONE
+            f"{severity.name}" for severity in AlarmSeverity if severity is not AlarmSeverity.NONE
         )
         state_str = ", ".join(state.name for state in State)
         ci = component_info.ComponentInfo(name="MTDome", topic_subname="")
-        events = [
-            topic
-            for topic in ci.topics
-            if topic.startswith("evt_") and topic.endswith("Enabled")
-        ]
+        events = [topic for topic in ci.topics if topic.startswith("evt_") and topic.endswith("Enabled")]
         schema_yaml = f"""
 $schema: 'http://json-schema.org/draft-07/schema#'
 description: Configuration for MTDomeSubsystemEnabled rule.
@@ -154,17 +148,13 @@ additionalProperties: false
         """
 
         if hasattr(data, "faultCode"):
-            self.subsystem_state = SubsystemState(
-                state=EnabledState(data.state), fault_code=data.faultCode
-            )
+            self.subsystem_state = SubsystemState(state=EnabledState(data.state), fault_code=data.faultCode)
             self.log.debug(f"{self.subsystem_state.fault_code=!r}")
         if hasattr(data, "summaryState"):
             self.may_raise = State(data.summaryState).name in self.config.csc_state
             self.log.debug(f"{State(data.summaryState).name=!r}, {self.may_raise=}")
 
-        if not self.may_raise or (
-            not self.subsystem_state or not self.subsystem_state.fault_code
-        ):
+        if not self.may_raise or (not self.subsystem_state or not self.subsystem_state.fault_code):
             severity_and_reason = NoneNoReason
         else:
             severity_and_reason = (

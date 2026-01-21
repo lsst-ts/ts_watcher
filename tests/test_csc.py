@@ -32,9 +32,7 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 2  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
-TEST_CONFIG_DIR = (
-    pathlib.Path(__file__).parents[1] / "tests" / "data" / "config" / "csc"
-)
+TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config" / "csc"
 
 # Time delta to compensate for clock jitter on Docker on macOS (sec).
 TIME_EPSILON = 0.1
@@ -68,15 +66,11 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         data : Alarm data
             The read message.
         """
-        data = await self.assert_next_sample(
-            self.remote.evt_alarm, flush=False, timeout=timeout
-        )
+        data = await self.assert_next_sample(self.remote.evt_alarm, flush=False, timeout=timeout)
 
         for name, value_expected in kwargs.items():
             value_current = getattr(data, name)
-            assert (
-                value_current == value_expected
-            ), f"{name}: {value_current} expected {value_expected}"
+            assert value_current == value_expected, f"{name}: {value_current} expected {value_expected}"
         return data
 
     async def check_all_alarms_events_are_none(self):
@@ -108,9 +102,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_initial_info(self):
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
             await self.assert_next_summary_state(salobj.State.STANDBY)
             assert self.csc.model is None
 
@@ -157,9 +149,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert self.csc.config_dir == desired_config_dir
 
     async def test_configuration_invalid(self):
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
             invalid_files = glob.glob(str(TEST_CONFIG_DIR / "invalid_*.yaml"))
             # Test the invalid files and a blank override
             # (since the schema doesn't have a usable default).
@@ -173,14 +163,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Check that the CSC can still be configured.
             # This also exercises specifying a rule with no configuration.
-            await self.remote.cmd_start.set_start(
-                configurationOverride="basic.yaml", timeout=STD_TIMEOUT
-            )
+            await self.remote.cmd_start.set_start(configurationOverride="basic.yaml", timeout=STD_TIMEOUT)
 
     async def test_standard_state_transitions(self):
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ):
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
             await self.check_standard_state_transitions(
                 enabled_commands=(
                     "acknowledge",
@@ -205,9 +191,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     async def test_escalation_resolve_fails(self):
         await self.check_escalation(resolve_fails=True)
 
-    async def check_escalation(
-        self, service_down=False, trigger_fails=False, resolve_fails=False
-    ):
+    async def check_escalation(self, service_down=False, trigger_fails=False, resolve_fails=False):
         """Check escalation fields in the alarm event.
 
         Run the watcher with two TriggeredSeverity rules,
@@ -228,8 +212,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         escalation_fails = service_down or trigger_fails
         escalation_key = "anything"
         with utils.modify_environ(ESCALATION_KEY=escalation_key):
-            async with watcher.MockSquadCast(port=0) as mock_server, self.make_csc(
-                config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
+            async with (
+                watcher.MockSquadCast(port=0) as mock_server,
+                self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
             ):
                 await salobj.set_summary_state(
                     self.remote, state=salobj.State.ENABLED, override="critical.yaml"
@@ -414,21 +399,18 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     assert len(mock_server.incidents) == 1
                     incident = mock_server.incidents[saved_incident_id]
                     assert incident["event_id"] == saved_incident_id
-                    assert (
-                        incident["status"] == "trigger" if resolve_fails else "resolve"
-                    )
+                    assert incident["status"] == "trigger" if resolve_fails else "resolve"
                     assert "ATDome" in incident["message"]
                     assert "ATDome" in incident["tags"]["alarm_name"]
                     assert alarm1.escalation_responder == incident["tags"]["responder"]
 
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
-            await salobj.set_summary_state(
-                self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
-            )
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+        ):
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
 
             atdome_alarm_name = "Enabled.ATDome:0"
             scriptqueue_alarm_name = "Enabled.ScriptQueue:2"
@@ -444,9 +426,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Set various summary states for ATDome and check
             # the resulting alarms.
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -455,9 +435,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.FAULT, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.FAULT, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.CRITICAL,
@@ -481,9 +459,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set the state to ENABLED; this should reset the alarm.
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -493,9 +469,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Go all the way to standby and back. Alarms should still work.
-            await salobj.set_summary_state(
-                remote=self.remote, state=salobj.State.STANDBY
-            )
+            await salobj.set_summary_state(remote=self.remote, state=salobj.State.STANDBY)
             assert self.csc.model is None
 
             await salobj.set_summary_state(
@@ -504,9 +478,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             await self.check_all_alarms_events_are_none()
 
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -516,9 +488,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_ess_operation_after_standby(self):
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(name="ESS", index=1, write_only=True) as ess_1:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ESS", index=1, write_only=True) as ess_1,
+        ):
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -532,12 +505,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert len(alarm_config.temperature_sensors) == 1
             assert alarm_config.temperature_sensors[0]["sal_index"] == 1
             assert len(alarm_config.temperature_sensors[0]["sensor_info"]) == 1
-            sensor_name = alarm_config.temperature_sensors[0]["sensor_info"][0][
-                "sensor_name"
-            ]
-            ess_1.tel_temperature.set(
-                sensorName=sensor_name, numChannels=1, location="some location"
-            )
+            sensor_name = alarm_config.temperature_sensors[0]["sensor_info"][0]["sensor_name"]
+            ess_1.tel_temperature.set(sensorName=sensor_name, numChannels=1, location="some location")
 
             async def send_temperature_data(temperature):
                 ess_1.tel_temperature.data.temperatureItem[0] = temperature
@@ -568,9 +537,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Send CSC to standby and enabled and try again.
-            await salobj.set_summary_state(
-                remote=self.remote, state=salobj.State.STANDBY
-            )
+            await salobj.set_summary_state(remote=self.remote, state=salobj.State.STANDBY)
             assert self.csc.model is None
             await salobj.set_summary_state(
                 remote=self.remote,
@@ -593,9 +560,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
     async def test_auto_acknowledge_unacknowledge(self):
         user = "chaos"
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+        ):
             await salobj.set_summary_state(
                 self.remote,
                 state=salobj.State.ENABLED,
@@ -617,9 +585,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.check_all_alarms_events_are_none()
 
             # Make the ATDome alarm stale.
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -628,9 +594,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 acknowledgedBy="",
             )
 
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -653,9 +617,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert dt0 >= expected_auto_acknowledge_delay - TIME_EPSILON
 
             # Make the ATDome alarm acknowledged and not stale
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -692,25 +654,18 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
     async def test_show_alarms(self):
         """Test the showAlarms command."""
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(
-            name="ATDome", write_only=True
-        ) as atdome, salobj.Controller(
-            name="ScriptQueue", index=2, write_only=True
-        ) as script_queue2, salobj.Controller(
-            name="ATCamera", write_only=True
-        ) as atcamera:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+            salobj.Controller(name="ScriptQueue", index=2, write_only=True) as script_queue2,
+            salobj.Controller(name="ATCamera", write_only=True) as atcamera,
+        ):
             # Make sure CSCs are in ENABLED
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
             await atcamera.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
-            await script_queue2.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED
-            )
+            await script_queue2.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
 
-            await salobj.set_summary_state(
-                self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
-            )
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
 
             await self.check_all_alarms_events_are_none()
 
@@ -726,9 +681,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.check_all_alarms_events_are_none()
 
             # Fire the ATDome alarm.
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.WARNING,
@@ -764,9 +717,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     acknowledged=False,
                 )
                 alarm_names.append(alarm.name)
-            assert set(alarm_names) == set(
-                ("Enabled.ATDome:0", "Enabled.ScriptQueue:2")
-            )
+            assert set(alarm_names) == set(("Enabled.ATDome:0", "Enabled.ScriptQueue:2"))
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
@@ -786,9 +737,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             # Set ATDome state to ENABLED; this should reset the alarm.
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -803,9 +752,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             seen_alarm_names = set()
             for alarm_name in self.csc.model.rules:
                 alarm_names.add(alarm_name)
-                data = await self.remote.evt_alarm.next(
-                    flush=False, timeout=STD_TIMEOUT
-                )
+                data = await self.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
                 seen_alarm_names.add(data.name)
                 if data.name == scriptqueue_alarm_name:
                     expected_severity = AlarmSeverity.WARNING
@@ -822,20 +769,17 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         """Test the makeLogEntry command."""
 
         # Send the makeLogEntry command.
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(name="ATDome", write_only=True) as atdome:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+        ):
             atdome_alarm_name = "Enabled.ATDome:0"
 
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
-            await salobj.set_summary_state(
-                self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
-            )
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
             await self.check_all_alarms_events_are_none()
 
-            await atdome.evt_summaryState.set_write(
-                summaryState=salobj.State.FAULT, force_output=True
-            )
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.FAULT, force_output=True)
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.CRITICAL,
@@ -856,10 +800,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             post_args = mock_post.call_args.kwargs
             assert post_args["url"] == "https://fake.url.com/narrativelog/messages"
-            assert (
-                post_args["json"]["message_text"]
-                == "alarm:Enabled.ATDome:0 severity=4 FAULT state"
-            )
+            assert post_args["json"]["message_text"] == "alarm:Enabled.ATDome:0 severity=4 FAULT state"
             # The POST response contains three additional keys
             # (user_id, date_begin, date_end) that will vary from
             # test to test.  The are removed from this expected value
@@ -884,23 +825,18 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
     async def test_mute(self):
         """Test the mute and unmute command."""
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(
-            name="ATDome", write_only=True
-        ) as atdome, salobj.Controller(
-            name="ATCamera", write_only=True
-        ) as atcamera, salobj.Controller(
-            name="ScriptQueue", index=2, write_only=True
-        ) as atqueue:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+            salobj.Controller(name="ATCamera", write_only=True) as atcamera,
+            salobj.Controller(name="ScriptQueue", index=2, write_only=True) as atqueue,
+        ):
             # Make sure CSCs are in ENABLED
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
             await atcamera.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
             await atqueue.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
 
-            await salobj.set_summary_state(
-                self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
-            )
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
             nrules = len(self.csc.model.rules)
 
             # All rules should be nominal.
@@ -920,9 +856,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # The first batch of alarm events should be for the muted alarms.
             muted_names = set()
             while len(muted_names) < nrules:
-                data = await self.assert_next_alarm(
-                    mutedSeverity=AlarmSeverity.SERIOUS, mutedBy=user1
-                )
+                data = await self.assert_next_alarm(mutedSeverity=AlarmSeverity.SERIOUS, mutedBy=user1)
                 if data.name in muted_names:
                     raise self.fail(f"Duplicate alarm event for muting {data.name}")
                 muted_names.add(data.name)
@@ -930,13 +864,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # The next batch of alarm events should be for the unmuted alarms.
             unmuted_names = set()
             while len(unmuted_names) < nrules:
-                data = await self.assert_next_alarm(
-                    mutedSeverity=AlarmSeverity.NONE, mutedBy=""
-                )
+                data = await self.assert_next_alarm(mutedSeverity=AlarmSeverity.NONE, mutedBy="")
                 if data.name in unmuted_names:
-                    raise self.fail(
-                        f"Duplicate alarm event for auto-unmuting {data.name}"
-                    )
+                    raise self.fail(f"Duplicate alarm event for auto-unmuting {data.name}")
                 unmuted_names.add(data.name)
 
             # Now mute one rule for a long time, then explicitly unmute it.
@@ -950,17 +880,13 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mutedBy=user2,
                 timeout=STD_TIMEOUT,
             )
-            await self.assert_next_alarm(
-                name=full_name, mutedSeverity=AlarmSeverity.SERIOUS, mutedBy=user2
-            )
+            await self.assert_next_alarm(name=full_name, mutedSeverity=AlarmSeverity.SERIOUS, mutedBy=user2)
             # There should be the only alarm event from the mute command.
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
             await self.remote.cmd_unmute.set_start(name=full_name, timeout=STD_TIMEOUT)
-            await self.assert_next_alarm(
-                name=full_name, mutedSeverity=AlarmSeverity.NONE, mutedBy=""
-            )
+            await self.assert_next_alarm(name=full_name, mutedSeverity=AlarmSeverity.NONE, mutedBy="")
             # There should be the only alarm event from the unmute command.
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=1)
@@ -981,11 +907,10 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     async def test_unacknowledge(self):
         """Test the unacknowledge command."""
         user = "test_unacknowledge"
-        async with self.make_csc(
-            config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY
-        ), salobj.Controller(
-            name="ScriptQueue", index=0, write_only=True
-        ) as script_queue:
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ScriptQueue", index=0, write_only=True) as script_queue,
+        ):
             # Make sure both queues are in ENABLED.
             await script_queue.evt_summaryState.set_write(
                 summaryState=salobj.State.ENABLED, salIndex=1, force_output=True

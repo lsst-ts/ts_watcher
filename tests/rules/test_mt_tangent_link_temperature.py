@@ -55,11 +55,11 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         # 106 is the ESS SAL index for the M2 tangent link temperature
-        async with salobj.Controller("ESS", 106) as controller_ess, salobj.Controller(
-            "MTM2", 0
-        ) as controller_m2, watcher.Model(
-            domain=controller_ess.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("ESS", 106) as controller_ess,
+            salobj.Controller("MTM2", 0) as controller_m2,
+            watcher.Model(domain=controller_ess.domain, config=watcher_config) as model,
+        ):
             rule_name = "MTTangentLinkTemperature.ESS"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
@@ -109,9 +109,7 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 await data_item["topic"].set_write(**data_item["fields"])
 
                 if "expected_severity" in data_item.keys():
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == data_item["expected_severity"]
 
     async def test_operation_timeout(self) -> None:
@@ -119,28 +117,24 @@ class MTTangentLinkTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[
-                dict(classname="MTTangentLinkTemperature", configs=[{"timeout": 0.5}])
-            ],
+            rules=[dict(classname="MTTangentLinkTemperature", configs=[{"timeout": 0.5}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         # 106 is the ESS SAL index for the M2 tangent link temperature
-        async with salobj.Controller("ESS", 106) as controller_ess, salobj.Controller(
-            "MTM2", 0
-        ) as _, watcher.Model(
-            domain=controller_ess.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("ESS", 106) as controller_ess,
+            salobj.Controller("MTM2", 0) as _,
+            watcher.Model(domain=controller_ess.domain, config=watcher_config) as model,
+        ):
             rule_name = "MTTangentLinkTemperature.ESS"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
 
             await model.enable()
 
-            severity_timeout = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity_timeout = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
 
             assert severity_timeout == AlarmSeverity.WARNING
 

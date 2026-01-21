@@ -75,18 +75,10 @@ class MTMountAzimuth(BaseRule):
         self.mtmount_azimuth = Angle(0 * u.deg)
 
         # Time limits and other thresholds.
-        self.time_range_start = datetime.time(
-            hour=self.config.time_range_start, tzinfo=datetime.UTC
-        )
-        self.time_range_end = datetime.time(
-            hour=self.config.time_range_end, tzinfo=datetime.UTC
-        )
-        self.mtmount_azimuth_low_threshold = Angle(
-            self.config.mtmount_azimuth_low_threshold, unit=u.deg
-        )
-        self.mtmount_azimuth_high_threshold = Angle(
-            self.config.mtmount_azimuth_high_threshold, unit=u.deg
-        )
+        self.time_range_start = datetime.time(hour=self.config.time_range_start, tzinfo=datetime.UTC)
+        self.time_range_end = datetime.time(hour=self.config.time_range_end, tzinfo=datetime.UTC)
+        self.mtmount_azimuth_low_threshold = Angle(self.config.mtmount_azimuth_low_threshold, unit=u.deg)
+        self.mtmount_azimuth_high_threshold = Angle(self.config.mtmount_azimuth_high_threshold, unit=u.deg)
 
     @classmethod
     def get_schema(cls):
@@ -207,9 +199,7 @@ additionalProperties: false
         data : `salobj.BaseMsgType`
             The topic data.
         """
-        self._mtdome_aperture_open = (
-            data.positionActual[0] > 0 or data.positionActual[1] > 0
-        )
+        self._mtdome_aperture_open = data.positionActual[0] > 0 or data.positionActual[1] > 0
 
     def process_mtmount_data(self, data: salobj.BaseMsgType) -> None:
         """Process the MTMount data.
@@ -232,9 +222,7 @@ additionalProperties: false
             self._mtmount_azimuth_in_range = False
             return
 
-        self.log.debug(
-            f"{time_now} inside time range [{self.time_range_start}, {self.time_range_end}]."
-        )
+        self.log.debug(f"{time_now} inside time range [{self.time_range_start}, {self.time_range_end}].")
 
         self.mtmount_azimuth = Angle(data.actualPosition, unit=u.deg)
         self._mtmount_azimuth_in_range = self.mtmount_azimuth.is_within_bounds(

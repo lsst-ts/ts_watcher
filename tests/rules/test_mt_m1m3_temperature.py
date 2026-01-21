@@ -60,9 +60,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[
-                dict(classname="MTM1M3Temperature", configs=[self.rule_config_dict])
-            ],
+            rules=[dict(classname="MTM1M3Temperature", configs=[self.rule_config_dict])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
@@ -82,9 +80,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 positionActual=[10.0, 10.0],
             )
             # The alarm doesn't change so no new alarm raised.
-            severity = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
             assert severity == AlarmSeverity.NONE
 
             # Now telemetry from the other systems can be sent that should
@@ -92,9 +88,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             test_data_items = [
                 {
                     "topic": mtm1m3ts.tel_thermalData,
-                    "items": {
-                        "absoluteTemperature": [15, 15, 17, 15] + [math.nan] * 92
-                    },
+                    "items": {"absoluteTemperature": [15, 15, 17, 15] + [math.nan] * 92},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
                     "hour": 16,
@@ -102,9 +96,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 },
                 {
                     "topic": mtm1m3ts.tel_thermalData,
-                    "items": {
-                        "absoluteTemperature": [15, 15, 19, 15] + [math.nan] * 92
-                    },
+                    "items": {"absoluteTemperature": [15, 15, 19, 15] + [math.nan] * 92},
                     "expected_severity": AlarmSeverity.SERIOUS,
                     "expected_reason": "M1M3 temperature change is too high and dome is open.",
                     "hour": 16,
@@ -112,9 +104,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 },
                 {
                     "topic": mtm1m3ts.tel_thermalData,
-                    "items": {
-                        "absoluteTemperature": [15, 15, 21, 15] + [math.nan] * 92
-                    },
+                    "items": {"absoluteTemperature": [15, 15, 21, 15] + [math.nan] * 92},
                     "expected_severity": AlarmSeverity.SERIOUS,
                     "expected_reason": (
                         "M1M3 temperature change is too high, "
@@ -130,8 +120,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 await watcher.write_and_wait(
                     model=model,
                     topic=test_data_item["topic"],
-                    timestamp=(test_data_item["hour"] * 60 + test_data_item["minute"])
-                    * 60.0,
+                    timestamp=(test_data_item["hour"] * 60 + test_data_item["minute"]) * 60.0,
                     **test_data_item["items"],
                 )
                 if (
@@ -143,9 +132,7 @@ class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                             rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
                         )
                 else:
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == test_data_item["expected_severity"]
                     previous_severity = severity
 

@@ -49,15 +49,16 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         # Dict of sensor_name: FilteredEssFieldWrapper
         field_wrappers = dict()
 
-        async with salobj.Controller(
-            name="ESS", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="ESS",
-            index=self.index,
-            readonly=True,
-            include=["dewPoint"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="ESS", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="ESS",
+                index=self.index,
+                readonly=True,
+                include=["dewPoint"],
+            ) as remote,
+        ):
             topic = remote.tel_dewPoint
 
             topic_wrapper = None
@@ -73,9 +74,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 if i == 0:
                     # The first filtered field wrapper should create
                     # a filtered topic wrapper
-                    topic_wrapper = model.get_filtered_topic_wrapper(
-                        topic=topic, filter_field=filter_field
-                    )
+                    topic_wrapper = model.get_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
 
                     # Test that a TopicCallback was created
                     # and the topic wrapper added
@@ -118,9 +117,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_values[sensor_name] = data_dict[data_field]
                 topic_wrapper.call_event.clear()
                 await controller.tel_dewPoint.set_write(**data_dict)
-                await asyncio.wait_for(
-                    topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
-                )
+                await asyncio.wait_for(topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 for sensor_name in filter_values:
                     field_wrapper = field_wrappers[sensor_name]
                     if expected_values[sensor_name] is None:
@@ -129,9 +126,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         expected_location_str = ""
                     else:
                         assert field_wrapper.value == expected_values[sensor_name]
-                        expected_timestamp = topic_wrapper.data_cache[
-                            sensor_name
-                        ].private_sndStamp
+                        expected_timestamp = topic_wrapper.data_cache[sensor_name].private_sndStamp
                         assert field_wrapper.timestamp == expected_timestamp
                         expected_location_str = location_str_dict[sensor_name]
 
@@ -161,23 +156,22 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         # Dict of (sensor_name, indices): IndexedFilteredEssFieldWrapper
         indexed_field_wrappers = dict()
 
-        async with salobj.Controller(
-            name="ESS", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="ESS",
-            index=self.index,
-            readonly=True,
-            include=["temperature"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="ESS", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="ESS",
+                index=self.index,
+                readonly=True,
+                include=["temperature"],
+            ) as remote,
+        ):
             topic = remote.tel_temperature
             temperature_len = len(topic.DataType().temperatureItem)
 
             # Make a location_str with fewer entries than channels, in order to
             # test get_value_descr's handling of missing entries.
-            location_arr = [
-                f"location for thermometer {i+1}" for i in range(temperature_len // 2)
-            ]
+            location_arr = [f"location for thermometer {i + 1}" for i in range(temperature_len // 2)]
             location_str = ", ".join(location_arr)
 
             # Note: there is no difference between
@@ -203,9 +197,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 if i == 0:
                     # The first filtered field wrapper should create
                     # a filtered topic wrapper
-                    topic_wrapper = model.get_filtered_topic_wrapper(
-                        topic=topic, filter_field=filter_field
-                    )
+                    topic_wrapper = model.get_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
 
                     # Test that a TopicCallback was created
                     # and the topic wrapper added.
@@ -228,9 +220,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         field_name=data_field,
                         indices=indices,
                     )
-                    indexed_field_wrappers[(sensor_name, indices)] = (
-                        indexed_field_wrapper
-                    )
+                    indexed_field_wrappers[(sensor_name, indices)] = indexed_field_wrapper
 
                     # Test indexed field wrapper attributes
                     assert indexed_field_wrapper.topic_wrapper is topic_wrapper
@@ -253,10 +243,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             data_dict_list = []
             for i in range(5):
                 sensor_name = next(filter_cycle)
-                location_arr = [
-                    f"location for thermometer {i+1}"
-                    for i in range(temperature_len // 2)
-                ]
+                location_arr = [f"location for thermometer {i + 1}" for i in range(temperature_len // 2)]
                 location_str = ", ".join(location_arr)
                 data_dict_list.append(
                     {
@@ -273,9 +260,7 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 expected_values[sensor_name] = data_dict[data_field]
                 topic_wrapper.call_event.clear()
                 await controller.tel_temperature.set_write(**data_dict)
-                await asyncio.wait_for(
-                    topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT
-                )
+                await asyncio.wait_for(topic_wrapper.call_event.wait(), timeout=STD_TIMEOUT)
                 for sensor_name in filter_values:
                     expected_value = expected_values[sensor_name]
                     field_wrapper = field_wrappers[sensor_name]
@@ -283,22 +268,16 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                         assert field_wrapper.value is None
                         assert field_wrapper.timestamp is None
                         for indices in indices_list:
-                            indexed_field_wrapper = indexed_field_wrappers[
-                                (sensor_name, indices)
-                            ]
+                            indexed_field_wrapper = indexed_field_wrappers[(sensor_name, indices)]
                             assert indexed_field_wrapper.value is None
                             assert indexed_field_wrapper.timestamp is None
                         expected_location_str = ""
                     else:
-                        expected_timestamp = topic_wrapper.data_cache[
-                            sensor_name
-                        ].private_sndStamp
+                        expected_timestamp = topic_wrapper.data_cache[sensor_name].private_sndStamp
                         assert field_wrapper.value == expected_value
                         assert field_wrapper.timestamp == expected_timestamp
                         for indices in indices_list:
-                            indexed_field_wrapper = indexed_field_wrappers[
-                                (sensor_name, indices)
-                            ]
+                            indexed_field_wrapper = indexed_field_wrappers[(sensor_name, indices)]
                             assert field_wrapper.value == expected_value
                             assert indexed_field_wrapper.timestamp == expected_timestamp
                         expected_location_str = location_str_dict[sensor_name]
@@ -324,15 +303,16 @@ class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         array_len = 16
         scalar_field_name = "timestamp"
 
-        async with salobj.Controller(
-            name="ESS", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="ESS",
-            index=self.index,
-            readonly=True,
-            include=["temperature"],
-        ) as remote:
+        async with (
+            salobj.Controller(name="ESS", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="ESS",
+                index=self.index,
+                readonly=True,
+                include=["temperature"],
+            ) as remote,
+        ):
             topic = remote.tel_temperature
 
             good_indices = (0,)  # safe for any array field

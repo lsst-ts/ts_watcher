@@ -49,11 +49,10 @@ class ATeStopTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="ATPneumatics", index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ATPneumatics", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             test_data_items = [False, True]
 
             rule_name = "eStop.ATPneumatics"
@@ -69,9 +68,7 @@ class ATeStopTestCase(unittest.IsolatedAsyncioTestCase):
                     summaryState=csc_state,
                 )
                 for data_item in test_data_items:
-                    await watcher.write_and_wait(
-                        model=model, topic=controller.evt_eStop, triggered=data_item
-                    )
+                    await watcher.write_and_wait(model=model, topic=controller.evt_eStop, triggered=data_item)
                     if (csc_state == State.DISABLED and data_item is False) or (
                         csc_state == State.ENABLED and data_item is True
                     ):

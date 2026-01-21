@@ -39,11 +39,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
         self.configpath = (
-            pathlib.Path(__file__).resolve().parent.parent
-            / "data"
-            / "config"
-            / "rules"
-            / "atcamera_dewar"
+            pathlib.Path(__file__).resolve().parent.parent / "data" / "config" / "rules" / "atcamera_dewar"
         )
 
     def get_config(self, filepath):
@@ -91,9 +87,10 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(name="ATCamera") as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ATCamera") as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
@@ -131,9 +128,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
                         assert not rule.had_enough_data
                         assert rule.alarm.nominal
 
-                        await watcher.write_and_wait(
-                            model=model, topic=controller.tel_vacuum, **data_dict
-                        )
+                        await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **data_dict)
                         assert rule.alarm.severity == expected_severity
                         assert rule.had_enough_data
 
@@ -182,9 +177,10 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(name="ATCamera") as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ATCamera") as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
@@ -250,16 +246,10 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # (despite the mix of bad data and nominal data, because
             # the rule uses median and there is more bad data).
             for i in range(num_good_message):
-                await watcher.write_and_wait(
-                    model=model, topic=controller.tel_vacuum, **nominal_data_dict
-                )
+                await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
                 assert rule.alarm.severity == AlarmSeverity.SERIOUS
-            temperature_expiry_duration = (
-                bad_temperature_expiry_tai + 0.1 - utils.current_tai()
-            )
-            print(
-                f"temperature_expiry_duration={temperature_expiry_duration:0.2f}; must be > 0"
-            )
+            temperature_expiry_duration = bad_temperature_expiry_tai + 0.1 - utils.current_tai()
+            print(f"temperature_expiry_duration={temperature_expiry_duration:0.2f}; must be > 0")
             assert temperature_expiry_duration > 0
             assert rule.had_enough_data
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
@@ -272,16 +262,13 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             # At this point the temperature data should have expired
             # but the vacuum data should not.
             # We have to put data to see the effects of that expiration.
-            await watcher.write_and_wait(
-                model=model, topic=controller.tel_vacuum, **nominal_data_dict
-            )
+            await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
 
             vacuum_expiry_duration = bad_vacuum_expiry_tai > utils.current_tai()
             print(f"vacuum_expiry_duration={vacuum_expiry_duration:0.2f}; must be >0")
             assert vacuum_expiry_duration > 0, (
-                f"vacuum_expiry_duration={vacuum_expiry_duration} <= 0; "
-                "test is running too slowly to work"
+                f"vacuum_expiry_duration={vacuum_expiry_duration} <= 0; test is running too slowly to work"
             )
             assert rule.had_enough_data
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
@@ -296,9 +283,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
 
             # At this point all bad data should have expired
             # We have to put data to see the effects of that expiration.
-            await watcher.write_and_wait(
-                model=model, topic=controller.tel_vacuum, **nominal_data_dict
-            )
+            await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
             assert rule.alarm.severity == AlarmSeverity.NONE
 
     async def test_no_data(self):
@@ -321,9 +306,10 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(name="ATCamera") as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ATCamera") as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             assert rule.alarm.nominal
@@ -340,9 +326,7 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             )
 
             for i in range(rule_config_dict["min_values"]):
-                await watcher.write_and_wait(
-                    model=model, topic=controller.tel_vacuum, **nominal_data_dict
-                )
+                await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
                 assert rule.alarm.severity == AlarmSeverity.NONE
 
             # Wait for the timer to expire and make sure alarm goes to Seious
@@ -351,16 +335,12 @@ class ATCameraDewarTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
 
             # writes data again, alarm will go to Warning
-            await watcher.write_and_wait(
-                model=model, topic=controller.tel_vacuum, **nominal_data_dict
-            )
+            await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
             assert rule.alarm.severity == AlarmSeverity.WARNING
 
             # writes data again, alarm will go to None
             for i in range(rule_config_dict["min_values"]):
-                await watcher.write_and_wait(
-                    model=model, topic=controller.tel_vacuum, **nominal_data_dict
-                )
+                await watcher.write_and_wait(model=model, topic=controller.tel_vacuum, **nominal_data_dict)
                 assert rule.alarm.severity == AlarmSeverity.NONE
 
             assert rule.alarm.severity == AlarmSeverity.NONE

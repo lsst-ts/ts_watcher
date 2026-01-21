@@ -261,9 +261,7 @@ class BaseEssRule(PollingRule):
             return severity_reason
 
         # We got data; use the most pessimistic measured value.
-        reported_value, field_wrapper, wrapper_index = max(
-            reported_values, key=lambda v: v[0]
-        )
+        reported_value, field_wrapper, wrapper_index = max(reported_values, key=lambda v: v[0])
         source_descr = field_wrapper.get_value_descr(wrapper_index)
         return self.threshold_handler.get_severity_reason(
             value=reported_value,

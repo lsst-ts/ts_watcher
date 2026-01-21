@@ -42,11 +42,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
         self.configpath = (
-            pathlib.Path(__file__).resolve().parent.parent
-            / "data"
-            / "config"
-            / "rules"
-            / "over_temperature"
+            pathlib.Path(__file__).resolve().parent.parent / "data" / "config" / "rules" / "over_temperature"
         )
         # Number of values to set to real temperatures; the rest are NaN.
         self.num_valid_temperatures = 12
@@ -98,13 +94,11 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="ESS", index=1
-        ) as controller1, salobj.Controller(
-            name="ESS", index=5
-        ) as controller5, watcher.Model(
-            domain=controller1.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="ESS", index=1) as controller1,
+            salobj.Controller(name="ESS", index=5) as controller5,
+            watcher.Model(domain=controller1.domain, config=watcher_config) as model,
+        ):
             assert len(model.rules) == 1
             rule = list(model.rules.values())[0]
             rule.alarm.init_severity_queue()
@@ -153,10 +147,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
             await asyncio.sleep(max_data_age + poll_interval * 2)
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
-            assert (
-                rule.alarm.reason
-                == f"No tel_temperature data seen for {max_data_age} seconds"
-            )
+            assert rule.alarm.reason == f"No tel_temperature data seen for {max_data_age} seconds"
 
             # Check that alarm is not continuously republished
             rule.alarm.flush_severity_queue()
@@ -203,8 +194,7 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         """
         if verbose:
             print(
-                f"send_ess_data(temperature={temperature}, "
-                f"use_other_filter_values={use_other_filter_values}"
+                f"send_ess_data(temperature={temperature}, use_other_filter_values={use_other_filter_values}"
             )
 
         delta_temperature = 2
@@ -215,16 +205,12 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
             print(f"normal_temperature={normal_temperature}")
 
         rng = numpy.random.default_rng(seed=314)
-        pessimistic_temperature_filter_value = rng.choice(
-            list(temperature_topics.keys())
-        )
+        pessimistic_temperature_filter_value = rng.choice(list(temperature_topics.keys()))
         for filter_value, (topic, indices) in temperature_topics.items():
             num_temperatures = len(topic.data.temperatureItem)
             assert self.num_valid_temperatures < num_temperatures
             num_nans = num_temperatures - self.num_valid_temperatures
-            temperatures = [normal_temperature] * self.num_valid_temperatures + [
-                math.nan
-            ] * num_nans
+            temperatures = [normal_temperature] * self.num_valid_temperatures + [math.nan] * num_nans
             if filter_value == pessimistic_temperature_filter_value:
                 if indices is None:
                     pessimistic_index = rng.choice(range(self.num_valid_temperatures))

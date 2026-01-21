@@ -60,9 +60,7 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
     def test_config_validation(self):
         # Check defaults
         minimal_config_dict = dict(name="ESS:1")
-        minimal_config = watcher.rules.PowerGeneratorRunning.make_config(
-            **minimal_config_dict
-        )
+        minimal_config = watcher.rules.PowerGeneratorRunning.make_config(**minimal_config_dict)
         assert minimal_config.name == minimal_config_dict["name"]
         assert minimal_config.severity == AlarmSeverity.WARNING.name
 
@@ -71,9 +69,7 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
             name="ESS:1",
             severity=AlarmSeverity.SERIOUS.name,
         )
-        good_config = watcher.rules.PowerGeneratorRunning.make_config(
-            **good_config_dict
-        )
+        good_config = watcher.rules.PowerGeneratorRunning.make_config(**good_config_dict)
         for key, value in good_config_dict.items():
             assert getattr(good_config, key) == value
 
@@ -108,12 +104,8 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name=name, index=index) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
-                await controller.tel_agcGenset150.set_write(
-                    running=False, force_output=True
-                )
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
+                await controller.tel_agcGenset150.set_write(running=False, force_output=True)
 
                 await asyncio.sleep(STD_TIMEOUT)
 
@@ -130,11 +122,7 @@ class PowerGeneratorRunningTestCase(unittest.IsolatedAsyncioTestCase):
                     else:
                         expected_severity = AlarmSeverity.WARNING
 
-                    await controller.tel_agcGenset150.set_write(
-                        running=running_state, force_output=True
-                    )
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    await controller.tel_agcGenset150.set_write(running=running_state, force_output=True)
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()

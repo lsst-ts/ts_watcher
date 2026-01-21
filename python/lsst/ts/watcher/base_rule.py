@@ -95,9 +95,7 @@ class BaseRule(abc.ABC):
         self.current_severity = None
         self.current_reason = None
         self.log = (
-            logging.getLogger(type(self).__name__)
-            if log is None
-            else log.getChild(type(self).__name__)
+            logging.getLogger(type(self).__name__) if log is None else log.getChild(type(self).__name__)
         )
 
         # The model sets the callback and auto delays
@@ -260,15 +258,11 @@ class BaseRule(abc.ABC):
             * topic_callback : `TopicCallback`
               Topic callback wrapper.
         """
-        severity_reason = self._get_publish_severity_reason(
-            self.compute_alarm_severity(**kwargs)
-        )
+        severity_reason = self._get_publish_severity_reason(self.compute_alarm_severity(**kwargs))
 
         if severity_reason is not None:
             self.log.debug(f"{severity_reason=}")
-            await self.alarm.set_severity(
-                severity=severity_reason[0], reason=severity_reason[1]
-            )
+            await self.alarm.set_severity(severity=severity_reason[0], reason=severity_reason[1])
 
     @abc.abstractmethod
     def compute_alarm_severity(self, **kwargs: typing.Any) -> AlarmSeverityReasonType:

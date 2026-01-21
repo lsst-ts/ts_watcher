@@ -89,9 +89,7 @@ class MTMountAzimuthTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=mtdome.tel_apertureShutter,
                 positionActual=[0.0, 0.0],
             )
-            severity = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
             assert severity == AlarmSeverity.NONE
 
             # Make sure that we are inside the alarm time range.
@@ -103,9 +101,7 @@ class MTMountAzimuthTestCase(unittest.IsolatedAsyncioTestCase):
             )
             # The alarm doesn't change so no new alarm raised.
             with pytest.raises(TimeoutError):
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
 
             # Make sure that the aperture shutter is open.
             get_now_utc.return_value = datetime.time(hour=8, tzinfo=datetime.UTC)
@@ -116,18 +112,12 @@ class MTMountAzimuthTestCase(unittest.IsolatedAsyncioTestCase):
             )
             # The alarm doesn't change so no new alarm raised.
             with pytest.raises(TimeoutError):
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
+                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
 
             # Make sure that the MTMount is in the azimuth range.
-            await watcher.write_and_wait(
-                model=model, topic=mtmount.tel_azimuth, actualPosition=10.0
-            )
+            await watcher.write_and_wait(model=model, topic=mtmount.tel_azimuth, actualPosition=10.0)
             # Now there should be a serious alarm.
-            severity = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
             assert severity == AlarmSeverity.SERIOUS
 
             # Make sure that the aperture shutter is closed.
@@ -138,7 +128,5 @@ class MTMountAzimuthTestCase(unittest.IsolatedAsyncioTestCase):
                 positionActual=[0.0, 0.0],
             )
             # Now there should be a warning alarm.
-            severity = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
             assert severity == AlarmSeverity.WARNING

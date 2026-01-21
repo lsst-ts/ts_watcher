@@ -61,9 +61,7 @@ class MTCCWFollowingRotatorTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         async with salobj.Controller(name="MTMount", index=0) as controller:
-            async with watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
                 await model.enable()
 
                 assert len(model.rules) == 1
