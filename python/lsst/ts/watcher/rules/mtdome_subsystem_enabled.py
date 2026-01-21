@@ -25,6 +25,7 @@ import typing
 from dataclasses import dataclass
 
 import yaml
+
 from lsst.ts import salobj
 from lsst.ts.xml import component_info
 from lsst.ts.xml.enums.MTDome import EnabledState

@@ -26,6 +26,7 @@ __all__ = ["ScriptFailed"]
 import typing
 
 import yaml
+
 from lsst.ts import watcher
 from lsst.ts.xml.enums.Script import ScriptState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

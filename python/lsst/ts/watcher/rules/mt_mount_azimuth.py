@@ -27,6 +27,7 @@ import typing
 import astropy.units as u
 import yaml
 from astropy.coordinates import Angle
+
 from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

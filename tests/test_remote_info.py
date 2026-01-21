@@ -22,6 +22,7 @@
 import unittest
 
 import pytest
+
 from lsst.ts import watcher
 
 

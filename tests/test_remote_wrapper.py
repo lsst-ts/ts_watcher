@@ -23,6 +23,7 @@ import asyncio
 import unittest
 
 import pytest
+
 from lsst.ts import salobj, utils, watcher
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)

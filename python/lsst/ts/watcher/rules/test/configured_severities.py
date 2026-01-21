@@ -24,6 +24,7 @@ __all__ = ["ConfiguredSeverities"]
 import asyncio
 
 import yaml
+
 from lsst.ts import utils, watcher
 
 
