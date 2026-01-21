@@ -7,7 +7,7 @@ name = "ts_watcher"
 description = "A CSC which monitors other SAL components and issues alarms for the Vera C. Rubin Observatory."
 license = { text = "GPL" }
 classifiers = ["Programming Language :: Python :: 3"]
-urls = { documentation = "https://ts-watcher.lsst.io", repository = "https://github.com/lsst-ts/ts_watcher" }
+urls = { documentation = "https://ts-watcher.lsst.io", source_code = "https://github.com/lsst-ts/ts_watcher" }
 dynamic = ["version"]
 
 [tool.setuptools.dynamic]
