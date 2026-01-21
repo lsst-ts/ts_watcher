@@ -24,6 +24,7 @@ import types
 import unittest
 
 import numpy as np
+
 from lsst.ts import salobj, watcher
 from lsst.ts.watcher.rules import MTTangentLinkTemperature
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

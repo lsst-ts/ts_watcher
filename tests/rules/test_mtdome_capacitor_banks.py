@@ -27,8 +27,8 @@ import unittest
 from lsst.ts import salobj, watcher
 from lsst.ts.watcher.rules import MTDomeCapacitorBanks
 from lsst.ts.xml.enums.MTDome import MotionState, OperationalMode
-from lsst.ts.xml.sal_enums import State
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 STD_TIMEOUT = 5  # Standard timeout time (seconds)
 

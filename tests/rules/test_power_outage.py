@@ -27,6 +27,7 @@ import unittest
 from unittest import mock
 
 import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.watcher.rules import PowerOutage
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

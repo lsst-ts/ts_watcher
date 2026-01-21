@@ -24,6 +24,7 @@ __all__ = ["MTAirCompressorsState"]
 import typing
 
 import yaml
+
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

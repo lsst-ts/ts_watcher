@@ -25,6 +25,7 @@ import itertools
 import unittest
 
 import pytest
+
 from lsst.ts import utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

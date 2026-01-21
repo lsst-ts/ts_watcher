@@ -24,6 +24,7 @@ __all__ = ["GenericBoolean"]
 import typing
 
 import yaml
+
 from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

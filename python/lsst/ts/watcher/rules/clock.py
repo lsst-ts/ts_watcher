@@ -23,6 +23,7 @@ __all__ = ["Clock"]
 
 import numpy as np
 import yaml
+
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

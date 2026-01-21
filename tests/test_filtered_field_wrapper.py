@@ -26,6 +26,7 @@ import unittest
 import numpy as np
 import numpy.random
 import pytest
+
 from lsst.ts import salobj, utils, watcher
 
 index_gen = utils.index_generator()
