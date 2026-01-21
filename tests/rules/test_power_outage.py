@@ -40,11 +40,7 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_random_lsst_dds_partition_prefix()
         self.index = next(index_gen)
         self.configpath = (
-            pathlib.Path(__file__).resolve().parent.parent
-            / "data"
-            / "config"
-            / "rules"
-            / "power_outage"
+            pathlib.Path(__file__).resolve().parent.parent / "data" / "config" / "rules" / "power_outage"
         )
         self.curr_tai = 630720100.0
 
@@ -84,14 +80,11 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        with mock.patch(
-            "lsst.ts.watcher.rules.power_outage.utils.current_tai", self.current_tai
-        ):
-            async with salobj.Controller(
-                name="ESS", index=303
-            ) as controller, watcher.Model(
-                domain=controller.domain, config=watcher_config
-            ) as model:
+        with mock.patch("lsst.ts.watcher.rules.power_outage.utils.current_tai", self.current_tai):
+            async with (
+                salobj.Controller(name="ESS", index=303) as controller,
+                watcher.Model(domain=controller.domain, config=watcher_config) as model,
+            ):
                 test_data_items = [
                     {
                         "topic": controller.tel_xups,
@@ -139,12 +132,7 @@ class PowerOutageTestCase(unittest.IsolatedAsyncioTestCase):
                 num_zeros_schneider = 0
                 for index, data_item in enumerate(test_data_items):
                     if index == 2:
-                        self.curr_tai += (
-                            watcher_config.rules[0]["configs"][0][
-                                "generator_startup_time"
-                            ]
-                            + 1.0
-                        )
+                        self.curr_tai += watcher_config.rules[0]["configs"][0]["generator_startup_time"] + 1.0
                     await self.send_ess_data(
                         model=model,
                         topic=data_item["topic"],

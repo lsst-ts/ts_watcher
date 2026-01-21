@@ -149,16 +149,12 @@ class TopicCallback:
             try:
                 wrapper(data=data, topic_callback=self)
             except Exception:
-                self._topic.log.exception(
-                    f"Error calling wrapper {wrapper} with data {data!s}"
-                )
+                self._topic.log.exception(f"Error calling wrapper {wrapper} with data {data!s}")
                 pass
         for rule in self.rules.values():
             try:
                 await rule.update_alarm_severity(data=data, topic_callback=self)
             except Exception:
-                self._topic.log.exception(
-                    f"Error calling rule {rule} with data {data!s}"
-                )
+                self._topic.log.exception(f"Error calling rule {rule} with data {data!s}")
                 pass
         self.call_event.set()

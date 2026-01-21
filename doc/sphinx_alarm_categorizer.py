@@ -46,9 +46,7 @@ class AlarmCategorizer(SphinxDirective):
                 from lsst.ts.watcher import rules
             except ImportError:
                 error = nodes.error()
-                error += nodes.paragraph(
-                    text="Error: Could not import lsst.ts.watcher.rules"
-                )
+                error += nodes.paragraph(text="Error: Could not import lsst.ts.watcher.rules")
                 return [error]
 
         # Categories and their order
@@ -85,9 +83,7 @@ class AlarmCategorizer(SphinxDirective):
             if attr_name.startswith("_") or attr_name == "test":
                 continue
             attr = getattr(rules, attr_name)
-            if inspect.isclass(attr) and attr.__module__.startswith(
-                "lsst.ts.watcher.rules"
-            ):
+            if inspect.isclass(attr) and attr.__module__.startswith("lsst.ts.watcher.rules"):
                 rule_classes.append(attr)
 
         # Categorize rule classes
@@ -115,9 +111,7 @@ class AlarmCategorizer(SphinxDirective):
 
             # Category header
             cat_section = nodes.section()
-            cat_section["ids"].append(
-                f"alarm-category-{category.lower().replace(' ', '-')}"
-            )
+            cat_section["ids"].append(f"alarm-category-{category.lower().replace(' ', '-')}")
             cat_title = nodes.title(text=f"{category} Alarms")
             cat_section += cat_title
 
@@ -139,9 +133,7 @@ class AlarmCategorizer(SphinxDirective):
                     first_para_lines = []
                     for line in lines:
                         line = line.strip()
-                        if (
-                            not line and first_para_lines
-                        ):  # Empty line after content marks paragraph end
+                        if not line and first_para_lines:  # Empty line after content marks paragraph end
                             break
                         if line:  # Skip empty lines at the beginning
                             first_para_lines.append(line)
@@ -149,9 +141,7 @@ class AlarmCategorizer(SphinxDirective):
                     first_para = " ".join(first_para_lines)
                     # Split long line into multiple lines
                     para += nodes.Text(
-                        " - "
-                        + first_para[:79]
-                        + (first_para[79:] if len(first_para) > 79 else "")
+                        " - " + first_para[:79] + (first_para[79:] if len(first_para) > 79 else "")
                     )
 
                 cat_section += para

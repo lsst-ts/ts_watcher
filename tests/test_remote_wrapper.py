@@ -39,9 +39,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         self.index = next(index_gen)
 
     async def test_all_names(self):
-        async with salobj.Controller(
-            name="Test", index=self.index, write_only=True
-        ) as controller:
+        async with salobj.Controller(name="Test", index=self.index, write_only=True) as controller:
             remote = salobj.Remote(
                 domain=controller.salinfo.domain,
                 name="Test",
@@ -58,9 +56,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 assert not hasattr(remote, name)
 
             wrapper = watcher.RemoteWrapper(remote=remote, topic_names=topic_names)
-            desired_attr_name = (
-                remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
-            )
+            desired_attr_name = remote.salinfo.name.lower() + "_" + str(remote.salinfo.index)
             assert wrapper.attr_name == desired_attr_name
 
             # Check that all topics have been added
@@ -112,9 +108,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
                 assert not hasattr(remote, name)
 
             evt_wrapper = watcher.RemoteWrapper(remote=remote, topic_names=event_names)
-            tel_wrapper = watcher.RemoteWrapper(
-                remote=remote, topic_names=telemetry_names
-            )
+            tel_wrapper = watcher.RemoteWrapper(remote=remote, topic_names=telemetry_names)
 
             # Check that all topics have been added to the remote.
             for name in event_names + telemetry_names:
@@ -142,9 +136,7 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor_error(self):
         async with salobj.Domain() as domain:
-            remote = salobj.Remote(
-                domain=domain, name="Test", index=self.index, readonly=True, start=False
-            )
+            remote = salobj.Remote(domain=domain, name="Test", index=self.index, readonly=True, start=False)
 
             for bad_topic_names in (
                 ["noprefix"],
@@ -156,6 +148,4 @@ class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             ):
                 with self.subTest(bad_topic_names=bad_topic_names):
                     with pytest.raises(ValueError):
-                        watcher.RemoteWrapper(
-                            remote=remote, topic_names=bad_topic_names
-                        )
+                        watcher.RemoteWrapper(remote=remote, topic_names=bad_topic_names)

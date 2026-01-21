@@ -123,9 +123,7 @@ class ThresholdHandler:
         try:
             f"{1.0:{value_format}}"
         except ValueError:
-            raise ValueError(
-                f"value_format={value_format} is not a valid float value format"
-            )
+            raise ValueError(f"value_format={value_format} is not a valid float value format")
         self.main_msg_dict = {
             severity: msg + ": "
             for severity, msg in (
@@ -153,8 +151,7 @@ class ThresholdHandler:
 
         if not severity_scaled_level_dict:
             raise ValueError(
-                "At least one of warning_level, serious_level, "
-                "or critical_level must be specified."
+                "At least one of warning_level, serious_level, or critical_level must be specified."
             )
         # Dict of severity: scaled threshold level, sorted by decreasing
         # severity, and only including severities that have threshold levels.
@@ -171,19 +168,14 @@ class ThresholdHandler:
                 continue
             prev_severity, prev_scaled_level = prev_severity_scaled_level
             prev_level = prev_scaled_level * self.scale
-            if (
-                prev_scaled_level <= scaled_level
-                or prev_scaled_level - grown_hysteresis <= scaled_level
-            ):
+            if prev_scaled_level <= scaled_level or prev_scaled_level - grown_hysteresis <= scaled_level:
                 # Something is wrong.
                 # I defer message formatting until we know there's a problem,
                 # to save a bit of time. It does mean testing one of the error
                 # conditions twice, but once we are raising an exception,
                 # time no longer is as important.
                 if unused_level_names:
-                    unused_levels_descr = (
-                        f" (ignoring unused levels {', '.join(unused_level_names)}"
-                    )
+                    unused_levels_descr = f" (ignoring unused levels {', '.join(unused_level_names)}"
                 else:
                     unused_levels_descr = ""
                 levels_descr = (
@@ -191,9 +183,7 @@ class ThresholdHandler:
                     f"{prev_severity.name.lower()}_level={prev_level}"
                 )
                 if prev_scaled_level <= scaled_level:
-                    raise ValueError(
-                        f"{levels_descr} are out of order{unused_levels_descr}."
-                    )
+                    raise ValueError(f"{levels_descr} are out of order{unused_levels_descr}.")
                 else:
                     raise ValueError(
                         f"{levels_descr} are not separated by at least "
@@ -239,13 +229,8 @@ class ThresholdHandler:
             if math.isclose(self.level_periods[severity], 0.0):
                 # Immediately trigger an alarm if a value exceeds a threshold.
                 if scaled_value > scaled_level:
-                    return make_severity_reason(
-                        severity=severity, with_hysteresis=False
-                    )
-                elif (
-                    current_severity == severity
-                    and scaled_value > scaled_level - self.hysteresis
-                ):
+                    return make_severity_reason(severity=severity, with_hysteresis=False)
+                elif current_severity == severity and scaled_value > scaled_level - self.hysteresis:
                     return make_severity_reason(severity=severity, with_hysteresis=True)
             else:
                 # Only trigger an alarm if the change in a value exceeds a
@@ -261,9 +246,7 @@ class ThresholdHandler:
                 temperatures = [temp for temp in self.value_dict.values()]
                 # Determine if the temp change is too high.
                 if max(temperatures) - min(temperatures) > scaled_level:
-                    return make_severity_reason(
-                        severity=severity, with_hysteresis=False
-                    )
+                    return make_severity_reason(severity=severity, with_hysteresis=False)
 
         return NoneNoReason
 
@@ -319,14 +302,10 @@ class ThresholdHandler:
                 else:
                     # Append the smallest value that should trigger this
                     # severity (just above the threshold level).
-                    scaled_value_severity_list.append(
-                        (scaled_level + epsilon, severity)
-                    )
+                    scaled_value_severity_list.append((scaled_level + epsilon, severity))
                 # Append the smallest value that keeps this severity triggered
                 # (almost hysteresis below the threshold level).
-                scaled_value_severity_list.append(
-                    (scaled_level - self.hysteresis + epsilon, severity)
-                )
+                scaled_value_severity_list.append((scaled_level - self.hysteresis + epsilon, severity))
                 prev_scaled_level = scaled_level
 
             # Append the largest value that will drop to severity NONE
@@ -339,8 +318,7 @@ class ThresholdHandler:
 
         # Unscale the levels and return the result
         return [
-            (scaled_level * self.scale, severity)
-            for scaled_level, severity in scaled_value_severity_list
+            (scaled_level * self.scale, severity) for scaled_level, severity in scaled_value_severity_list
         ]
 
     def _make_severity_reason(

@@ -63,9 +63,7 @@ class BadEnabledRule(watcher.rules.Enabled):
         self, expected_num_callbacks: int, timeout: float = STD_TIMEOUT
     ) -> None:
         """Wait for the functor to be called and check num_callbacks."""
-        num_callbacks = await asyncio.wait_for(
-            self.num_callbacks_queue.get(), timeout=timeout
-        )
+        num_callbacks = await asyncio.wait_for(self.num_callbacks_queue.get(), timeout=timeout)
         assert num_callbacks == expected_num_callbacks
         assert self.num_callbacks_queue.empty()
 
@@ -91,13 +89,9 @@ class BadTopicWrapper(watcher.FilteredTopicWrapper):
         self.num_callbacks_queue.put_nowait(self.num_callbacks)
         raise RuntimeError("BadTopicWrapper.__call__ intentionally raises")
 
-    async def assert_next_num_callbacks(
-        self, expected_num_callbacks, timeout=STD_TIMEOUT
-    ):
+    async def assert_next_num_callbacks(self, expected_num_callbacks, timeout=STD_TIMEOUT):
         """Wait for the functor to be called and check num_callbacks."""
-        num_callbacks = await asyncio.wait_for(
-            self.num_callbacks_queue.get(), timeout=timeout
-        )
+        num_callbacks = await asyncio.wait_for(self.num_callbacks_queue.get(), timeout=timeout)
         assert num_callbacks == expected_num_callbacks
         assert self.num_callbacks_queue.empty()
 
@@ -127,25 +121,22 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
 
         rule = self.make_enabled_rule()
 
-        async with salobj.Controller(
-            name="Test", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="Test",
-            index=self.index,
-            readonly=True,
-            include=["summaryState"],
-        ) as remote:
-            topic_callback = watcher.TopicCallback(
-                topic=remote.evt_summaryState, rule=rule, model=model
-            )
+        async with (
+            salobj.Controller(name="Test", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=["summaryState"],
+            ) as remote,
+        ):
+            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState, rule=rule, model=model)
             assert topic_callback.attr_name == "evt_summaryState"
             assert topic_callback.remote_name == "Test"
             assert topic_callback.remote_index == self.index
 
-            await controller.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await controller.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await rule.alarm.assert_next_severity(AlarmSeverity.WARNING)
 
     async def test_add_rule(self):
@@ -153,34 +144,27 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
 
         # Make the first rule one that raises when called, in order to test
         # test that TopicCallback continues to call additional rules.
-        config = types.SimpleNamespace(
-            name=f"Test:{self.index}", disabled_severity=2, standby_severity=2
-        )
+        config = types.SimpleNamespace(name=f"Test:{self.index}", disabled_severity=2, standby_severity=2)
         bad_rule = BadEnabledRule(config=config)
         rule2 = self.make_enabled_rule()
         rule3 = self.make_enabled_rule()
 
-        async with salobj.Controller(
-            name="Test", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="Test",
-            index=self.index,
-            readonly=True,
-            include=["summaryState"],
-        ) as remote:
-            await controller.evt_summaryState.set_write(
-                summaryState=salobj.State.ENABLED, force_output=True
-            )
+        async with (
+            salobj.Controller(name="Test", index=self.index) as controller,
+            salobj.Remote(
+                domain=controller.domain,
+                name="Test",
+                index=self.index,
+                readonly=True,
+                include=["summaryState"],
+            ) as remote,
+        ):
+            await controller.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
             await asyncio.sleep(STD_TIMEOUT)
-            topic_callback = watcher.TopicCallback(
-                topic=remote.evt_summaryState, rule=bad_rule, model=model
-            )
+            topic_callback = watcher.TopicCallback(topic=remote.evt_summaryState, rule=bad_rule, model=model)
             topic_callback.add_rule(rule2)
 
-            await controller.evt_summaryState.set_write(
-                summaryState=salobj.State.DISABLED, force_output=True
-            )
+            await controller.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
             await bad_rule.assert_next_num_callbacks(1)
             await rule2.alarm.assert_next_severity(AlarmSeverity.WARNING)
             assert rule3.alarm.severity_queue.empty()
@@ -192,9 +176,7 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
             # Modify the name of rule3 and try again. This should work.
             rule3.alarm.name = rule3.alarm.name + "modified"
             topic_callback.add_rule(rule3)
-            await controller.evt_summaryState.set_write(
-                summaryState=salobj.State.FAULT, force_output=True
-            )
+            await controller.evt_summaryState.set_write(summaryState=salobj.State.FAULT, force_output=True)
             await bad_rule.assert_next_num_callbacks(2)
             await rule2.alarm.assert_next_severity(AlarmSeverity.CRITICAL)
             await rule3.alarm.assert_next_severity(AlarmSeverity.CRITICAL)
@@ -204,29 +186,29 @@ class TopicCallbackTestCase(unittest.IsolatedAsyncioTestCase):
         other_filter_field = "short0"
         data_field = "double0"
 
-        async with salobj.Controller(
-            name="Test", index=self.index
-        ) as controller, salobj.Remote(
-            domain=controller.domain,
-            name="Test",
-            index=self.index,
-            readonly=True,
-            include=["summaryState"],
-        ) as remote:
-            model = watcher.MockModel(enabled=True)
-
-            async with salobj.Controller(
-                name="Test", index=self.index
-            ) as controller, salobj.Remote(
+        async with (
+            salobj.Controller(name="Test", index=self.index) as controller,
+            salobj.Remote(
                 domain=controller.domain,
                 name="Test",
                 index=self.index,
                 readonly=True,
-                include=["scalars"],
-            ) as remote:
-                topic_callback = watcher.TopicCallback(
-                    topic=remote.tel_scalars, rule=None, model=model
-                )
+                include=["summaryState"],
+            ) as remote,
+        ):
+            model = watcher.MockModel(enabled=True)
+
+            async with (
+                salobj.Controller(name="Test", index=self.index) as controller,
+                salobj.Remote(
+                    domain=controller.domain,
+                    name="Test",
+                    index=self.index,
+                    readonly=True,
+                    include=["scalars"],
+                ) as remote,
+            ):
+                topic_callback = watcher.TopicCallback(topic=remote.tel_scalars, rule=None, model=model)
                 assert remote.tel_scalars.callback is topic_callback
 
                 # Make the first wrapper one that raises when called,

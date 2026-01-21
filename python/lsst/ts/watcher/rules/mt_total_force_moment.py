@@ -45,9 +45,7 @@ class MTTotalForceMoment(watcher.PollingRule):
         Parent logger. (the default is None)
     """
 
-    def __init__(
-        self, config: types.SimpleNamespace, log: logging.Logger | None = None
-    ) -> None:
+    def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         remote_name = "MTM2"
         remote_info = RemoteInfo(
             remote_name,
@@ -151,9 +149,7 @@ class MTTotalForceMoment(watcher.PollingRule):
 
         list_forces = list()
         if self._remote.tel_netForcesTotal.has_data:
-            list_forces = self._check_out_of_range(
-                self._remote.tel_netForcesTotal.get(), ["fx", "fy", "fz"]
-            )
+            list_forces = self._check_out_of_range(self._remote.tel_netForcesTotal.get(), ["fx", "fy", "fz"])
 
         list_moments = list()
         if self._remote.tel_netMomentsTotal.has_data:
@@ -183,9 +179,7 @@ class MTTotalForceMoment(watcher.PollingRule):
         else:
             return NoneNoReason
 
-    def _check_out_of_range(
-        self, data: salobj.BaseMsgType, components: list[str]
-    ) -> list[str]:
+    def _check_out_of_range(self, data: salobj.BaseMsgType, components: list[str]) -> list[str]:
         """Check the data that is out of the range.
 
         Parameters

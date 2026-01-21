@@ -84,17 +84,12 @@ class TestConfiguredSeveritiesTestCase(unittest.IsolatedAsyncioTestCase):
 
         async def alarm_callback(alarm):
             read_severities.append(alarm.severity)
-            if (
-                len(read_severities) >= num_expected_severities
-                and not done_future.done()
-            ):
+            if len(read_severities) >= num_expected_severities and not done_future.done():
                 done_future.set_result(None)
 
         rule.alarm.callback = alarm_callback
         rule.start()
-        await asyncio.wait_for(
-            done_future, timeout=NEXT_SEVERITY_TIMEOUT * num_expected_severities
-        )
+        await asyncio.wait_for(done_future, timeout=NEXT_SEVERITY_TIMEOUT * num_expected_severities)
         # The rule's run_task should be done, or almost done.
         await asyncio.wait_for(rule.run_task, timeout=NEXT_SEVERITY_TIMEOUT)
         rule.stop()

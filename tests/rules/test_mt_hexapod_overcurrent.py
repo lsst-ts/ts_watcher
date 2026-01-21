@@ -31,12 +31,10 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class MTHexapodOvercurrentTestCase(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self):
         salobj.set_random_lsst_dds_partition_prefix()
 
     async def test_constructor(self):
-
         schema = MTHexapodOvercurrent.get_schema()
         assert schema is not None
 
@@ -46,23 +44,19 @@ class MTHexapodOvercurrentTestCase(unittest.IsolatedAsyncioTestCase):
         assert len(rule.remote_info_list[0].callback_names) == 2
 
     async def test_operation(self):
-
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[
-                dict(
-                    classname="MTHexapodOvercurrent", configs=[{"name": "MTHexapod:1"}]
-                )
-            ],
+            rules=[dict(classname="MTHexapodOvercurrent", configs=[{"name": "MTHexapod:1"}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller("MTHexapod", 1) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller("MTHexapod", 1) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             rule_name = "MTHexapodOvercurrent.MTHexapod:1"
             rule = model.rules[rule_name]
             rule.alarm.init_severity_queue()
@@ -111,7 +105,5 @@ class MTHexapodOvercurrentTestCase(unittest.IsolatedAsyncioTestCase):
                 await data_item["topic"].set_write(**data_item["fields"])
 
                 if "expected_severity" in data_item.keys():
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == data_item["expected_severity"]

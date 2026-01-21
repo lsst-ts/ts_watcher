@@ -55,9 +55,7 @@ class MeasurementInfo:
     descr: str
     field_name: str
     is_temperature: bool = True
-    big_is_bad_list: typing.List[bool] = dataclasses.field(
-        default_factory=lambda: [True]
-    )
+    big_is_bad_list: typing.List[bool] = dataclasses.field(default_factory=lambda: [True])
     units: str = dataclasses.field(init=False)
 
     def __post_init__(self):
@@ -125,9 +123,9 @@ class ATCameraDewar(watcher.BaseRule):
         self.had_enough_data = False
         self.no_data_alarm_triggered_time = None
 
-        self.threshold_handlers: typing.Dict[
-            str, typing.List[watcher.ThresholdHandler]
-        ] = collections.defaultdict(list)
+        self.threshold_handlers: typing.Dict[str, typing.List[watcher.ThresholdHandler]] = (
+            collections.defaultdict(list)
+        )
         # Measurement name: MeasurementInfo
         self.name_meas_info = {
             "ccd_temp": MeasurementInfo(
@@ -157,9 +155,7 @@ class ATCameraDewar(watcher.BaseRule):
         for name, info in self.name_meas_info.items():
             for big_is_bad in info.big_is_bad_list:
                 self.threshold_handlers[name].append(
-                    self._make_threshold_handler(
-                        config=config, name=name, big_is_bad=big_is_bad
-                    )
+                    self._make_threshold_handler(config=config, name=name, big_is_bad=big_is_bad)
                 )
 
         # Task used to run and cancel no_data_timer.
@@ -184,9 +180,7 @@ class ATCameraDewar(watcher.BaseRule):
         minmax_str = "max" if big_is_bad else "min"
         info = self.name_meas_info[name]
         level_kwargs = {
-            f"{severity}_level": getattr(
-                config, f"{minmax_str}_{severity}_{name}", None
-            )
+            f"{severity}_level": getattr(config, f"{minmax_str}_{severity}_{name}", None)
             for severity in ("warning", "serious", "critical")
         }
         if not level_kwargs:
@@ -360,15 +354,9 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def compute_alarm_severity(
-        self, data: salobj.BaseMsgType, **kwargs
-    ) -> watcher.AlarmSeverityReasonType:
+    def compute_alarm_severity(self, data: salobj.BaseMsgType, **kwargs) -> watcher.AlarmSeverityReasonType:
         if self.no_data_alarm_triggered_time is not None:
-            no_data_delay = (
-                utils.current_tai()
-                - self.no_data_alarm_triggered_time
-                + self.config.max_data_age
-            )
+            no_data_delay = utils.current_tai() - self.no_data_alarm_triggered_time + self.config.max_data_age
             self.restart_no_data_timer()
             return (
                 AlarmSeverity.WARNING,
@@ -416,9 +404,7 @@ class ATCameraDewar(watcher.BaseRule):
         severity_reasons = []
         worst_severity = AlarmSeverity.NONE
         for name, data in data_lists.items():
-            severity, reason = self._get_severity_reason_for_one_item(
-                data=data, name=name
-            )
+            severity, reason = self._get_severity_reason_for_one_item(data=data, name=name)
             severity_reasons.append((severity, reason))
             worst_severity = max(severity, worst_severity)
 

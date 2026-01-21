@@ -58,11 +58,10 @@ class MTDomeSubsystemEnabledTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="MTDome", index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="MTDome", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             # The first item should not and the second item should raise an
             # alarm when the MTDome CSC is in ENABLED state.
             test_data_items = [
@@ -95,9 +94,7 @@ class MTDomeSubsystemEnabledTestCase(unittest.IsolatedAsyncioTestCase):
                 if csc_state == State.ENABLED:
                     # When switching the MTDome CSC from DISABLED to ENABLED,
                     # the rule triggers and will raise a CRITICAL alarm.
-                    severity = await asyncio.wait_for(
-                        rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                    )
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == AlarmSeverity.CRITICAL
 
                 for data_item in test_data_items:

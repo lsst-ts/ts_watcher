@@ -99,9 +99,7 @@ class RemoteInfo:
         If ``index`` cannot be cast to an `int`.
     """
 
-    def __init__(
-        self, name, index, callback_names=None, poll_names=None, index_required=True
-    ):
+    def __init__(self, name, index, callback_names=None, poll_names=None, index_required=True):
         self.name = name
         self.index = int(index)
         self.callback_names = as_tuple(callback_names)
@@ -119,13 +117,10 @@ class RemoteInfo:
                 else:
                     seen.add(name)
             raise ValueError(
-                f"Topic names {duplicates} appear more than once "
-                "in callback_names and/or poll_names"
+                f"Topic names {duplicates} appear more than once in callback_names and/or poll_names"
             )
         invalid_names = [
-            name
-            for name in all_names
-            if not (name.startswith("evt_") or name.startswith("tel_"))
+            name for name in all_names if not (name.startswith("evt_") or name.startswith("tel_"))
         ]
         if invalid_names:
             raise ValueError(

@@ -76,9 +76,7 @@ class MTAirCompressorsPressure(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.name}"
-            for severity in AlarmSeverity
-            if severity is not AlarmSeverity.NONE
+            f"{severity.name}" for severity in AlarmSeverity if severity is not AlarmSeverity.NONE
         )
         schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#
@@ -114,9 +112,7 @@ class MTAirCompressorsPressure(watcher.BaseRule):
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
     ) -> watcher.AlarmSeverityReasonType:
         if data.salIndex not in SAL_INDICES:
-            self.log.warning(
-                f"Ignoring data for sal_index={data.salIndex}; not in {SAL_INDICES_STR=}"
-            )
+            self.log.warning(f"Ignoring data for sal_index={data.salIndex}; not in {SAL_INDICES_STR=}")
             return None
         try:
             self.line_pressures[data.salIndex] = data.linePressure
@@ -130,18 +126,13 @@ class MTAirCompressorsPressure(watcher.BaseRule):
             [
                 True
                 for pressure in self.line_pressures.values()
-                if (
-                    not (math.isnan(pressure))
-                    and pressure > self.config.minimal_pressure
-                )
+                if (not (math.isnan(pressure)) and pressure > self.config.minimal_pressure)
             ]
         )
         if num_good >= 2:
             return watcher.NoneNoReason
 
-        pressures = ", ".join(
-            f"{key}={value!r}" for key, value in self.line_pressures.items()
-        )
+        pressures = ", ".join(f"{key}={value!r}" for key, value in self.line_pressures.items())
         if num_good == 1:
             return (
                 AlarmSeverity[self.config.one_severity],

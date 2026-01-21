@@ -77,9 +77,7 @@ class MTAirCompressorsState(watcher.BaseRule):
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
-            f"{severity.name}"
-            for severity in AlarmSeverity
-            if severity is not AlarmSeverity.NONE
+            f"{severity.name}" for severity in AlarmSeverity if severity is not AlarmSeverity.NONE
         )
         schema_yaml = f"""
             $schema: http://json-schema.org/draft-07/schema#
@@ -114,9 +112,7 @@ class MTAirCompressorsState(watcher.BaseRule):
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
     ) -> watcher.AlarmSeverityReasonType:
         if data.salIndex not in SAL_INDICES:
-            self.log.warning(
-                f"Ignoring data for sal_index={data.salIndex}; not in {SAL_INDICES_STR=}"
-            )
+            self.log.warning(f"Ignoring data for sal_index={data.salIndex}; not in {SAL_INDICES_STR=}")
             return None
         try:
             self.states[data.salIndex] = salobj.State(data.summaryState)

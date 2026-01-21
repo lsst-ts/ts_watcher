@@ -45,9 +45,7 @@ class MTForceError(watcher.PollingRule):
         Parent logger. (the default is None)
     """
 
-    def __init__(
-        self, config: types.SimpleNamespace, log: logging.Logger | None = None
-    ) -> None:
+    def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         # M2
         remote_name_m2 = "MTM2"
         remote_info_m2 = RemoteInfo(
@@ -211,9 +209,7 @@ class MTForceError(watcher.PollingRule):
         else:
             return NoneNoReason
 
-    def _check_out_of_range(
-        self, data: salobj.BaseMsgType, threshold: float
-    ) -> list[int]:
+    def _check_out_of_range(self, data: salobj.BaseMsgType, threshold: float) -> list[int]:
         """Check the data that is out of the range.
 
         Parameters

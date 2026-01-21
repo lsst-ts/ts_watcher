@@ -44,12 +44,8 @@ class PowerGeneratorFail(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        remote_name_primary, remote_index_primary = salobj.name_to_name_index(
-            config.name_primary
-        )
-        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(
-            config.name_secondary
-        )
+        remote_name_primary, remote_index_primary = salobj.name_to_name_index(config.name_primary)
+        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(config.name_secondary)
 
         remote_info_list = [
             RemoteInfo(
@@ -77,9 +73,7 @@ class PowerGeneratorFail(BaseRule):
     @classmethod
     def get_schema(cls):
         indent = " " * 8
-        severity_values = "\n".join(
-            [f"{indent}- {severity.name}" for severity in AlarmSeverity]
-        )
+        severity_values = "\n".join([f"{indent}- {severity.name}" for severity in AlarmSeverity])
         schema_yaml = f"""
 $schema: http://json-schema.org/draft-07/schema#
 description: >-
@@ -152,12 +146,8 @@ additionalProperties: false
         -----
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
-        remote_name_primary, remote_index_primary = salobj.name_to_name_index(
-            self.config.name_primary
-        )
-        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(
-            self.config.name_secondary
-        )
+        remote_name_primary, remote_index_primary = salobj.name_to_name_index(self.config.name_primary)
+        remote_name_secondary, remote_index_secondary = salobj.name_to_name_index(self.config.name_secondary)
         severity, reason = NoneNoReason
         genset_failure = data.mainFailure
         if genset_failure:

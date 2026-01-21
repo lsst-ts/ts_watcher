@@ -40,17 +40,13 @@ class RemoteInfoTestCase(unittest.TestCase):
         assert info1.callback_names == callback_names
         assert info1.poll_names == poll_names
 
-        info2 = watcher.RemoteInfo(
-            name=name, index=index, callback_names=callback_names, poll_names=None
-        )
+        info2 = watcher.RemoteInfo(name=name, index=index, callback_names=callback_names, poll_names=None)
         assert info2.name == name
         assert info2.index == index
         assert info2.callback_names == callback_names
         assert info2.poll_names == ()
 
-        info3 = watcher.RemoteInfo(
-            name=name, index=index, callback_names=None, poll_names=poll_names
-        )
+        info3 = watcher.RemoteInfo(name=name, index=index, callback_names=None, poll_names=poll_names)
         assert info3.name == name
         assert info3.index == index
         assert info3.callback_names == ()
@@ -79,9 +75,7 @@ class RemoteInfoTestCase(unittest.TestCase):
 
         # must specify at least one callback or poll name
         with pytest.raises(ValueError):
-            watcher.RemoteInfo(
-                name=name, index=index, callback_names=None, poll_names=None
-            )
+            watcher.RemoteInfo(name=name, index=index, callback_names=None, poll_names=None)
 
         with pytest.raises(ValueError):
             watcher.RemoteInfo(name=name, index=index, callback_names=(), poll_names=())

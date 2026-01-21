@@ -77,15 +77,11 @@ class RemoteWrapper:
                 topic = getattr(remote, topic_name, None)
                 if topic is None:
                     # create the topic and add it to the remote
-                    topic = salobj.topics.RemoteTelemetry(
-                        remote.salinfo, short_topic_name
-                    )
+                    topic = salobj.topics.RemoteTelemetry(remote.salinfo, short_topic_name)
                     setattr(remote, topic_name, topic)
                 self._topics[topic_name] = topic
             else:
-                raise ValueError(
-                    f"Unknown topic prefix in {topic_name:r}: must be 'tel_' or 'evt_'"
-                )
+                raise ValueError(f"Unknown topic prefix in {topic_name:r}: must be 'tel_' or 'evt_'")
 
     @property
     def attr_name(self):

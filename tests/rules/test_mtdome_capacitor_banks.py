@@ -26,20 +26,24 @@ import unittest
 
 from lsst.ts import salobj, watcher
 from lsst.ts.watcher.rules import MTDomeCapacitorBanks
+from lsst.ts.xml.enums.MTDome import MotionState, OperationalMode
+from lsst.ts.xml.sal_enums import State
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
+STD_TIMEOUT = 5  # Standard timeout time (seconds)
 
 
 class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
+        self.severity: AlarmSeverity | None = None
 
     async def test_constructor(self):
         rule = MTDomeCapacitorBanks(config=None)
         assert len(rule.remote_info_list) == 1
 
-    async def test_operation(self):
+    async def test_capacitor_banks(self):
+        self.severity = None
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
@@ -48,15 +52,19 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name="MTDome", index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name="MTDome", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             test_data_items = [
                 {
                     "topic": controller.evt_capacitorBanks,
                     "topic_items_true": {},
+                    "expected_severity": AlarmSeverity.NONE,
+                },
+                {
+                    "topic": controller.evt_capacitorBanks,
+                    "topic_items_true": {"lowResidualVoltage"},
                     "expected_severity": AlarmSeverity.NONE,
                 },
                 {
@@ -79,14 +87,10 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
 
             for data_item in test_data_items:
                 await self.send_capacitor_banks_data(
-                    model=model,
-                    topic=data_item["topic"],
-                    topic_items_true=data_item["topic_items_true"],
+                    model=model, topic=data_item["topic"], topic_items_true=data_item["topic_items_true"]
                 )
-                severity = await asyncio.wait_for(
-                    rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-                )
-                assert severity == data_item["expected_severity"]
+                await self.get_severity(rule, data_item["expected_severity"])
+                assert self.severity == data_item["expected_severity"]
                 reason: str = rule.alarm.reason
                 if len(data_item["topic_items_true"]) == 0:
                     assert reason == ""
@@ -94,6 +98,52 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
                     reason_list = reason.split(", ")
                     assert len(reason_list) == len(data_item["topic_items_true"])
                 assert rule.alarm.severity_queue.empty()
+
+    async def test_low_residual_voltage(self):
+        self.severity = None
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="MTDomeCapacitorBanks", configs=[{}])],
+            escalation=(),
+        )
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with (
+            salobj.Controller(name="MTDome", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
+            rule_name = "MTDomeCapacitorBanks.MTDome"
+            rule = model.rules[rule_name]
+            rule.alarm.init_severity_queue()
+            await model.enable()
+
+            await self.verify_low_residual_voltage(
+                model, controller.evt_capacitorBanks, rule, AlarmSeverity.NONE
+            )
+
+            # set enabled
+            await self.send_generic_telemetry(
+                model=model, topic=controller.evt_summaryState, telemetry={"summaryState": State.ENABLED}
+            )
+
+            # set operationalMode
+            await self.send_generic_telemetry(
+                model=model,
+                topic=controller.evt_operationalMode,
+                telemetry={"operationalMode": OperationalMode.NORMAL},
+            )
+
+            # set moving
+            await self.send_generic_telemetry(
+                model=model,
+                topic=controller.evt_azMotion,
+                telemetry={"inPosition": False, "state": MotionState.MOVING},
+            )
+
+            await self.verify_low_residual_voltage(
+                model, controller.evt_capacitorBanks, rule, AlarmSeverity.CRITICAL
+            )
 
     async def send_capacitor_banks_data(self, model, topic, topic_items_true):
         """Send MTDome capacitor banks data and wait for the rule to be
@@ -129,4 +179,20 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
                     second_item = True
             telemetry[item] = [first_item, second_item]
 
+        await self.send_generic_telemetry(model, topic, telemetry)
+
+    async def send_generic_telemetry(self, model, topic, telemetry):
         await watcher.write_and_wait(model=model, topic=topic, **telemetry)
+
+    async def verify_low_residual_voltage(self, model, topic, rule, expected_severity):
+        await self.send_capacitor_banks_data(
+            model=model, topic=topic, topic_items_true={"lowResidualVoltage"}
+        )
+        await self.get_severity(rule, expected_severity)
+
+    async def get_severity(self, rule, expected_severity):
+        try:
+            self.severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+        except TimeoutError as e:
+            if not (self.severity == AlarmSeverity.NONE and expected_severity == AlarmSeverity.NONE):
+                raise e

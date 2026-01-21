@@ -69,9 +69,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     require_settings = True
     version = __version__
 
-    def __init__(
-        self, config_dir=None, initial_state=salobj.State.STANDBY, override=""
-    ):
+    def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY, override=""):
         # the Watcher model is created when the CSC is configured
         # and reset to None when the Watcher goes to standby.
         self.model = None
@@ -127,9 +125,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             try:
                 escalation_key = os.environ["ESCALATION_KEY"]
             except KeyError:
-                raise RuntimeError(
-                    "env variable ESCALATION_KEY must be set if config.escalation_url is set"
-                )
+                raise RuntimeError("env variable ESCALATION_KEY must be set if config.escalation_url is set")
             self.escalation_endpoint_url = (
                 config.escalation_url + INCIDENT_WEBHOOK_URL_SUFFIX + escalation_key
             )
@@ -219,8 +215,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             if response.status != HTTPStatus.ACCEPTED:
                 read_text = await response.text()
                 self.log.warning(
-                    f"Could not resolve SquadCast incident {escalated_id} "
-                    f"for alarm {alarm}: {read_text}"
+                    f"Could not resolve SquadCast incident {escalated_id} for alarm {alarm}: {read_text}"
                 )
 
     async def output_alarm(self, alarm):
@@ -243,9 +238,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
                     alarm.escalated_id = f"Failed: {errmsg}"
                     self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
                 except RuntimeError as e:
-                    self.log.error(
-                        f"Bug: escalation of {alarm} could not be attempted: {e!r}"
-                    )
+                    self.log.error(f"Bug: escalation of {alarm} could not be attempted: {e!r}")
         else:
             if alarm.escalated_id:
                 try:
@@ -254,9 +247,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
                         timeout=self.model.config.escalation_timeout,
                     )
                 except asyncio.TimeoutError:
-                    self.log.warning(
-                        f"Could not de-escalate alarm {alarm}: timed out waiting for SquadCast"
-                    )
+                    self.log.warning(f"Could not de-escalate alarm {alarm}: timed out waiting for SquadCast")
                 except Exception:
                     self.log.exception(f"Failed to de-escalate alarm {alarm}")
                 finally:
@@ -305,9 +296,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def do_acknowledge(self, data):
         self.assert_enabled()
-        await self.model.acknowledge_alarm(
-            name=data.name, severity=data.severity, user=data.acknowledgedBy
-        )
+        await self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
 
     async def do_mute(self, data):
         """Mute one or more alarms."""

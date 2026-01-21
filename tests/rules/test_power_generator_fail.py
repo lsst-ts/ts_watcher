@@ -66,9 +66,7 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
     def test_config_validation(self):
         # Check defaults
         minimal_config_dict = dict(name_primary="ESS:1", name_secondary="ESS:2")
-        minimal_config = watcher.rules.PowerGeneratorFail.make_config(
-            **minimal_config_dict
-        )
+        minimal_config = watcher.rules.PowerGeneratorFail.make_config(**minimal_config_dict)
         assert minimal_config.name_primary == minimal_config_dict["name_primary"]
         assert minimal_config.name_secondary == minimal_config_dict["name_secondary"]
         assert minimal_config.severity_individual_fail == AlarmSeverity.SERIOUS.name
@@ -120,20 +118,13 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
-        async with salobj.Controller(
-            name=name, index=index
-        ) as controllerprimary, salobj.Controller(
-            name=name, index=index + 1
-        ) as controllersecondary:
-            async with watcher.Model(
-                domain=controllerprimary.domain, config=watcher_config
-            ) as model:
-                await controllerprimary.tel_agcGenset150.set_write(
-                    mainFailure=False, force_output=True
-                )
-                await controllersecondary.tel_agcGenset150.set_write(
-                    mainFailure=False, force_output=True
-                )
+        async with (
+            salobj.Controller(name=name, index=index) as controllerprimary,
+            salobj.Controller(name=name, index=index + 1) as controllersecondary,
+        ):
+            async with watcher.Model(domain=controllerprimary.domain, config=watcher_config) as model:
+                await controllerprimary.tel_agcGenset150.set_write(mainFailure=False, force_output=True)
+                await controllersecondary.tel_agcGenset150.set_write(mainFailure=False, force_output=True)
 
                 await asyncio.sleep(STD_TIMEOUT)
 
@@ -160,12 +151,8 @@ class PowerGeneratorFailTestCase(unittest.IsolatedAsyncioTestCase):
                     (True, True),
                     (False, False),
                 ):
-                    initial_failure_state_primary = (
-                        controllerprimary.tel_agcGenset150.data.mainFailure
-                    )
-                    initial_failure_state_secondary = (
-                        controllersecondary.tel_agcGenset150.data.mainFailure
-                    )
+                    initial_failure_state_primary = controllerprimary.tel_agcGenset150.data.mainFailure
+                    initial_failure_state_secondary = controllersecondary.tel_agcGenset150.data.mainFailure
 
                     await controllerprimary.tel_agcGenset150.set_write(
                         mainFailure=failure_state_primary, force_output=True

@@ -105,11 +105,10 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with salobj.Controller(
-            name=self.remote_name, index=0
-        ) as controller, watcher.Model(
-            domain=controller.domain, config=watcher_config
-        ) as model:
+        async with (
+            salobj.Controller(name=self.remote_name, index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
             rule = model.rules[f"{self.remote_name}.{config['rule_name']}"]
             rule.alarm.init_severity_queue()
             await model.enable()
@@ -124,9 +123,7 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
 
             # The CSC has sent data and exactly two WARNINGs will have been
             # raised because of the configured rules.
-            severity = await asyncio.wait_for(
-                rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT
-            )
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
             assert severity == AlarmSeverity.WARNING
             assert rule.alarm.reason != ""
             assert "," in rule.alarm.reason

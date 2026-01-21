@@ -161,9 +161,7 @@ additionalProperties: false
                 if not self.xups_alert_started:
                     self.xups_warn_start_time = utils.current_tai()
                     self.xups_alert_started = True
-                severity, reason = self.determine_ups_severity_and_reason(
-                    self.xups_warn_start_time
-                )
+                severity, reason = self.determine_ups_severity_and_reason(self.xups_warn_start_time)
 
         return severity, reason
 
@@ -189,9 +187,7 @@ additionalProperties: false
         """
         severity, reason = NoneNoReason
         if self.num_zeros_schneider >= self.config.min_num_zeros_schneider:
-            severity, reason = self.determine_ups_severity_and_reason(
-                self.schneider_warn_start_time
-            )
+            severity, reason = self.determine_ups_severity_and_reason(self.schneider_warn_start_time)
         return severity, reason
 
     def determine_ups_severity_and_reason(self, start_time: float):
