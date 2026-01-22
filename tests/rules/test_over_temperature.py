@@ -30,6 +30,7 @@ import jsonschema
 import numpy.random
 import pytest
 import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.watcher.rules import OverTemperature
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

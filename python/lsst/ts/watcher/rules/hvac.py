@@ -27,6 +27,7 @@ import math
 import typing
 
 import yaml
+
 from lsst.ts import salobj, utils
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

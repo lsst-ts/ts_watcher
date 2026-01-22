@@ -27,6 +27,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

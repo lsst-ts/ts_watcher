@@ -25,6 +25,7 @@ import types
 import unittest
 
 import yaml
+
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Script import ScriptState
 from lsst.ts.xml.enums.ScriptQueue import ScriptProcessState

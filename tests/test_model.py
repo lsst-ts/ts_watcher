@@ -26,6 +26,7 @@ import types
 import unittest
 
 import pytest
+
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

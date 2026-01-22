@@ -27,6 +27,7 @@ import unittest
 import jsonschema
 import pytest
 import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.watcher.rules import ATCameraDewar
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

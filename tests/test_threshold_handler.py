@@ -25,6 +25,7 @@ import random
 import unittest
 
 import pytest
+
 from lsst.ts import watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 

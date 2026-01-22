@@ -27,6 +27,7 @@ import uuid
 from http import HTTPStatus
 
 import aiohttp
+
 from lsst.ts import salobj
 
 from . import __version__

@@ -23,6 +23,7 @@ import asyncio
 import unittest
 
 import pytest
+
 from lsst.ts import salobj, utils, watcher
 
 index_gen = utils.index_generator()

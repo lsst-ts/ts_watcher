@@ -25,6 +25,7 @@ import inspect
 import logging
 
 import aiohttp
+
 from lsst.ts import utils
 from lsst.ts.salobj.base import get_user_host
 from lsst.ts.xml.enums.Watcher import AlarmSeverity

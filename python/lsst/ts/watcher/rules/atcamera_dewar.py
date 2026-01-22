@@ -29,6 +29,7 @@ import typing
 
 import numpy as np
 import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
