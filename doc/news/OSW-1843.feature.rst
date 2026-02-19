@@ -1,1 +1,0 @@
-Expanded the HVAC rule to allow alerting on stale values.

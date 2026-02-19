@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.7 (2026-02-19)
+====================
+
+New Features
+------------
+
+- Expanded the HVAC rule to allow alerting on stale values. (`OSW-1843 <https://rubinobs.atlassian.net//browse/OSW-1843>`_)
+
+
 v1.23.6 (2026-01-22)
 ====================
 
