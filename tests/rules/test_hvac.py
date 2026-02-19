@@ -129,3 +129,76 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
             assert "," in rule.alarm.reason
             reasons = rule.alarm.reason.split(",")
             assert len(reasons) == 2
+
+    async def test_stale_value_detection(self):
+        """Test detection of stale/unchanging values."""
+        stale_config_dict = {
+            "rule_name": "Dynalene",
+            "callback_names": ["tel_dynaleneP05"],
+            "stale_value_limits": [
+                {
+                    "item_name": "dynCH01supTS05",
+                    "num_samples": 3,
+                    "severity": AlarmSeverity.SERIOUS.name,
+                    "message": "HVAC value stuck - check sensors",
+                },
+                {
+                    "item_name": "dynCH01supFS01",
+                    "num_samples": 2,
+                    "severity": AlarmSeverity.WARNING.name,
+                },
+            ],
+        }
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="Hvac", configs=[stale_config_dict])],
+            escalation=(),
+        )
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with (
+            salobj.Controller(name=self.remote_name, index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
+            rule = model.rules[f"{self.remote_name}.{stale_config_dict['rule_name']}"]
+            rule.alarm.init_severity_queue()
+            await model.enable()
+
+            await watcher.write_and_wait(model, controller.tel_dynaleneP05)
+            assert len(rule.alarm_info_dict.keys()) == 0
+            assert rule.alarm.nominal
+
+            await watcher.write_and_wait(model, controller.tel_dynaleneP05)
+
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            assert severity == AlarmSeverity.NONE
+
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            assert severity == AlarmSeverity.WARNING
+            assert "dynCH01supFS01" in rule.alarm.reason
+
+            await watcher.write_and_wait(model, controller.tel_dynaleneP05)
+            await watcher.write_and_wait(model, controller.tel_dynaleneP05)
+
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            assert severity == AlarmSeverity.SERIOUS
+            assert "HVAC value stuck - check sensors" in rule.alarm.reason
+
+            await watcher.write_and_wait(model, controller.tel_dynaleneP05, dynCH01supTS05=31.0)
+
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            assert severity == AlarmSeverity.WARNING
+
+            await watcher.write_and_wait(
+                model, controller.tel_dynaleneP05, dynCH01supTS05=30.0, dynCH01supFS01=1.0
+            )
+            await watcher.write_and_wait(
+                model, controller.tel_dynaleneP05, dynCH01supTS05=29.0, dynCH01supFS01=2.0
+            )
+            await watcher.write_and_wait(
+                model, controller.tel_dynaleneP05, dynCH01supTS05=28.0, dynCH01supFS01=3.0
+            )
+
+            severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            assert severity == AlarmSeverity.NONE

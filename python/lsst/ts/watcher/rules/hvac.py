@@ -104,6 +104,10 @@ class Hvac(BaseRule):
         # Keep track of alarm states.
         self.alarm_info_dict: dict[str, AlarmInfo] = {}
 
+        # Track previous values and stale counters for stale value detection.
+        self.previous_values: dict[str, float] = {}
+        self.stale_counters: dict[str, int] = {}
+
     @classmethod
     def get_schema(cls):
         enum_str = ", ".join(
@@ -198,6 +202,41 @@ properties:
         - limit_value
         - severity
       additionalProperties: false
+  stale_value_limits:
+    description: Configuration for detecting stale/unchanging values.
+    type: array
+    items:
+      type: object
+      properties:
+        item_name:
+          description: The name of the HVAC item to monitor.
+          type: string
+        num_samples:
+          description: >-
+            Number of consecutive identical samples before alarm triggers.
+            Default is 5.
+          type: integer
+          default: 5
+        severity:
+          description: Alarm severity.
+          type: string
+          enum: [{enum_str}]
+        message:
+          description: >-
+            User-defined message to include in the alarm reason.
+            If omitted, a default message describing the stale value will be used.
+          type: string
+        time_span:
+          description: >-
+            The minimum amount of time [s] for which the value must be stale
+            before an alarm is triggered.
+          type: number
+          default: 0
+      required:
+        - item_name
+        - num_samples
+        - severity
+      additionalProperties: false
 additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
@@ -243,6 +282,10 @@ additionalProperties: false
         # Do the same for the difference limits.
         if hasattr(self.config, "difference_limits"):
             self._process_difference_limits(data, curr_tai)
+
+        # Check for stale/unchanging values.
+        if hasattr(self.config, "stale_value_limits"):
+            self._process_stale_value_limits(data, curr_tai)
 
         return self._determine_severity_and_reason(curr_tai)
 
@@ -311,6 +354,70 @@ additionalProperties: false
             item_name = f"{first_item_name} - {second_item_name} {limit_type}"
             item_value = first_item_value - second_item_value
             self._add_or_update_alarm_info(limit_crossed, item_name, item_value, curr_tai, difference_limit)
+
+    def _process_stale_value_limits(self, data: salobj.BaseMsgType, curr_tai: float) -> None:
+        """Check for stale/unchanging values in the HVAC data.
+
+        If the value of an item hasn't changed for more than the configured
+        number of samples, trigger an alarm.
+
+        Parameters
+        ----------
+        data : `salobj.BaseMsgType`
+            Message from the topic described by topic_callback.
+        curr_tai : `float`
+            The current TAI time [unix seconds].
+        """
+        if not hasattr(self.config, "stale_value_limits"):
+            return
+
+        for stale_limit in self.config.stale_value_limits:
+            item_name = stale_limit["item_name"]
+            item_value = getattr(data, item_name)
+            num_samples = stale_limit["num_samples"]
+
+            is_stale = False
+            has_previous = item_name in self.previous_values
+            if has_previous:
+                if self.previous_values[item_name] == item_value:
+                    current_count = self.stale_counters.get(item_name, 1) + 1
+                    self.stale_counters[item_name] = current_count
+                    if current_count >= num_samples:
+                        is_stale = True
+                else:
+                    self.stale_counters[item_name] = 1
+            else:
+                self.stale_counters[item_name] = 1
+
+            self.previous_values[item_name] = item_value
+
+            stale_item_name = f"{item_name} stale"
+            if is_stale:
+                user_message = stale_limit.get("message", "")
+                if user_message:
+                    reason = user_message
+                else:
+                    reason = (
+                        f"The {item_name} value has remained unchanged for "
+                        f"{self.stale_counters[item_name]} consecutive samples."
+                    )
+                if (
+                    stale_item_name not in self.alarm_info_dict
+                    or self.alarm_info_dict[stale_item_name].severity == AlarmSeverity.NONE
+                ):
+                    self.alarm_info_dict[stale_item_name] = AlarmInfo(
+                        start_time=curr_tai,
+                        time_span=stale_limit.get("time_span", 0),
+                        severity=AlarmSeverity[stale_limit["severity"]],
+                        reason=reason,
+                    )
+            elif has_previous:
+                self.alarm_info_dict[stale_item_name] = AlarmInfo(
+                    start_time=math.nan,
+                    time_span=stale_limit.get("time_span", 0),
+                    severity=AlarmSeverity.NONE,
+                    reason="",
+                )
 
     def _add_or_update_alarm_info(
         self,
