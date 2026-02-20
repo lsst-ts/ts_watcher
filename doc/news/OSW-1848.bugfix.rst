@@ -1,0 +1,1 @@
+Worked around a bug regarding missing XUPS inputPower data.
