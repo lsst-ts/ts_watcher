@@ -152,7 +152,9 @@ additionalProperties: false
                 self.num_zeros_schneider = 0
             severity, reason = self.determine_schneider_severity_and_reason()
 
-        elif hasattr(data, "inputPower"):
+        # In some unclear cases the inputPower array can have length 0 so work
+        # around that case. See OSW-1848.
+        elif hasattr(data, "inputPower") and len(data.inputPower) == 3:
             # Eaton XUPS.
             if (
                 math.isnan(data.inputPower[0])
