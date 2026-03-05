@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.23.8 (2026-03-05)
+====================
+
+Bug Fixes
+---------
+
+- Worked around a bug regarding missing XUPS inputPower data. (`OSW-1848 <https://rubinobs.atlassian.net//browse/OSW-1848>`_)
+
+
 v1.23.7 (2026-02-19)
 ====================
 
