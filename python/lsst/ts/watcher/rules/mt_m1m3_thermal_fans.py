@@ -26,14 +26,11 @@ import typing
 import numpy as np
 import yaml
 
-from lsst.ts import salobj
+from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
-from ..remote_info import RemoteInfo
 
-
-class MTM1M3ThermalFans(BaseRule):
+class MTM1M3ThermalFans(watcher.BaseRule):
     """Monitor M1M3 mirror thermal fans.
 
     Parameters
@@ -46,7 +43,7 @@ class MTM1M3ThermalFans(BaseRule):
 
     def __init__(self, config, log=None):
         remote_info_list = [
-            RemoteInfo(
+            watcher.RemoteInfo(
                 name="MTM1M3TS",
                 index=0,
                 callback_names=["tel_thermalData"],
@@ -78,7 +75,7 @@ class MTM1M3ThermalFans(BaseRule):
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> AlarmSeverityReasonType:
+    ) -> watcher.AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
 
         Parameters
@@ -119,5 +116,5 @@ class MTM1M3ThermalFans(BaseRule):
                 f"Fans off indices: {fans_off_indices}.",
             )
             if any_fans_off
-            else NoneNoReason
+            else watcher.NoneNoReason
         )

@@ -25,14 +25,11 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj
+from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
-from ..remote_info import RemoteInfo
 
-
-class MTM1M3Temperature(BaseRule):
+class MTM1M3Temperature(watcher.BaseRule):
     """Monitor M1M3 mirror temperature.
 
     Parameters
@@ -45,13 +42,13 @@ class MTM1M3Temperature(BaseRule):
 
     def __init__(self, config, log=None):
         remote_info_list = [
-            RemoteInfo(
+            watcher.RemoteInfo(
                 name="MTDome",
                 index=0,
                 callback_names=["tel_apertureShutter"],
                 poll_names=[],
             ),
-            RemoteInfo(
+            watcher.RemoteInfo(
                 name="MTM1M3TS",
                 index=0,
                 callback_names=["tel_thermalData"],
@@ -110,7 +107,7 @@ additionalProperties: false
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> AlarmSeverityReasonType:
+    ) -> watcher.AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
 
         Parameters
@@ -156,7 +153,7 @@ additionalProperties: false
                 return None
 
         if not self._m1m3_temperature_change_too_high and not self._m1m3_temperature_difference_too_high:
-            return NoneNoReason
+            return watcher.NoneNoReason
 
         if self._mtdome_aperture_open:
             dome_open = " and dome is open."

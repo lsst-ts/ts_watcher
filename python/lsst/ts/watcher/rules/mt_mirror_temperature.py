@@ -31,9 +31,6 @@ import yaml
 from lsst.ts import salobj, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from ..base_rule import AlarmSeverityReasonType, NoneNoReason
-from ..remote_info import RemoteInfo
-
 
 class MTMirrorTemperature(watcher.PollingRule):
     """Monitor the mirror temperature of main telescope M2 is out of the normal
@@ -49,7 +46,7 @@ class MTMirrorTemperature(watcher.PollingRule):
 
     def __init__(self, config: types.SimpleNamespace, log: logging.Logger | None = None) -> None:
         remote_name = "MTM2"
-        remote_info = RemoteInfo(
+        remote_info = watcher.RemoteInfo(
             remote_name,
             0,
             poll_names=["tel_temperature"],
@@ -109,7 +106,7 @@ class MTMirrorTemperature(watcher.PollingRule):
     def setup(self, model) -> None:
         self._remote = model.remotes[("MTM2", 0)]
 
-    def compute_alarm_severity(self) -> AlarmSeverityReasonType:
+    def compute_alarm_severity(self) -> watcher.AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
 
         Returns
@@ -147,7 +144,7 @@ class MTMirrorTemperature(watcher.PollingRule):
                 sources.append("intake/plenum")
 
         return (
-            NoneNoReason
+            watcher.NoneNoReason
             if (len(sources) == 0)
             else (
                 AlarmSeverity(int(self.config.severity)),
