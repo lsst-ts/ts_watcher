@@ -26,11 +26,15 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
+from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
 
-class MTM1M3EGWFlow(watcher.BaseRule):
+
+class MTM1M3EGWFlow(BaseRule):
     """Monitor M1M3 flow.
 
     Parameters
@@ -42,18 +46,29 @@ class MTM1M3EGWFlow(watcher.BaseRule):
     """
 
     def __init__(self, config, log=None):
-        remote_info_list = [
-            watcher.RemoteInfo(
-                name="MTM1M3TS",
-                index=0,
-                callback_names=["evt_summaryState", "evt_engineeringMode"],
-            ),
-            watcher.RemoteInfo(
-                name="ESS",
-                index=130,
-                callback_names=["tel_flowMeter"],
-            ),
-        ]
+        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
+        self.component_info = ComponentInfo("MTM1M3TS", topic_subname="")
+        if "tel_flowMeter" in self.component_info.topics:
+            remote_info_list = [
+                RemoteInfo(
+                    name="MTM1M3TS",
+                    index=0,
+                    callback_names=["tel_flowMeter", "evt_summaryState", "evt_engineeringMode"],
+                ),
+            ]
+        else:
+            remote_info_list = [
+                RemoteInfo(
+                    name="MTM1M3TS",
+                    index=0,
+                    callback_names=["evt_summaryState", "evt_engineeringMode"],
+                ),
+                RemoteInfo(
+                    name="ESS",
+                    index=130,
+                    callback_names=["tel_flowMeter"],
+                ),
+            ]
         super().__init__(
             config=config,
             name="MTM1M3EGWFlow",
@@ -97,7 +112,7 @@ class MTM1M3EGWFlow(watcher.BaseRule):
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> watcher.AlarmSeverityReasonType:
+    ) -> AlarmSeverityReasonType:
         """Compute and set alarm severity and reason.
 
         Returns
@@ -124,7 +139,7 @@ class MTM1M3EGWFlow(watcher.BaseRule):
             self._engineering_mode = data.engineeringMode
 
         if self._enabled is False or self._engineering_mode is True:
-            return watcher.NoneNoReason
+            return NoneNoReason
 
         if hasattr(data, "flowRate"):
             self._flow_timestamp = data.private_sndStamp
@@ -132,17 +147,17 @@ class MTM1M3EGWFlow(watcher.BaseRule):
 
             if self._flow_rate <= self.config.minimal_flow_rate and self._first_minimal_timestamp is None:
                 self._first_minimal_timestamp = self._flow_timestamp
-                return watcher.NoneNoReason
+                return NoneNoReason
 
         if self._flow_rate >= self.config.minimal_flow_rate:
             self._first_minimal_timestamp = None
-            return watcher.NoneNoReason
+            return NoneNoReason
 
         if (
             self._first_minimal_timestamp is None
             or self._flow_timestamp - self._first_minimal_timestamp < self.config.alarm_delay
         ):
-            return watcher.NoneNoReason
+            return NoneNoReason
 
         return (
             AlarmSeverity(int(self.config.severity)),
