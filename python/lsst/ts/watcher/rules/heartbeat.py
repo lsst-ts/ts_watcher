@@ -26,11 +26,14 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, utils, watcher
+from lsst.ts import salobj, utils
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
 
-class Heartbeat(watcher.BaseRule):
+
+class Heartbeat(BaseRule):
     """Monitor the heartbeat event from a SAL component.
 
     Set alarm severity NONE whenever a heartbeat event arrives
@@ -51,7 +54,7 @@ class Heartbeat(watcher.BaseRule):
 
     def __init__(self, config, log=None):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = watcher.RemoteInfo(
+        remote_info = RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_heartbeat"],
@@ -106,9 +109,9 @@ class Heartbeat(watcher.BaseRule):
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> watcher.AlarmSeverityReasonType:
+    ) -> AlarmSeverityReasonType:
         self.restart_timer()
-        return watcher.NoneNoReason
+        return NoneNoReason
 
     async def heartbeat_timer(self):
         """Heartbeat timer."""

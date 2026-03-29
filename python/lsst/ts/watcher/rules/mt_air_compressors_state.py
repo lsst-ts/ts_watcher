@@ -25,8 +25,11 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
 
 # SAL indices for MTAirCompressors to monitor.
 SAL_INDICES = (1, 2)
@@ -35,7 +38,7 @@ SAL_INDICES_STR = ", ".join(str(index) for index in sorted(SAL_INDICES))
 GOOD_STATES = frozenset((salobj.State.DISABLED, salobj.State.ENABLED))
 
 
-class MTAirCompressorsState(watcher.BaseRule):
+class MTAirCompressorsState(BaseRule):
     """Monitor the summary state of the two MTAirCompressor instances.
 
     Set alarm severity None if both instances are disabled or enabled
@@ -58,7 +61,7 @@ class MTAirCompressorsState(watcher.BaseRule):
 
     def __init__(self, config, log=None):
         remote_infos = [
-            watcher.RemoteInfo(
+            RemoteInfo(
                 name="MTAirCompressor",
                 index=0,
                 callback_names=["evt_summaryState"],
@@ -111,7 +114,7 @@ class MTAirCompressorsState(watcher.BaseRule):
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> watcher.AlarmSeverityReasonType:
+    ) -> AlarmSeverityReasonType:
         if data.salIndex not in SAL_INDICES:
             self.log.warning(f"Ignoring data for sal_index={data.salIndex}; not in {SAL_INDICES_STR=}")
             return None
@@ -125,7 +128,7 @@ class MTAirCompressorsState(watcher.BaseRule):
 
         num_good = len([True for state in self.states.values() if state in GOOD_STATES])
         if num_good >= 2:
-            return watcher.NoneNoReason
+            return NoneNoReason
 
         states = ", ".join(f"{key}={value!r}" for key, value in self.states.items())
         if num_good == 1:
