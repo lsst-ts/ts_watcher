@@ -42,7 +42,7 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
-        assert len(rule.remote_info_list) == 1
+        assert len(rule.remote_info_list) == 2
 
     async def test_operation(self):
         watcher_config_dict = dict(
@@ -55,6 +55,7 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with (
             salobj.Controller(name="MTM1M3TS", index=0) as mtm1m3ts,
+            salobj.Controller(name="ESS", index=130) as ess,
             watcher.Model(domain=mtm1m3ts.domain, config=watcher_config) as model,
         ):
             rule: watcher.rules.MTM1M3EGWFlow = model.rules["MTM1M3EGWFlow"]
@@ -64,7 +65,7 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
 
             test_data_items = [
                 {
-                    "topic": mtm1m3ts.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110, "private_sndStamp": 0},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
@@ -82,26 +83,26 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
                     "expected_reason": "",
                 },
                 {
-                    "topic": mtm1m3ts.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
                 },
                 {
-                    "topic": mtm1m3ts.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 10},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
                 },
                 {
-                    "topic": mtm1m3ts.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "delay": 2,
                     "items": {"flowRate": 11},
                     "expected_severity": AlarmSeverity.WARNING,
                     "expected_reason": "Low flow rate: 11.00, minimum is 100.00",
                 },
                 {
-                    "topic": mtm1m3ts.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",

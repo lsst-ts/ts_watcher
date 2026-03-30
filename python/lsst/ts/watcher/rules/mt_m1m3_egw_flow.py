@@ -46,7 +46,12 @@ class MTM1M3EGWFlow(watcher.BaseRule):
             watcher.RemoteInfo(
                 name="MTM1M3TS",
                 index=0,
-                callback_names=["tel_flowMeter", "evt_summaryState", "evt_engineeringMode"],
+                callback_names=["evt_summaryState", "evt_engineeringMode"],
+            ),
+            watcher.RemoteInfo(
+                name="ESS",
+                index=130,
+                callback_names=["tel_flowMeter"],
             ),
         ]
         super().__init__(
