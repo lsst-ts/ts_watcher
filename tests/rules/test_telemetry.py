@@ -46,6 +46,10 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
         else:
             self.callback_name = "tel_airCirculationFan01Lab"
 
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
     async def test_basics(self):
         schema = watcher.rules.Telemetry.get_schema()
         assert schema is not None

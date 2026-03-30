@@ -34,9 +34,14 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 
 class MTDomeSubsystemEnabledTestCase(unittest.IsolatedAsyncioTestCase):
-    async def test_operation(self):
-        salobj.set_test_topic_subname()
+    def setUp(self):
+        salobj.set_test_topic_subname(randomize=True)
 
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
+    async def test_operation(self):
         # Only testing with the evt_azEnabled event but should work with the
         # other MTDome subsystem Enabled events as well.
         watcher_config_dict = dict(

@@ -34,9 +34,12 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 class HeartbeatTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
 
-    # Note: making this method async eliminates a warning in ts_utils.
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
     async def test_basics(self):
         schema = watcher.rules.Heartbeat.get_schema()
         assert schema is not None
