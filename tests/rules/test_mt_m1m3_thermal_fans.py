@@ -89,4 +89,5 @@ class MTM1M3ThermalFansTestCase(unittest.IsolatedAsyncioTestCase):
                 )
                 severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 assert severity == test_data_item["expected_severity"]
-                assert rule.alarm.severity_queue.empty()
+
+            assert rule.alarm.severity_queue.empty()
