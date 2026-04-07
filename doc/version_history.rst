@@ -8,6 +8,28 @@ Version History
 
 .. towncrier release notes start
 
+v1.24.0 (2026-04-07)
+====================
+
+New Features
+------------
+
+- Alarm for low M1M3 EGW flow. (`OSW-1909 <https://rubinobs.atlassian.net//browse/OSW-1909>`_)
+- Replaced all absolute imports with relative ones. (`OSW-2065 <https://rubinobs.atlassian.net//browse/OSW-2065>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Ensured all unit test cases delete their kafka topics. (`OSW-2080 <https://rubinobs.atlassian.net//browse/OSW-2080>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Added backward compatibility with XML 26. (`OSW-2065 <https://rubinobs.atlassian.net//browse/OSW-2065>`_)
+
+
 v1.23.8 (2026-03-05)
 ====================
 
