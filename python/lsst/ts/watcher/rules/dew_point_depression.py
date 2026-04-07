@@ -23,8 +23,15 @@ __all__ = ["DewPointDepression"]
 
 import yaml
 
-from lsst.ts import utils, watcher
+from lsst.ts import utils
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+
+from ..base_rule import NoneNoReason
+from ..field_wrapper_list import FieldWrapperList
+from ..filtered_field_wrapper import FilteredEssFieldWrapper, IndexedFilteredEssFieldWrapper
+from ..polling_rule import PollingRule
+from ..remote_info import RemoteInfo
+from ..threshold_handler import ThresholdHandler
 
 # Name of dew point field in ESS telemetry topics
 # for dew point and humidity sensors.
@@ -35,7 +42,7 @@ ESSDewPointField = "dewPointItem"
 ESSTemperatureField = "temperatureItem"
 
 
-class DewPointDepression(watcher.PollingRule):
+class DewPointDepression(PollingRule):
     """Check the dew point depression.
 
     This rule only reads ESS telemetry topics.
@@ -63,12 +70,12 @@ class DewPointDepression(watcher.PollingRule):
         self.poll_loop_task = utils.make_done_future()
 
         # Dew point field wrappers; computed in `setup`.
-        self.dew_point_field_wrappers = watcher.FieldWrapperList()
+        self.dew_point_field_wrappers = FieldWrapperList()
 
         # Temperature field wrappers; computed in `setup`.
-        self.temperature_field_wrappers = watcher.FieldWrapperList()
+        self.temperature_field_wrappers = FieldWrapperList()
 
-        self.threshold_handler = watcher.ThresholdHandler(
+        self.threshold_handler = ThresholdHandler(
             warning_level=getattr(config, "warning_level", None),
             serious_level=getattr(config, "serious_level", None),
             critical_level=getattr(config, "critical_level", None),
@@ -106,7 +113,7 @@ class DewPointDepression(watcher.PollingRule):
                     topic_names_dict[sal_name_index] += topic_attr_names
 
         remote_info_list = [
-            watcher.RemoteInfo(
+            RemoteInfo(
                 name=name,
                 index=index,
                 callback_names=None,
@@ -249,7 +256,7 @@ additionalProperties: false
             sal_index = dew_point_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
             for sensor_name in dew_point_sensor_info["sensor_names"]:
-                field_wrapper = watcher.FilteredEssFieldWrapper(
+                field_wrapper = FilteredEssFieldWrapper(
                     model=model,
                     topic=remote.tel_dewPoint,
                     sensor_name=sensor_name,
@@ -264,7 +271,7 @@ additionalProperties: false
                 sensor_name = sensor_info["sensor_name"]
                 indices = sensor_info.get("indices", None)
                 if indices is not None:
-                    field_wrapper = watcher.IndexedFilteredEssFieldWrapper(
+                    field_wrapper = IndexedFilteredEssFieldWrapper(
                         model=model,
                         topic=remote.tel_temperature,
                         sensor_name=sensor_name,
@@ -272,7 +279,7 @@ additionalProperties: false
                         indices=indices,
                     )
                 else:
-                    field_wrapper = watcher.FilteredEssFieldWrapper(
+                    field_wrapper = FilteredEssFieldWrapper(
                         model=model,
                         topic=remote.tel_temperature,
                         sensor_name=sensor_name,
@@ -301,7 +308,7 @@ additionalProperties: false
                 )
             else:
                 # We have not been polling long enough to complain
-                return watcher.NoneNoReason
+                return NoneNoReason
 
         # We got data; use the most pessimistic measured value.
         max_dew_point, dew_point_wrapper, dew_point_index = max(dew_points, key=lambda v: v[0])

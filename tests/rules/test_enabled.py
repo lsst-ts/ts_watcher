@@ -36,7 +36,11 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 class EnabledTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     # Note: making this method async eliminates a warning in ts_utils.
     async def test_basics(self):

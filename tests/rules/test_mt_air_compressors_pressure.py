@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import os
 import types
 import unittest
 
@@ -36,9 +37,12 @@ DEFAULT_MIN_PRESSURE = 9000
 
 class MTAirCompressorsPressureTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
 
-    # Note: making this method async eliminates a warning in ts_utils.
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
     async def test_basics(self):
         schema = watcher.rules.MTAirCompressorsPressure.get_schema()
         assert schema is not None
@@ -112,7 +116,8 @@ class MTAirCompressorsPressureTestCase(unittest.IsolatedAsyncioTestCase):
             The index of the first instance to report state.
             Must be 1 or 2.
         """
-        salobj.set_random_lsst_dds_partition_prefix()
+        old_topic_subname = os.environ.get("LSST_TOPIC_SUBNAME")
+        salobj.set_test_topic_subname(randomize=True)
         second_index = {1: 2, 2: 1}.get(first_index)
 
         # Use a non-default severities, even though that means they will
@@ -211,3 +216,6 @@ class MTAirCompressorsPressureTestCase(unittest.IsolatedAsyncioTestCase):
                     severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == expected_severity
                     assert rule.alarm.severity_queue.empty()
+
+        await salobj.delete_kafka_topics()
+        os.environ["LSST_TOPIC_SUBNAME"] = old_topic_subname

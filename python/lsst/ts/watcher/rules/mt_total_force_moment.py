@@ -27,14 +27,15 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, NoneNoReason
+from ..polling_rule import PollingRule
 from ..remote_info import RemoteInfo
 
 
-class MTTotalForceMoment(watcher.PollingRule):
+class MTTotalForceMoment(PollingRule):
     """Monitor the total force and moment of main telescope M2 is out of the
     normal range.
 

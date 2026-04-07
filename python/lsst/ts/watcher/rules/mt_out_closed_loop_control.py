@@ -25,15 +25,15 @@ import logging
 import types
 import typing
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.MTM2 import PowerSystemState, PowerType
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from ..base_rule import AlarmSeverityReasonType, NoneNoReason
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTOutClosedLoopControl(watcher.BaseRule):
+class MTOutClosedLoopControl(BaseRule):
     """Monitor the main telescope M2 is out of the closed-loop control.
 
     Parameters

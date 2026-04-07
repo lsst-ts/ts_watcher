@@ -24,6 +24,7 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
+from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -31,19 +32,29 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_test_topic_subname()
+        salobj.set_test_topic_subname(randomize=True)
+        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
+        self.component_info = ComponentInfo("HVAC", topic_subname="")
+        if "evt_chiller01P01" in self.component_info.topics:
+            self.callback_name = "evt_chiller01P01"
+        else:
+            self.callback_name = "evt_coldGlycolChiller01"
         self.remote_name = "HVAC"
         self.rule_config_dict = {
-            "rule_name": "HVAC_chiller01P01",
+            "rule_name": "HVAC_chiller01",
             "remote_name": "HVAC",
             "remote_index": 0,
-            "callback_name": "evt_chiller01P01",
+            "callback_name": self.callback_name,
             "alarm_items": [
                 {"item_name": "alarmDevice", "alarm_value": True},
                 {"item_name": "compressor1StatusAlarmActive", "alarm_value": True},
             ],
             "severity": "CRITICAL",
         }
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_constructor(self):
         schema = watcher.rules.GenericBoolean.get_schema()
@@ -52,7 +63,7 @@ class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
         config = watcher.rules.GenericBoolean.make_config(**self.rule_config_dict)
         rule = watcher.rules.GenericBoolean(config=config)
 
-        rule_name = "HVAC_chiller01P01.HVAC.evt_chiller01P01"
+        rule_name = f"HVAC_chiller01.HVAC.{self.callback_name}"
         assert rule.name == rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
@@ -77,16 +88,15 @@ class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
             salobj.Controller(name=self.remote_name, index=0) as controller,
             watcher.Model(domain=controller.domain, config=watcher_config) as model,
         ):
-            rule = model.rules["HVAC_chiller01P01.HVAC.evt_chiller01P01"]
+            rule = model.rules[f"HVAC_chiller01.HVAC.{self.callback_name}"]
             rule.alarm.init_severity_queue()
             await model.enable()
 
+            topic = getattr(controller, self.callback_name)
+
             for value in [True, False]:
                 await watcher.write_and_wait(
-                    model=model,
-                    topic=controller.evt_chiller01P01,
-                    alarmDevice=value,
-                    compressor1StatusAlarmActive=False,
+                    model=model, topic=topic, alarmDevice=value, compressor1StatusAlarmActive=False
                 )
                 severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 if value:

@@ -35,16 +35,17 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 class MTM1M3TemperatureTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        if hasattr(salobj, "set_random_topic_subname"):
-            salobj.set_random_topic_subname()
-        else:
-            salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
         self.rule_config_dict = {
             "temperature_change_interval": 3600,
             "m1m3_temperature_difference_threshold": 5.0,
             "m1m3_temperature_change_threshold": 0.75,
         }
         self.log = logging.getLogger("MTM1M3Temperature")
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_constructor(self):
         config = watcher.rules.MTM1M3Temperature.make_config(**self.rule_config_dict)

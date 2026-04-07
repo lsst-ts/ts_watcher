@@ -27,15 +27,18 @@ import typing
 
 import yaml
 
-from lsst.ts import watcher
 from lsst.ts.xml.enums.Script import ScriptState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
+from ..topic_callback import TopicCallback
 
 if typing.TYPE_CHECKING:
     from lsst.ts.salobj import BaseMsgType
 
 
-class ScriptFailed(watcher.BaseRule):
+class ScriptFailed(BaseRule):
     """Monitor the status of the ScriptQueue.
 
     Set alarm severity to WARNING if the ScriptQueue is paused and the current
@@ -57,7 +60,7 @@ class ScriptFailed(watcher.BaseRule):
     def __init__(self, config, log=None):
         remote_name = "ScriptQueue"
         remote_index = config.index
-        remote_info = watcher.RemoteInfo(
+        remote_info = RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_queue", "evt_script"],
@@ -102,8 +105,8 @@ class ScriptFailed(watcher.BaseRule):
         return yaml.safe_load(schema_yaml)
 
     def compute_alarm_severity(
-        self, data: BaseMsgType, topic_callback: watcher.TopicCallback | None
-    ) -> watcher.AlarmSeverityReasonType:
+        self, data: BaseMsgType, topic_callback: TopicCallback | None
+    ) -> AlarmSeverityReasonType:
         assert topic_callback is not None
         if topic_callback.attr_name == "evt_queue":
             self.queue_enabled = data.enabled
@@ -124,4 +127,4 @@ class ScriptFailed(watcher.BaseRule):
                 f"Current Script {self.current_script_sal_index} FAILED.",
             )
         else:
-            return watcher.NoneNoReason
+            return NoneNoReason

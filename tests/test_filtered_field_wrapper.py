@@ -37,8 +37,12 @@ STD_TIMEOUT = 5
 
 class FilteredFieldWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
         self.index = next(index_gen)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_scalar_ess_field(self):
         """Test `FilteredEssFieldWrapper` with a scalar field."""

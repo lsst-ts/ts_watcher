@@ -34,7 +34,11 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 class ATeStopTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_test_topic_subname()
+        salobj.set_test_topic_subname(randomize=True)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_constructor(self):
         rule = ATeStop(config=None)

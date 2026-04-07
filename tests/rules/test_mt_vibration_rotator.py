@@ -32,7 +32,11 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 
 class MTVibrationRotatorTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_constructor(self):
         rule = MTVibrationRotator(None)

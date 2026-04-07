@@ -38,6 +38,10 @@ class MTDomeCapacitorBanksTestCase(unittest.IsolatedAsyncioTestCase):
         salobj.set_test_topic_subname(randomize=True)
         self.severity: AlarmSeverity | None = None
 
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
     async def test_constructor(self):
         rule = MTDomeCapacitorBanks(config=None)
         assert len(rule.remote_info_list) == 1
