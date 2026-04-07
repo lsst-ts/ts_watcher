@@ -25,11 +25,14 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
 
-class Enabled(watcher.BaseRule):
+
+class Enabled(BaseRule):
     """Monitor the summary state of a CSC.
 
     Set alarm severity NONE if the CSC is in the ENABLED state,
@@ -50,7 +53,7 @@ class Enabled(watcher.BaseRule):
 
     def __init__(self, config, log=None):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = watcher.RemoteInfo(
+        remote_info = RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_summaryState"],
@@ -109,7 +112,7 @@ class Enabled(watcher.BaseRule):
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> watcher.AlarmSeverityReasonType:
+    ) -> AlarmSeverityReasonType:
         state = data.summaryState
         try:
             state_name = salobj.State(state).name
@@ -119,5 +122,5 @@ class Enabled(watcher.BaseRule):
             severity = self.config.fault_severity
 
         if state == salobj.State.ENABLED or severity == AlarmSeverity.NONE:
-            return watcher.NoneNoReason
+            return NoneNoReason
         return severity, f"{state_name} state"

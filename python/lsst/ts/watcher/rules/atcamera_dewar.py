@@ -30,8 +30,12 @@ import typing
 import numpy as np
 import yaml
 
-from lsst.ts import salobj, utils, watcher
+from lsst.ts import salobj, utils
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
+from ..threshold_handler import ThresholdHandler
 
 
 @dataclasses.dataclass
@@ -63,7 +67,7 @@ class MeasurementInfo:
         self.units = "temperature" if self.is_temperature else "Torr"
 
 
-class ATCameraDewar(watcher.BaseRule):
+class ATCameraDewar(BaseRule):
     """Monitor ATCamera dewar temperatures and vacuum.
 
     Parameters
@@ -106,7 +110,7 @@ class ATCameraDewar(watcher.BaseRule):
     """
 
     def __init__(self, config, log=None):
-        remote_info = watcher.RemoteInfo(
+        remote_info = RemoteInfo(
             name="ATCamera",
             index=0,
             callback_names=["tel_vacuum"],
@@ -124,8 +128,8 @@ class ATCameraDewar(watcher.BaseRule):
         self.had_enough_data = False
         self.no_data_alarm_triggered_time = None
 
-        self.threshold_handlers: typing.Dict[str, typing.List[watcher.ThresholdHandler]] = (
-            collections.defaultdict(list)
+        self.threshold_handlers: typing.Dict[str, typing.List[ThresholdHandler]] = collections.defaultdict(
+            list
         )
         # Measurement name: MeasurementInfo
         self.name_meas_info = {
@@ -164,7 +168,7 @@ class ATCameraDewar(watcher.BaseRule):
 
     def _make_threshold_handler(
         self, config: types.SimpleNamespace, name: str, big_is_bad: bool
-    ) -> watcher.ThresholdHandler:
+    ) -> ThresholdHandler:
         """Make a ThresholdHandler
 
         Parameters
@@ -189,7 +193,7 @@ class ATCameraDewar(watcher.BaseRule):
                 f"The configuration must specify at least one threshold for {minmax_str} {name}"
             )
         category = "temperature" if info.is_temperature else "vacuum"
-        return watcher.ThresholdHandler(
+        return ThresholdHandler(
             warning_period=0,
             serious_period=0,
             critical_period=0,
@@ -355,7 +359,7 @@ class ATCameraDewar(watcher.BaseRule):
     def stop(self):
         self.no_data_timer_task.cancel()
 
-    def compute_alarm_severity(self, data: salobj.BaseMsgType, **kwargs) -> watcher.AlarmSeverityReasonType:
+    def compute_alarm_severity(self, data: salobj.BaseMsgType, **kwargs) -> AlarmSeverityReasonType:
         if self.no_data_alarm_triggered_time is not None:
             no_data_delay = utils.current_tai() - self.no_data_alarm_triggered_time + self.config.max_data_age
             self.restart_no_data_timer()
@@ -385,7 +389,7 @@ class ATCameraDewar(watcher.BaseRule):
                     f"We don't have enough data; {nelts} < {self.min_values}",
                 )
             else:
-                return watcher.NoneNoReason
+                return NoneNoReason
 
         self.had_enough_data = True
 
@@ -410,7 +414,7 @@ class ATCameraDewar(watcher.BaseRule):
             worst_severity = max(severity, worst_severity)
 
         if worst_severity == AlarmSeverity.NONE:
-            return watcher.NoneNoReason
+            return NoneNoReason
 
         reasons = []
         for severity, reason in severity_reasons:

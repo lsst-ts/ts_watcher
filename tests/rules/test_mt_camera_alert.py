@@ -36,6 +36,10 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
         self.rule_name = f"MTCameraAlert.{self.remote_name}.evt_alertRaised"
         self.rule_config_dict = {}
 
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
+
     async def test_constructor(self):
         schema = watcher.rules.MTCameraAlert.get_schema()
         assert schema is None

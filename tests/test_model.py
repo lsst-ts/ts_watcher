@@ -66,7 +66,16 @@ class ModelTestCase(unittest.IsolatedAsyncioTestCase):
         return super().setUpClass()
 
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        # Close all controllers so the Kafka topics can be cleaned up. This is
+        # a safety measure in case creating the model results in an error.
+        for controller in self.controllers:
+            await controller.close()
+
+        await salobj.delete_kafka_topics()
 
     @contextlib.asynccontextmanager
     async def make_model(self, names, enable, escalation=(), use_bad_callback=False):

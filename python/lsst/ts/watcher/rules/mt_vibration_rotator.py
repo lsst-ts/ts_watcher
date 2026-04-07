@@ -25,14 +25,14 @@ import logging
 import types
 import typing
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-from ..base_rule import AlarmSeverityReasonType, NoneNoReason
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTVibrationRotator(watcher.BaseRule):
+class MTVibrationRotator(BaseRule):
     """Monitor the main telescope vibration event based on the rotator
     detection.
 

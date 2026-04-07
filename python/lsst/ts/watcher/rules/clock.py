@@ -24,11 +24,15 @@ __all__ = ["Clock"]
 import numpy as np
 import yaml
 
-from lsst.ts import salobj, watcher
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
+from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
+from ..remote_info import RemoteInfo
+from ..topic_callback import TopicCallback
 
-class Clock(watcher.BaseRule):
+
+class Clock(BaseRule):
     """Monitor the system clock of a SAL component using the ``heartbeat``
     event.
 
@@ -55,7 +59,7 @@ class Clock(watcher.BaseRule):
 
     def __init__(self, config, log=None):
         remote_name, remote_index = salobj.name_to_name_index(config.name)
-        remote_info = watcher.RemoteInfo(
+        remote_info = RemoteInfo(
             name=remote_name,
             index=remote_index,
             callback_names=["evt_heartbeat"],
@@ -99,8 +103,8 @@ class Clock(watcher.BaseRule):
     def compute_alarm_severity(
         self,
         data: salobj.BaseMsgType,
-        topic_callback: watcher.TopicCallback | None = None,
-    ) -> watcher.AlarmSeverityReasonType:
+        topic_callback: TopicCallback | None = None,
+    ) -> AlarmSeverityReasonType:
         clock_error = data.private_rcvStamp - data.private_sndStamp
         if self.n_clock_errors < self.clock_errors.shape[0]:
             self.clock_errors[self.n_clock_errors] = clock_error
@@ -116,4 +120,4 @@ class Clock(watcher.BaseRule):
                 AlarmSeverity.WARNING,
                 f"Mininum |error|={min_abs_error:0.2f}; mean error={mean_error:0.2f} sec",
             )
-        return watcher.NoneNoReason
+        return NoneNoReason

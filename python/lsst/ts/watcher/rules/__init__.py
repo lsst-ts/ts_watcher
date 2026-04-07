@@ -35,6 +35,7 @@ from .mt_camera_alert import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *
 from .mt_hexapod_overcurrent import *
+from .mt_m1m3_egw_flow import *
 from .mt_m1m3_temperature import *
 from .mt_m1m3_thermal_fans import *
 from .mt_mirror_temperature import *

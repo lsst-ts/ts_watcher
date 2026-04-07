@@ -36,8 +36,12 @@ index_gen = utils.index_generator(imin=1234)
 
 class RemoteWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        salobj.set_random_lsst_dds_partition_prefix()
+        salobj.set_test_topic_subname(randomize=True)
         self.index = next(index_gen)
+
+    async def asyncTearDown(self) -> None:
+        """Runs after each test is completed."""
+        await salobj.delete_kafka_topics()
 
     async def test_all_names(self):
         async with salobj.Controller(name="Test", index=self.index, write_only=True) as controller:
