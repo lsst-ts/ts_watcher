@@ -25,13 +25,15 @@ import asyncio
 
 import yaml
 
-from lsst.ts import utils, watcher
+from lsst.ts import utils
+
+from ...base_rule import BaseRule
 
 # Maximum time (seconds) to wait for the next severity to be reported.
 NEXT_SEVERITY_TIMEOUT = 1
 
 
-class TriggeredSeverities(watcher.BaseRule):
+class TriggeredSeverities(BaseRule):
     """A test rule that transitions through a specified list of severities,
     repeatedly, when manually triggered by test code.
 
