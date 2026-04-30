@@ -23,6 +23,8 @@ import asyncio
 import types
 import unittest
 
+import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
@@ -32,9 +34,6 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        self.remote_name = "MTCamera"
-        self.rule_name = f"MTCameraAlert.{self.remote_name}.evt_alertRaised"
-        self.rule_config_dict = {}
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -42,39 +41,50 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor(self):
         schema = watcher.rules.MTCameraAlert.get_schema()
-        assert schema is None
+        assert schema is not None
 
-        config = watcher.rules.MTCameraAlert.make_config(**self.rule_config_dict)
+        alertId = "power_highCurrent"
+        config = watcher.rules.PowerGeneratorRunning.make_config(name=alertId)
+        desired_rule_name = f"MTCameraAlert.{alertId}"
         rule = watcher.rules.MTCameraAlert(config=config)
 
-        assert rule.name == self.rule_name
+
+        assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
         assert len(rule.remote_info_list) == 1
         remote_info = rule.remote_info_list[0]
-        assert remote_info.name == self.remote_name
+        assert remote_info.name == "MTCamera"
         assert remote_info.index == 0
-        assert self.rule_name in repr(rule)
+        assert desired_rule_name in repr(rule)
 
     async def test_operation(self):
-        watcher_config_dict = dict(
-            disabled_sal_components=[],
-            auto_acknowledge_delay=3600,
-            auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTCameraAlert", configs=[{}])],
-            escalation=(),
+        alert_id = "ccs_alertId"
+        
+        watcher_config_dict = yaml.safe_load(
+            f"""
+            disabled_sal_components: []
+            auto_acknowledge_delay: 3600
+            auto_unacknowledge_delay: 3600
+            rules:
+            - classname: MTCameraAlert
+              configs:
+              - name: {alert_id}
+            escalation: []
+            """
         )
+        
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with (
-            salobj.Controller(name=self.remote_name, index=0) as controller,
+            salobj.Controller(name="MTCamera", index=0) as controller,
             watcher.Model(domain=controller.domain, config=watcher_config) as model,
         ):
-            rule = model.rules[self.rule_name]
+            rule = model.rules["MTCameraAlert.ccs_alertId"]
             rule.alarm.init_severity_queue()
             await model.enable()
 
-            alert_id = "TestId"
+            alert_id = "ccs_alertId"
             description = "A test alert"
             cause = "Test cause"
             origin = "lsstcam"

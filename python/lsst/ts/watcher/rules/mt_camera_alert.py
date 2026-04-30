@@ -24,6 +24,8 @@ __all__ = ["MTCameraAlert", "CameraSeverity"]
 import enum
 import typing
 
+import yaml
+
 from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
@@ -49,6 +51,7 @@ class MTCameraAlert(BaseRule):
     def __init__(self, config, log=None):
         rule_name = "MTCameraAlert"
         remote_name = "MTCamera"
+        alert_id = config.name
         remote_index = 0
         callback_name = "evt_alertRaised"
 
@@ -62,15 +65,31 @@ class MTCameraAlert(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{rule_name}.{remote_name}.{callback_name}",
+            name=f"{rule_name}.{alert_id}",
             remote_info_list=remote_info_list,
             log=log,
         )
 
     @classmethod
     def get_schema(cls):
-        # No schema needed for this rule.
-        return None
+        schema_yaml = f"""
+            $schema: 'http://json-schema.org/draft-07/schema#'
+            description: Configuration for MTCameraAlert
+            type: object
+            properties:
+                name:
+                    description: >-
+                        The name of the corresponding CCS Alert
+                    type: string
+                description:
+                    description: >-
+                        The description of the corresponding CCS Alert
+                    type: string
+            required:
+            - name
+            additionalProperties: false
+        """
+        return yaml.safe_load(schema_yaml)
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
