@@ -76,42 +76,42 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
         )
         
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
-        async with (
-            salobj.Controller(name="MTCamera", index=0) as controller,
-            watcher.Model(domain=controller.domain, config=watcher_config) as model,
-        ):
-            rule = model.rules["MTCameraAlert.ccs_alertId"]
-            rule.alarm.init_severity_queue()
-            await model.enable()
+        async with salobj.Controller(name="MTCamera", index=0) as controller:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
 
-            alert_id = "ccs_alertId"
-            description = "A test alert"
-            cause = "Test cause"
-            origin = "lsstcam"
-            additional_info = "AdditionalInfo"
+                rule = model.rules["MTCameraAlert.ccs_alertId"]
+                rule.alarm.init_severity_queue()
+                await model.enable()
 
-            for is_cleared in [False, True]:
-                telemetry = {
-                    "timestampAlertStatusChanged": utils.current_tai(),
-                    "alertId": alert_id,
-                    "description": description,
-                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
-                    "isCleared": is_cleared,
-                    "cause": cause,
-                    "origin": origin,
-                    "additionalInfo": additional_info,
-                }
-                await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+                alert_id = "ccs_alertId"
+                description = "A test alert"
+                cause = "Test cause"
+                origin = "lsstcam"
+                additional_info = "AdditionalInfo"
 
-                severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
-                if not is_cleared:
-                    assert severity == AlarmSeverity.CRITICAL
-                    assert rule.alarm.reason != ""
-                    assert alert_id in rule.alarm.reason
-                    assert description in rule.alarm.reason
-                    assert cause in rule.alarm.reason
-                    assert origin in rule.alarm.reason
-                    assert additional_info in rule.alarm.reason
-                else:
-                    assert severity == AlarmSeverity.NONE
+                for is_cleared in [False, True]:
+                    telemetry = {
+                        "timestampAlertStatusChanged": utils.current_tai(),
+                        "alertId": alert_id,
+                        "description": description,
+                        "currentSeverity": watcher.rules.CameraSeverity.ALARM,
+                        "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                        "isCleared": is_cleared,
+                        "cause": cause,
+                        "origin": origin,
+                        "additionalInfo": additional_info,
+                    }
+                    await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+                    
+                    severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+                    if not is_cleared:
+                        assert severity == AlarmSeverity.CRITICAL
+                        assert rule.alarm.reason != ""
+                        assert alert_id in rule.alarm.reason
+                        assert description in rule.alarm.reason
+                        assert cause in rule.alarm.reason
+                        assert origin in rule.alarm.reason
+                        assert additional_info in rule.alarm.reason
+                    else:
+                        assert severity == AlarmSeverity.NONE
+                        
