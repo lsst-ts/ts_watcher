@@ -72,7 +72,7 @@ class MTCameraAlert(BaseRule):
 
     @classmethod
     def get_schema(cls):
-        schema_yaml = f"""
+        schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
             description: Configuration for MTCameraAlert
             type: object
