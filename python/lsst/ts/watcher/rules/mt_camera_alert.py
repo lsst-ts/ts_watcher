@@ -51,7 +51,7 @@ class MTCameraAlert(BaseRule):
     def __init__(self, config, log=None):
         rule_name = "MTCameraAlert"
         remote_name = "MTCamera"
-        alert_id = config.name
+        self.alert_id = config.name
         remote_index = 0
         callback_name = "evt_alertRaised"
 
@@ -65,7 +65,7 @@ class MTCameraAlert(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{rule_name}.{alert_id}",
+            name=f"{rule_name}.{self.alert_id}",
             remote_info_list=remote_info_list,
             log=log,
         )
@@ -124,6 +124,10 @@ class MTCameraAlert(BaseRule):
         -----
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
+
+        if data.alertId != self.alert_id:
+            return None
+
         currentSeverity = CameraSeverity(data.currentSeverity)
 
         if not data.isCleared:

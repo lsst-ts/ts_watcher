@@ -48,7 +48,6 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
         desired_rule_name = f"MTCameraAlert.{alertId}"
         rule = watcher.rules.MTCameraAlert(config=config)
 
-
         assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
@@ -61,7 +60,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_operation(self):
         alert_id = "ccs_alertId"
-        
+
         watcher_config_dict = yaml.safe_load(
             f"""
             disabled_sal_components: []
@@ -74,11 +73,10 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
             escalation: []
             """
         )
-        
+
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with salobj.Controller(name="MTCamera", index=0) as controller:
             async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
-
                 rule = model.rules["MTCameraAlert.ccs_alertId"]
                 rule.alarm.init_severity_queue()
                 await model.enable()
@@ -102,7 +100,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                         "additionalInfo": additional_info,
                     }
                     await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
-                    
+
                     severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     if not is_cleared:
                         assert severity == AlarmSeverity.CRITICAL
@@ -114,4 +112,102 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                         assert additional_info in rule.alarm.reason
                     else:
                         assert severity == AlarmSeverity.NONE
-                        
+
+    async def test_multiple_rules(self):
+        alert_id1 = "ccs_alertId_1"
+        alert_id2 = "ccs_alertId_2"
+
+        watcher_config_dict = yaml.safe_load(
+            f"""
+            disabled_sal_components: []
+            auto_acknowledge_delay: 3600
+            auto_unacknowledge_delay: 3600
+            rules:
+            - classname: MTCameraAlert
+              configs:
+              - name: {alert_id1}
+              - name: {alert_id2}
+            escalation: []
+            """
+        )
+
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with salobj.Controller(name="MTCamera", index=0) as controller:
+            async with watcher.Model(domain=controller.domain, config=watcher_config) as model:
+                assert len(model.rules) == 2
+
+                rule1 = model.rules["MTCameraAlert.ccs_alertId_1"]
+                assert rule1 is not None
+                rule1.alarm.init_severity_queue()
+                assert rule1.alarm.nominal is True
+
+                rule2 = model.rules["MTCameraAlert.ccs_alertId_2"]
+                assert rule2 is not None
+                rule2.alarm.init_severity_queue()
+                assert rule2.alarm.nominal is True
+
+                await model.enable()
+
+                ## Raise the first ccs alert id and test that only the first
+                ## rule got a severity update
+                alert_id = "ccs_alertId_1"
+                description = "A test alert"
+                cause = "Test cause"
+                origin = "lsstcam"
+                additional_info = "AdditionalInfo"
+                is_cleared = False
+
+                telemetry = {
+                    "timestampAlertStatusChanged": utils.current_tai(),
+                    "alertId": alert_id,
+                    "description": description,
+                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
+                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                    "isCleared": is_cleared,
+                    "cause": cause,
+                    "origin": origin,
+                    "additionalInfo": additional_info,
+                }
+                await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+
+                severity1 = await asyncio.wait_for(rule1.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+                try:
+                    await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+                except TimeoutError:
+                    print("All good!")
+                else:
+                    assert True is False
+
+                assert rule1.alarm.nominal is False
+                assert rule2.alarm.nominal is True
+
+                assert severity1 == AlarmSeverity.CRITICAL
+
+                ## Now raise the second ccs alert and test that only the second
+                ## rule got a change in severity
+                alert_id = "ccs_alertId_2"
+                telemetry = {
+                    "timestampAlertStatusChanged": utils.current_tai(),
+                    "alertId": alert_id,
+                    "description": description,
+                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
+                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                    "isCleared": is_cleared,
+                    "cause": cause,
+                    "origin": origin,
+                    "additionalInfo": additional_info,
+                }
+                await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+
+                try:
+                    await asyncio.wait_for(rule1.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+                except TimeoutError:
+                    print("All good!")
+                else:
+                    assert True is False
+                severity2 = await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+
+                assert rule1.alarm.nominal is False
+                assert rule2.alarm.nominal is False
+
+                assert severity2 == AlarmSeverity.CRITICAL
