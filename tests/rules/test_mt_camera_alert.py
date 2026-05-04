@@ -92,8 +92,8 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                         "timestampAlertStatusChanged": utils.current_tai(),
                         "alertId": alert_id,
                         "description": description,
-                        "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                        "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                        "currentSeverity": AlarmSeverity.SERIOUS,
+                        "highestSeverity": AlarmSeverity.WARNING,
                         "isCleared": is_cleared,
                         "cause": cause,
                         "origin": origin,
@@ -103,7 +103,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
 
                     severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     if not is_cleared:
-                        assert severity == AlarmSeverity.CRITICAL
+                        assert severity == AlarmSeverity.SERIOUS
                         assert rule.alarm.reason != ""
                         assert alert_id in rule.alarm.reason
                         assert description in rule.alarm.reason
@@ -161,8 +161,8 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     "timestampAlertStatusChanged": utils.current_tai(),
                     "alertId": alert_id,
                     "description": description,
-                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                    "currentSeverity": AlarmSeverity.SERIOUS,
+                    "highestSeverity": AlarmSeverity.WARNING,
                     "isCleared": is_cleared,
                     "cause": cause,
                     "origin": origin,
@@ -181,7 +181,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                 assert rule1.alarm.nominal is False
                 assert rule2.alarm.nominal is True
 
-                assert severity1 == AlarmSeverity.CRITICAL
+                assert severity1 == AlarmSeverity.SERIOUS
 
                 ## Now raise the second ccs alert and test that only the second
                 ## rule got a change in severity
@@ -190,8 +190,8 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     "timestampAlertStatusChanged": utils.current_tai(),
                     "alertId": alert_id,
                     "description": description,
-                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                    "currentSeverity": AlarmSeverity.SERIOUS,
+                    "highestSeverity": AlarmSeverity.WARNING,
                     "isCleared": is_cleared,
                     "cause": cause,
                     "origin": origin,
@@ -210,4 +210,4 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                 assert rule1.alarm.nominal is False
                 assert rule2.alarm.nominal is False
 
-                assert severity2 == AlarmSeverity.CRITICAL
+                assert severity2 == AlarmSeverity.SERIOUS

@@ -19,9 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTCameraAlert", "CameraSeverity"]
+__all__ = ["MTCameraAlert"]
 
-import enum
 import typing
 
 import yaml
@@ -133,7 +132,7 @@ class MTCameraAlert(BaseRule):
         if data.alertId != self.alert_id:
             return None
 
-        currentSeverity = CameraSeverity(data.currentSeverity)
+        currentSeverity = AlarmSeverity(data.currentSeverity)
 
         if not data.isCleared:
             reason = (
@@ -141,24 +140,8 @@ class MTCameraAlert(BaseRule):
                 f"currentSeverity={currentSeverity.name}, isCleared={data.isCleared}, "
                 f"cause={data.cause}, origin={data.origin}, additionalInfo={data.additionalInfo}"
             )
-            match data.currentSeverity:
-                case CameraSeverity.NOMINAL:
-                    severity = AlarmSeverity.WARNING
-                case CameraSeverity.WARNING:
-                    severity = AlarmSeverity.SERIOUS
-                case CameraSeverity.ALARM:
-                    severity = AlarmSeverity.CRITICAL
-                case _:
-                    severity, reason = NoneNoReason
+            severity = data.currentSeverity
         else:
             severity, reason = NoneNoReason
 
         return severity, reason
-
-
-class CameraSeverity(enum.IntEnum):
-    """Enum that represents CCCamera severity levels."""
-
-    NOMINAL = 1
-    WARNING = 2
-    ALARM = 3
