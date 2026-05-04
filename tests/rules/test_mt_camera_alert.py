@@ -44,7 +44,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
         assert schema is not None
 
         alertId = "power_highCurrent"
-        config = watcher.rules.PowerGeneratorRunning.make_config(name=alertId)
+        config = watcher.rules.MTCameraAlert.make_config(alertId=alertId)
         desired_rule_name = f"MTCameraAlert.{alertId}"
         rule = watcher.rules.MTCameraAlert(config=config)
 
@@ -69,7 +69,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
             rules:
             - classname: MTCameraAlert
               configs:
-              - name: {alert_id}
+              - alertId: {alert_id}
             escalation: []
             """
         )
@@ -125,8 +125,8 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
             rules:
             - classname: MTCameraAlert
               configs:
-              - name: {alert_id1}
-              - name: {alert_id2}
+              - alertId: {alert_id1}
+              - alertId: {alert_id2}
             escalation: []
             """
         )
@@ -174,7 +174,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                 try:
                     await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 except TimeoutError:
-                    print("All good!")
+                    pass
                 else:
                     assert True is False
 
@@ -202,7 +202,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                 try:
                     await asyncio.wait_for(rule1.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 except TimeoutError:
-                    print("All good!")
+                    pass
                 else:
                     assert True is False
                 severity2 = await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)

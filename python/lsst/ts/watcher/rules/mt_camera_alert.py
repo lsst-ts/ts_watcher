@@ -51,7 +51,12 @@ class MTCameraAlert(BaseRule):
     def __init__(self, config, log=None):
         rule_name = "MTCameraAlert"
         remote_name = "MTCamera"
-        self.alert_id = config.name
+
+        # The CCS Alert ID as provided by the configuration.
+        # This is the unique identifier used to differentiate the
+        # rules and associate each of them to the corresponding
+        # CCS alert.
+        self.alert_id = config.alertId
         remote_index = 0
         callback_name = "evt_alertRaised"
 
@@ -77,16 +82,16 @@ class MTCameraAlert(BaseRule):
             description: Configuration for MTCameraAlert
             type: object
             properties:
-                name:
+                alertId:
                     description: >-
-                        The name of the corresponding CCS Alert
+                        The id of the corresponding CCS Alert
                     type: string
                 description:
                     description: >-
                         The description of the corresponding CCS Alert
                     type: string
             required:
-            - name
+            - alertId
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
