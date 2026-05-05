@@ -24,6 +24,7 @@ try:
 except ImportError:
     __version__ = "?"
 
+from . import rules
 from .alarm import *
 from .alarm_rule_runner import *
 from .base_ess_rule import *
@@ -35,13 +36,12 @@ from .filtered_topic_wrapper import *
 from .mock_opsgenie import *
 from .mock_pagerduty import *
 from .mock_squadcast import *
+from .model import *
 from .polling_rule import *
 from .remote_info import *
 from .remote_wrapper import *
 from .testutils import *
 from .threshold_handler import *
 from .topic_callback import *
-
-from .model import *  # isort:skip
-from .watcher_csc import *  # isort:skip
-from . import rules  # isort:skip
+from .watcher_csc import *
+from .watcher_utils import *
