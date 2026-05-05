@@ -24,7 +24,6 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -33,12 +32,7 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("HVAC", topic_subname="")
-        if "evt_chiller01P01" in self.component_info.topics:
-            self.callback_name = "evt_chiller01P01"
-        else:
-            self.callback_name = "evt_coldGlycolChiller01"
+        self.callback_name = "evt_coldGlycolChiller01"
         self.remote_name = "HVAC"
         self.rule_config_dict = {
             "rule_name": "HVAC_chiller01",
