@@ -27,7 +27,6 @@ import typing
 import yaml
 
 from lsst.ts import salobj
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
@@ -46,29 +45,18 @@ class MTM1M3EGWFlow(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("MTM1M3TS", topic_subname="")
-        if "tel_flowMeter" in self.component_info.topics:
-            remote_info_list = [
-                RemoteInfo(
-                    name="MTM1M3TS",
-                    index=0,
-                    callback_names=["tel_flowMeter", "evt_summaryState", "evt_engineeringMode"],
-                ),
-            ]
-        else:
-            remote_info_list = [
-                RemoteInfo(
-                    name="MTM1M3TS",
-                    index=0,
-                    callback_names=["evt_summaryState", "evt_engineeringMode"],
-                ),
-                RemoteInfo(
-                    name="ESS",
-                    index=130,
-                    callback_names=["tel_flowMeter"],
-                ),
-            ]
+        remote_info_list = [
+            RemoteInfo(
+                name="MTM1M3TS",
+                index=0,
+                callback_names=["evt_summaryState", "evt_engineeringMode"],
+            ),
+            RemoteInfo(
+                name="ESS",
+                index=130,
+                callback_names=["tel_flowMeter"],
+            ),
+        ]
         super().__init__(
             config=config,
             name="MTM1M3EGWFlow",

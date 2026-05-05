@@ -30,7 +30,6 @@ import pytest
 import yaml
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 NEXT_SEVERITY_WAIT_TIME = 10
@@ -39,12 +38,7 @@ NEXT_SEVERITY_WAIT_TIME = 10
 class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("HVAC", topic_subname="")
-        if "tel_airInletFan01P01" in self.component_info.topics:
-            self.callback_name = "tel_airInletFan01P01"
-        else:
-            self.callback_name = "tel_airCirculationFan01Lab"
+        self.callback_name = "tel_airCirculationFan01Lab"
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
