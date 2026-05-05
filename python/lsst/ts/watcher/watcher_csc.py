@@ -22,17 +22,23 @@
 __all__ = ["WatcherCsc", "run_watcher"]
 
 import asyncio
+import copy
+import logging
 import os
-import uuid
-from http import HTTPStatus
+import re
+import types
 
 import aiohttp
+import yaml
 
-from lsst.ts import salobj
+from lsst.ts import salobj, utils
+from lsst.ts.salobj.base import get_user_host
+from lsst.ts.xml.enums.AlarmRule import AlarmRuleState
+from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
-from .model import Model
+from .watcher_utils import AlarmInfo, AlarmRuleInfo
 
 # URL suffix for the SquadCast Incident Webhook API
 INCIDENT_WEBHOOK_URL_SUFFIX = "/v2/incidents/api/"
@@ -40,6 +46,20 @@ INCIDENT_WEBHOOK_URL_SUFFIX = "/v2/incidents/api/"
 # Standard timeout applied to some regular CSC
 # operations (in seconds).
 STD_TIMEOUT = 120
+
+# The script name.
+SCRIPT_NAME = "run_alarm_rule_runner"
+
+# Process communicate timeout [sec].
+PROCESS_COMM_TIMEOUT = 20
+
+# Dict of alarm severity levels and their corresponding logging levels.
+alarm_severity_level = {
+    AlarmSeverity.NONE: logging.DEBUG,
+    AlarmSeverity.SERIOUS: logging.INFO,
+    AlarmSeverity.WARNING: logging.WARNING,
+    AlarmSeverity.CRITICAL: logging.CRITICAL,
+}
 
 
 class WatcherCsc(salobj.ConfigurableCsc):
@@ -71,9 +91,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
     version = __version__
 
     def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY, override=""):
-        # the Watcher model is created when the CSC is configured
-        # and reset to None when the Watcher goes to standby.
-        self.model = None
         self.http_client = aiohttp.ClientSession()
 
         super().__init__(
@@ -83,8 +100,20 @@ class WatcherCsc(salobj.ConfigurableCsc):
             config_dir=config_dir,
             initial_state=initial_state,
             override=override,
+            discard_out_of_order_telemetry=True,
+            discard_out_of_order_events=False,
         )
         self.escalation_endpoint_url = ""
+        self.config: types.SimpleNamespace | None = None
+
+        # Dict of AlarmRule index and info for that AlarmRule.
+        self.alarm_rules_info: dict[int, AlarmRuleInfo] = {}
+
+        # List of received alarms.
+        self.alarms_info: dict[str, AlarmInfo] = {}
+
+        # Lock to protect access to self.alarms.
+        self.alarms_lock = asyncio.Lock()
 
     @staticmethod
     def get_config_pkg():
@@ -92,8 +121,28 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def close_tasks(self):
         await super().close_tasks()
-        if self.model is not None:
-            await self.model.close()
+
+        # Command all remotes to stop and stop the remotes themselves as well
+        # as the subprocesses.
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
+
+            self.log.debug(f"Stopping Remote[AlarmRule:{index}] for rule {alarm_rule_info.classname}.")
+            await alarm_rule_info.remote.cmd_stop.set_start()
+            await alarm_rule_info.remote.close()
+            self.log.debug(f"Remote[AlarmRule:{index}] is stopped.")
+
+            process = alarm_rule_info.process
+            self.log.debug(
+                f"Waiting for alarm rule process {process.pid} for rule {alarm_rule_info.classname} to exit."
+            )
+            while process.returncode is None:
+                await asyncio.sleep(0.1)
+            self.log.debug(f"Alarm rule process {process.pid} exited with code {process.returncode}.")
+
+        self.alarm_rules_info = {}
+        self.alarms_info = {}
+
         await self.http_client.close()
         # aiohttp.ClientSession needs a bit more time to fully close.
         await asyncio.sleep(0.1)
@@ -105,23 +154,23 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
         await super().begin_start(data)
 
-    async def configure(self, config):
-        if self.model is not None:
-            # The model should be None, but if not, close it to get rid
-            # of the old alarms.
-            self.log.warning(
-                "Model unexpectedly present while configuring the CSC. "
-                "Closing the old model and building a new."
-            )
-            await self.model.close()
-            self.model = None
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
+            self.log.debug(f"Running Remote[AlarmRule:{index}].")
+            await alarm_rule_info.remote.cmd_run.set_start(timeout=STD_TIMEOUT)
+            self.log.debug(f"Remote[AlarmRule:{index}] is running.")
 
-        self.model = Model(
-            domain=self.domain,
-            config=config,
-            alarm_callback=self.output_alarm,
-            log=self.log,
-        )
+    async def begin_disable(self, data) -> None:
+        if self.summary_state == salobj.State.ENABLED:
+            await self.close_tasks()
+
+    async def end_enable(self, data):
+        await super().end_enable(data)
+        await self.output_alarms()
+
+    async def configure(self, config: types.SimpleNamespace):
+        self.config = config
+
         if config.escalation_url:
             try:
                 escalation_key = os.environ["ESCALATION_KEY"]
@@ -130,206 +179,261 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.escalation_endpoint_url = (
                 config.escalation_url + INCIDENT_WEBHOOK_URL_SUFFIX + escalation_key
             )
+            config.escalation_url = self.escalation_endpoint_url
 
-        await self.model.start_task
+        for index, rule in enumerate(config.rules, start=1):
+            alarm_rule_config = copy.deepcopy(config)
+            alarm_rule_config.rules = [rule]
+            alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
 
-    async def escalate_alarm(self, alarm):
-        """Escalate an alarm by creating a SquadCast incident.
+            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {rule['classname']}.")
+            process = await asyncio.create_subprocess_exec(
+                SCRIPT_NAME, rule["classname"], str(index), stdin=asyncio.subprocess.PIPE
+            )
 
-        Store the ID of the alert in alarm.escalation_id.
-        If the attempt fails, store an error message that begins with
-        "Failed: " in alarm.escalation_id.
+            self.log.debug(f"Creating Remote[AlarmRule:{index}] for rule {rule['classname']}.")
+            alarm_rule_remote = salobj.Remote(domain=self.domain, name="AlarmRule", index=index)
+            alarm_rule_remote.evt_description.callback = self.evt_description_callback
+            alarm_rule_remote.evt_state.callback = self.evt_state_callback
+            alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
+            alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
+            alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
 
-        If self.model.config.escalation_url is blank then check the conditions
-        in the Raises section, but do nothing else.
+            self.alarm_rules_info[index] = AlarmRuleInfo(
+                classname=rule["classname"],
+                config=alarm_rule_config,
+                remote=alarm_rule_remote,
+                process=process,
+                rule_names=[],
+            )
 
-        Raises
-        ------
-        RuntimeError
-            If pre-conditions are not met (escalation is not attempted):
+            self.log.debug(f"Waiting for Remote[AlarmRule:{index}] start_task for rule {rule['classname']}.")
+            await alarm_rule_remote.start_task
+            self.log.debug(f"Remote[AlarmRule:{index}] start_task completed.")
 
-            * alarm.escalated_id is not blank: the alarm was already
-              escalated (or at least an attempt was made).
-            * alarm.do_escalate false: alarm should not be escalated.
-            * alarm.escalation_responder empty: there is nobody to escalate
-              the alarm to (so do_escalate should never have been set).
-        """
-        if alarm.escalated_id:
-            raise RuntimeError("Alarm already escalated")
-        if not alarm.do_escalate:
-            raise RuntimeError("Alarm do_escalate false")
-        if not alarm.escalation_responder:
-            raise RuntimeError("Alarm escalation_responder empty")
-        if self.model.config.escalation_url == "":
-            return
+            self.log.debug(f"Waiting for Remote[AlarmRule:{index}] heartbeat for rule {rule['classname']}.")
+            await alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
+            self.log.debug(f"Remote[AlarmRule:{index}] heartbeat received.")
 
-        # Try to create an SquadCast incident
-        try:
-            escalated_id = str(uuid.uuid4())
-            async with self.http_client.post(
-                url=self.escalation_endpoint_url,
-                json=dict(
-                    status="trigger",
-                    event_id=escalated_id,
-                    message=f"Watcher alarm {alarm.name!r} escalated",
-                    description=alarm.reason,
-                    tags=dict(
-                        responder=alarm.escalation_responder,
-                        alarm_name=alarm.name,
-                    ),
-                ),
-            ) as response:
-                if response.status == HTTPStatus.ACCEPTED:
-                    alarm.escalated_id = escalated_id
-                else:
-                    read_text = await response.text()
-                    alarm.escalated_id = f"Failed: {read_text}"
-                    self.log.warning(f"Could not escalate alarm {alarm}: {read_text}")
-        except Exception as e:
-            errmsg = f"Could not reach SquadCast: {e!r}"
-            alarm.escalated_id = f"Failed: {errmsg}"
-            self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
+            self.log.debug(f"Configuring Remote[AlarmRule:{index}] for rule {rule['classname']}.")
+            await alarm_rule_remote.cmd_configure.set_start(config=alarm_rule_config_str, timeout=STD_TIMEOUT)
+            self.log.debug(f"Configured Remote[AlarmRule:{index}].")
 
-    async def deescalate_alarm(self, alarm):
-        """De-escalate an alarm by resolving the associated SquadCast incident.
-
-        Clear alarm.escalated_id and, if alarm.escalated_id is valid
-        (does not start with "Failed"), tell SquadCast to close the alert.
-        """
-        if not alarm.escalated_id:
-            return
-
-        escalated_id = alarm.escalated_id
-        alarm.escalated_id = ""
-        if escalated_id.startswith("Failed") or self.model.config.escalation_url == "":
-            # Nothing else to do
-            return
-
-        # Try to resolve the SquadCast incident
-        async with self.http_client.post(
-            url=self.escalation_endpoint_url,
-            json=dict(
-                status="resolve",
-                event_id=escalated_id,
-            ),
-        ) as response:
-            if response.status != HTTPStatus.ACCEPTED:
-                read_text = await response.text()
-                self.log.warning(
-                    f"Could not resolve SquadCast incident {escalated_id} for alarm {alarm}: {read_text}"
-                )
-
-    async def output_alarm(self, alarm):
-        """Output the alarm event for one alarm."""
+    async def output_alarm(self, alarm_info, force_output=True):
+        """Output the alarm event for one alarm_info instance."""
         if self.summary_state != salobj.State.ENABLED:
             return
 
-        if alarm.do_escalate:
-            if not alarm.escalated_id and alarm.escalating_task.done():
-                try:
-                    alarm.escalating_task = asyncio.create_task(
-                        asyncio.wait_for(
-                            self.escalate_alarm(alarm),
-                            timeout=self.model.config.escalation_timeout,
-                        )
-                    )
-                    await alarm.escalating_task
-                except asyncio.TimeoutError:
-                    errmsg = "Timed out waiting for SquadCast"
-                    alarm.escalated_id = f"Failed: {errmsg}"
-                    self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
-                except RuntimeError as e:
-                    self.log.error(f"Bug: escalation of {alarm} could not be attempted: {e!r}")
-        else:
-            if alarm.escalated_id:
-                try:
-                    await asyncio.wait_for(
-                        self.deescalate_alarm(alarm),
-                        timeout=self.model.config.escalation_timeout,
-                    )
-                except asyncio.TimeoutError:
-                    self.log.warning(f"Could not de-escalate alarm {alarm}: timed out waiting for SquadCast")
-                except Exception:
-                    self.log.exception(f"Failed to de-escalate alarm {alarm}")
-                finally:
-                    alarm.escalated_id = ""
-
         await self.evt_alarm.set_write(
-            name=alarm.name,
-            severity=alarm.severity,
-            reason=alarm.reason,
-            maxSeverity=alarm.max_severity,
-            acknowledged=alarm.acknowledged,
-            acknowledgedBy=alarm.acknowledged_by,
-            mutedSeverity=alarm.muted_severity,
-            mutedBy=alarm.muted_by,
-            escalateTo=alarm.escalation_responder,
-            escalatedId=alarm.escalated_id,
-            timestampSeverityOldest=alarm.timestamp_severity_oldest,
-            timestampMaxSeverity=alarm.timestamp_max_severity,
-            timestampAcknowledged=alarm.timestamp_acknowledged,
-            timestampAutoAcknowledge=alarm.timestamp_auto_acknowledge,
-            timestampAutoUnacknowledge=alarm.timestamp_auto_unacknowledge,
-            timestampEscalate=alarm.timestamp_escalate,
-            timestampUnmute=alarm.timestamp_unmute,
-            force_output=True,
+            name=alarm_info.name,
+            severity=alarm_info.severity,
+            reason=alarm_info.reason,
+            maxSeverity=alarm_info.max_severity,
+            acknowledged=alarm_info.acknowledged,
+            acknowledgedBy=alarm_info.acknowledged_by,
+            mutedSeverity=alarm_info.muted_severity,
+            mutedBy=alarm_info.muted_by,
+            escalateTo=alarm_info.escalate_to,
+            escalatedId=alarm_info.escalated_id,
+            timestampSeverityOldest=alarm_info.timestamp_severity_oldest,
+            timestampMaxSeverity=alarm_info.timestamp_max_severity,
+            timestampAcknowledged=alarm_info.timestamp_acknowledged,
+            timestampAutoAcknowledge=alarm_info.timestamp_auto_acknowledge,
+            timestampAutoUnacknowledge=alarm_info.timestamp_auto_unacknowledge,
+            timestampEscalate=alarm_info.timestamp_escalate,
+            timestampUnmute=alarm_info.timestamp_unmute,
+            force_output=force_output,
         )
 
-    async def handle_summary_state(self):
-        if self.summary_state == salobj.State.ENABLED:
-            if self.model is None:
-                raise RuntimeError(
-                    "Bug: state is ENABLED but there is no model. "
-                    "Please restart the software and file a JIRA ticket."
-                )
-            await self.model.enable()
-        elif self.summary_state == salobj.State.DISABLED:
-            if self.model is None:
-                raise RuntimeError(
-                    "Bug: state is DISABLED but there is no model. "
-                    "Please restart the software and file a JIRA ticket."
-                )
-            self.model.disable()
-        else:
-            if self.model is not None:
-                await self.model.close()
-                self.model = None
+    async def output_alarms(self):
+        """Output the alarm events for all alarms."""
+        async with self.alarms_lock:
+            for alarm_name in self.alarms_info:
+                alarm_info = self.alarms_info[alarm_name]
+                self.log.debug(f"Outputting alarm {alarm_info.name}")
+                await self.output_alarm(alarm_info)
+                await asyncio.sleep(0.001)
+
+    async def find_remotes_for_rule_regex(self, name_regex):
+        """Get all remotes whose alarm classnames match the specified regular
+        expression.
+
+        Parameters
+        ----------
+        name_regex : `str`
+            Regular expression for alarm classname(s) to match.
+
+        Returns
+        -------
+        remotes : `list`[`salobj.Remote`]
+            A list of remotes.
+        """
+        compiled_re = re.compile(name_regex)
+        remotes: set[salobj.Remote] = set()
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
+            for rule in alarm_rule_info.rule_names:
+                if compiled_re.match(rule):
+                    remotes.add(alarm_rule_info.remote)
+        return remotes
 
     async def do_acknowledge(self, data):
         self.assert_enabled()
-        await self.model.acknowledge_alarm(name=data.name, severity=data.severity, user=data.acknowledgedBy)
+        remotes = await self.find_remotes_for_rule_regex(data.name)
+        for remote in remotes:
+            await remote.cmd_acknowledge.set_start(
+                alarmName=data.name, severity=data.severity, acknowledgedBy=data.acknowledgedBy
+            )
 
     async def do_mute(self, data):
         """Mute one or more alarms."""
         self.assert_enabled()
-        await self.model.mute_alarm(
-            name=data.name,
-            duration=data.duration,
-            severity=data.severity,
-            user=data.mutedBy,
-        )
+        remotes = await self.find_remotes_for_rule_regex(data.name)
+        for remote in remotes:
+            await remote.cmd_mute.set_start(
+                alarmName=data.name, muteDuration=data.duration, severity=data.severity, mutedBy=data.mutedBy
+            )
 
     async def do_showAlarms(self, data):
         """Show all alarms."""
         self.assert_enabled()
-        for rule in self.model.rules.values():
-            await self.output_alarm(rule.alarm)
-            await asyncio.sleep(0.001)
+        await self.output_alarms()
 
     async def do_unacknowledge(self, data):
         """Unacknowledge one or more alarms."""
         self.assert_enabled()
-        await self.model.unacknowledge_alarm(name=data.name)
+        remotes = await self.find_remotes_for_rule_regex(data.name)
+        for remote in remotes:
+            await remote.cmd_unacknowledge.set_start(alarmName=data.name)
 
     async def do_unmute(self, data):
         """Unmute one or more alarms."""
         self.assert_enabled()
-        await self.model.unmute_alarm(name=data.name)
+        remotes = await self.find_remotes_for_rule_regex(data.name)
+        for remote in remotes:
+            await remote.cmd_unmute.set_start(alarmName=data.name)
+
+    async def do_setLogLevel(self, data) -> None:
+        """Set logging level.
+
+        Also set the logging level for all alarm rules.
+
+        Parameters
+        ----------
+        data : ``cmd_setLogLevel.DataType``
+            Logging level.
+        """
+        await super().do_setLogLevel(data)
+
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
+            await alarm_rule_info.remote.cmd_setLogLevel.set_start(level=data.level)
+
+    async def make_log_entry_for_alarm(self, log_server_url, alarm):
+        """Post a message to the narrative log entry in response to alarm.
+
+        Parameters
+        ----------
+        log_server_url : `str`
+            URL of the narrativelog service.
+        alarm : `AlarmInfo`
+            The alarm to make the log entry for.
+
+        Returns
+        -------
+        response : `dict`
+            JSON response from Post.
+        """
+        now = utils.astropy_time_from_tai_unix(utils.current_tai()).datetime.isoformat()
+        # Required? fields in payload:
+        #   message_text, level, user_id, user_agent, is_human
+        message = f"alarm:{alarm.name} severity={alarm.severity} {alarm.reason}"
+        payload = {
+            "message_text": message,
+            "level": alarm_severity_level[alarm.severity],
+            "user_id": get_user_host(),
+            "user_agent": "Watcher",
+            "is_human": False,
+            "tags": ["watcher", "alarm", "make_log_entry"],
+            "date_begin": now,
+            "date_end": now,
+        }
+
+        url = f"{log_server_url}/messages"
+
+        # AIOHTTP docs say don't create session per request. We do so anyhow.
+        # By not specifying a timeout, we accept the default value of
+        # 5 minutes (according to the doc)for the whole
+        # operation (connect, write, response).
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(url=url, json=payload) as response:
+                response: dict = await response.json()
+                self.log.debug(f"Response (json) from Post: {response=}")
+        return response
+
+    async def make_log_entry(self, log_server_url, name_regex):
+        """MakeLogEntry for alarm.
+
+        Parameters
+        ----------
+        log_server_url : `str`
+            URL of the narrativelog service.
+        name_regex : `str`
+            Regular expression for alarm name(s) to post to narrative log.
+        """
+        compiled_re = re.compile(name_regex)
+        for alarm_name in self.alarms_info:
+            if not compiled_re.match(alarm_name):
+                continue
+            alarm = self.alarms_info[alarm_name]
+            await self.make_log_entry_for_alarm(log_server_url, alarm)
 
     async def do_makeLogEntry(self, data):
         """Make log entry for alarms."""
         self.assert_enabled()
-        await self.model.make_log_entry(name=data.name)
+        log_server_url = self.config.narrative_server_url
+        await self.make_log_entry(log_server_url, data.name)
+
+    async def evt_description_callback(self, data):
+        """Handle description event from alarm subprocesses."""
+        self.log.debug(f"Received description event for {data.salIndex=} with {data=}")
+        alarm_rule_info = self.alarm_rules_info[data.salIndex]
+        alarm_rule_info.rule_names = [f"{data.alarmName}.{remote}" for remote in data.remotes.split(",")]
+        self.log.debug(
+            f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
+        )
+
+    async def evt_state_callback(self, data):
+        """Handle state event from alarm subprocesses."""
+        self.log.info(
+            f"Received state event for {data.salIndex=} with state {AlarmRuleState(data.state).name}."
+        )
+
+    async def evt_alarm_callback(self, data):
+        """Handle alarm event from alarm subprocesses."""
+        self.log.debug(f"Received alarm event for {data.salIndex=} with {data=}")
+
+        async with self.alarms_lock:
+            if data.alarmName not in self.alarms_info:
+                alarm_info = AlarmInfo(name=data.alarmName, log=self.log)
+                alarm_info.callback = self.output_alarm
+                self.alarms_info[alarm_info.name] = alarm_info
+
+            alarm_info = self.alarms_info[data.alarmName]
+            await alarm_info.set_from_data(data)
+
+            if self.summary_state == salobj.State.ENABLED:
+                await self.output_alarm(alarm_info, force_output=False)
+
+    async def evt_logLevel_callback(self, data):
+        """Handle logLevel event from the alarm subprocess."""
+        self.log.info(f"Received logLevel event for {data.salIndex=} with {data.level=}")
+
+    async def evt_logMessage_callback(self, data):
+        """Handle logMessage event from the alarm subprocess."""
+        self.log.info(
+            f"Received logMessage event for {data.salIndex=} with {data.message=}, {data.traceback=}"
+        )
 
 
 def run_watcher():

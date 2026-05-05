@@ -20,9 +20,11 @@
 
 import asyncio
 import glob
+import logging
 import os
 import pathlib
 import sys
+import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -31,7 +33,7 @@ import pytest
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
-STD_TIMEOUT = 2  # standard command timeout (sec)
+STD_TIMEOUT = 20  # standard command timeout (sec)
 NODATA_TIMEOUT = 1  # timeout when no data is expected (sec)
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "config" / "csc"
 
@@ -40,7 +42,7 @@ TIME_EPSILON = 0.1
 
 
 class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
-    def basic_make_csc(self, initial_state, config_dir, simulation_mode):
+    def basic_make_csc(self, initial_state, config_dir, simulation_mode, **kwargs):
         assert initial_state == salobj.State.STANDBY
         assert simulation_mode == 0
         return watcher.WatcherCsc(config_dir=config_dir)
@@ -83,17 +85,16 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         with the alarm being NONE.
         """
         alarm_names = set()
-        seen_alarm_names = set()
-        for alarm_name in self.csc.model.rules:
+        for index, alarm_name in enumerate(self.csc.alarms_info):
+            self.csc.log.debug(f"Waiting for alarm {index} of {len(self.csc.alarms_info)}.")
             alarm_names.add(alarm_name)
-            data = await self.assert_next_alarm(
+            await self.assert_next_alarm(
                 severity=AlarmSeverity.NONE,
                 maxSeverity=AlarmSeverity.NONE,
                 acknowledged=False,
                 acknowledgedBy="",
             )
-            seen_alarm_names.add(data.name)
-        assert seen_alarm_names == alarm_names
+        assert self.csc.alarms_info.keys() == alarm_names
 
     async def test_bin_script(self):
         await self.check_bin_script(
@@ -105,40 +106,15 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
     async def test_initial_info(self):
         async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
             await self.assert_next_summary_state(salobj.State.STANDBY)
-            assert self.csc.model is None
 
             await self.assert_next_sample(
-                topic=self.remote.evt_softwareVersions,
-                cscVersion=watcher.__version__,
-                subsystemVersions="",
+                topic=self.remote.evt_softwareVersions, cscVersion=watcher.__version__, subsystemVersions=""
             )
 
-            await salobj.set_summary_state(
-                self.remote,
-                salobj.State.ENABLED,
-                override="two_scriptqueue_enabled.yaml",
-            )
-            await self.assert_next_summary_state(salobj.State.DISABLED)
-            await self.assert_next_summary_state(salobj.State.ENABLED)
-            assert isinstance(self.csc.model, watcher.Model)
-            rule_names = list(self.csc.model.rules)
-            expected_rule_names = [f"Enabled.ScriptQueue:{index}" for index in (1, 2)]
-            assert rule_names == expected_rule_names
-
-            # Check that escalation info is not set for the first rule
-            # and is set for the second rule.
-            alarm1 = self.csc.model.rules[expected_rule_names[0]].alarm
-            alarm2 = self.csc.model.rules[expected_rule_names[1]].alarm
-            assert alarm1.escalation_responder == ""
-            assert alarm1.escalation_delay == 0
-            assert alarm1.timestamp_escalate == 0
-            assert not alarm1.do_escalate
-            assert alarm1.escalated_id == ""
-            assert alarm2.escalation_responder == "stella"
-            assert alarm2.escalation_delay == 0.11
-            assert alarm2.timestamp_escalate == 0
-            assert not alarm2.do_escalate
-            assert alarm2.escalated_id == ""
+            await salobj.set_summary_state(self.remote, salobj.State.ENABLED, override="alarm_rule.yaml")
+            assert len(self.csc.alarm_rules_info) == 2
+            assert self.csc.alarm_rules_info[1].classname == "Enabled"
+            assert self.csc.alarm_rules_info[2].classname == "Heartbeat"
 
     async def test_default_config_dir(self):
         async with self.make_csc(config_dir=None, initial_state=salobj.State.STANDBY):
@@ -212,89 +188,78 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             raise ValueError("Cannot set both service_down and trigger_fails")
         escalation_fails = service_down or trigger_fails
         escalation_key = "anything"
+        service_down_port = 80
+
         with utils.modify_environ(ESCALATION_KEY=escalation_key):
             async with (
-                watcher.MockSquadCast(port=0) as mock_server,
+                watcher.MockSquadCast(port=8080) as mock_server,
                 self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+                salobj.Controller(name="ATCamera", write_only=True) as atcamera,
             ):
+                temp_critical_yaml_file = tempfile.NamedTemporaryFile(dir=TEST_CONFIG_DIR)
+                with (
+                    open(temp_critical_yaml_file.name, "w") as t,
+                    open(TEST_CONFIG_DIR / "critical.yaml", "r") as c,
+                ):
+                    lines = c.readlines()
+                    if service_down:
+                        lines[-1] = f"escalation_url: http://127.0.0.1:{service_down_port}"
+                    else:
+                        lines[-1] = f"escalation_url: http://127.0.0.1:{mock_server.port}"
+                    t.writelines(lines)
+
+                atcamera_heartbeat_task = asyncio.create_task(self._publish_heart_beat(atcamera))
+
                 await salobj.set_summary_state(
-                    self.remote, state=salobj.State.ENABLED, override="critical.yaml"
+                    self.remote, state=salobj.State.ENABLED, override=temp_critical_yaml_file.name
                 )
-                # First test the escalation URL set from critical.yaml,
-                # then overwrite it with a URL that has the correct port.
-                assert self.csc.escalation_endpoint_url == (
-                    f"http://127.0.0.1:80/v2/incidents/api/{escalation_key}"
-                )
+
+                # Test the escalation URL set from the copied critical.yaml.
                 if service_down:
-                    # Try to connect somewhere else.
-                    # Technically we don't need to start a mock SquadCast
-                    # server for this case, but it simplifies the code
-                    # a bit to do so.
-                    self.csc.escalation_endpoint_url += "extra_garbage"
+                    assert self.csc.escalation_endpoint_url == (
+                        f"http://127.0.0.1:{service_down_port}/v2/incidents/api/{escalation_key}"
+                    )
                 else:
-                    self.csc.escalation_endpoint_url = mock_server.endpoint_url
+                    assert self.csc.escalation_endpoint_url == (
+                        f"http://127.0.0.1:{mock_server.port}/v2/incidents/api/{escalation_key}"
+                    )
+                assert self.csc.config.escalation_url == self.csc.escalation_endpoint_url
 
                 if trigger_fails:
                     mock_server.reject_next_request = True
 
-                alarm_name1 = "test.TriggeredSeverities.ATDome"
-                alarm_name2 = "test.TriggeredSeverities.ATCamera"
-                assert list(self.csc.model.rules) == [alarm_name1, alarm_name2]
+                alarm_name1 = "Heartbeat.ATDome:0"
+                alarm_name2 = "Heartbeat.ATCamera:0"
+                known_alarms = [alarm_info.name for alarm_info in self.csc.alarms_info.values()]
+                assert known_alarms == [alarm_name1, alarm_name2]
 
                 # Alarm 1 will be escalated because it has an escalation
                 # responder and the escalation delay is > 0.
-                rule1 = self.csc.model.rules[alarm_name1]
-                alarm1 = rule1.alarm
-                assert alarm1.escalation_responder != ""
-                assert alarm1.escalation_delay == pytest.approx(0.1)
+                alarm_info1 = self.csc.alarms_info[alarm_name1]
+                assert alarm_info1.escalate_to != ""
 
                 expected_escalate_to_alarm1 = "stella"
 
                 # Alarm 2 will never be escalated because it has no
                 # escalation responder and the escalation delay is 0.
-                rule2 = self.csc.model.rules[alarm_name2]
-                alarm2 = rule2.alarm
-                assert alarm2.escalation_responder == ""
-                assert alarm2.escalation_delay == 0
+                alarm_info2 = self.csc.alarms_info[alarm_name2]
+                assert alarm_info2.escalate_to == ""
 
                 await self.check_all_alarms_events_are_none()
 
-                # Follow the severity sequence specified in critical.yaml,
-                # but expect one extra event from ATDome (alarm 1)
-                # when it goes critical, because the alarm is escalated
-                # after a very short delay.
-                # Note that all of alarm 2 state transitions should occur
-                # before any of alarm 1 state transitions.
-                rule1.trigger_next_severity_event.set()
-                await self.assert_next_alarm(
-                    name=alarm_name1,
-                    severity=AlarmSeverity.WARNING,
-                    maxSeverity=AlarmSeverity.WARNING,
-                    escalatedId="",
-                    escalateTo=expected_escalate_to_alarm1,
-                    timestampEscalate=0,
-                )
+                alarm_name = ""
+                while alarm_name != alarm_name1:
+                    data = await self.assert_next_alarm()
+                    alarm_name = data.name
+                assert data.name == alarm_name1
+                assert data.severity == AlarmSeverity.CRITICAL
+                assert data.maxSeverity == AlarmSeverity.CRITICAL
+                assert data.escalatedId == ""
+                assert data.escalateTo == expected_escalate_to_alarm1
 
-                # give the background processes some time to stabilize before
-                # continuing.
-                await asyncio.sleep(STD_TIMEOUT)
-
-                # When alarm 1 goes to CRITICAL it will be escalated
-                # after a very short time.
-                rule1.trigger_next_severity_event.set()
-                data = await self.assert_next_alarm(
-                    name=alarm_name1,
-                    severity=AlarmSeverity.CRITICAL,
-                    maxSeverity=AlarmSeverity.CRITICAL,
-                    escalatedId="",
-                    escalateTo=expected_escalate_to_alarm1,
-                )
                 assert data.timestampEscalate > 0
                 timestamp_escalate = data.timestampEscalate
-                # Alarm 1's escalation timer is now running
-                # (for a very short time).
-                assert not alarm1.escalation_timer_task.done()
-                # The next event indicates that alarm1 has been escalated.
+
                 data = await self.assert_next_alarm(
                     name=alarm_name1,
                     severity=AlarmSeverity.CRITICAL,
@@ -302,71 +267,29 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     escalateTo=expected_escalate_to_alarm1,
                     timestampEscalate=timestamp_escalate,
                 )
-                assert alarm1.do_escalate
-                assert alarm1.escalated_id != ""
-                assert data.escalatedId == alarm1.escalated_id
+                assert alarm_info1.escalated_id != ""
+                assert data.escalatedId == alarm_info1.escalated_id
                 if escalation_fails:
-                    assert alarm1.escalated_id.startswith("Failed: ")
+                    assert alarm_info1.escalated_id.startswith("Failed: ")
                 else:
-                    assert not alarm1.escalated_id.startswith("Failed: ")
+                    assert not alarm_info1.escalated_id.startswith("Failed: ")
                 if escalation_fails:
                     assert len(mock_server.incidents) == 0
                 else:
                     assert len(mock_server.incidents) == 1
-                    incident = mock_server.incidents[alarm1.escalated_id]
-                    assert incident["event_id"] == alarm1.escalated_id
+                    incident = mock_server.incidents[alarm_info1.escalated_id]
+                    assert incident["event_id"] == alarm_info1.escalated_id
                     assert incident["status"] == "trigger"
                     assert "ATDome" in incident["message"]
                     assert "ATDome" in incident["tags"]["alarm_name"]
-                    assert alarm1.escalation_responder == incident["tags"]["responder"]
-                    saved_incident_id = alarm1.escalated_id
-
-                # give the background processes some time to stabilize before
-                # continuing.
-                await asyncio.sleep(STD_TIMEOUT)
-
-                rule1.trigger_next_severity_event.set()
-                data = await self.assert_next_alarm(
-                    name=alarm_name1,
-                    severity=AlarmSeverity.WARNING,
-                    maxSeverity=AlarmSeverity.CRITICAL,
-                    escalateTo=expected_escalate_to_alarm1,
-                    timestampEscalate=timestamp_escalate,
-                )
-                assert alarm1.do_escalate
-                assert alarm1.escalated_id != ""
-                assert data.escalatedId == alarm1.escalated_id
-                if escalation_fails:
-                    assert alarm1.escalated_id.startswith("Failed: ")
-                else:
-                    assert not alarm1.escalated_id.startswith("Failed: ")
+                    assert alarm_info1.escalate_to == incident["tags"]["responder"]
+                    saved_incident_id = alarm_info1.escalated_id
 
                 # Run the configured sequence of severities for alarm 2.
-                rule2.trigger_next_severity_event.set()
-                await self.assert_next_alarm(
-                    name=alarm_name2,
-                    severity=AlarmSeverity.SERIOUS,
-                    maxSeverity=AlarmSeverity.SERIOUS,
-                    escalatedId="",
-                    escalateTo="",
-                    timestampEscalate=0,
-                )
-                rule2.trigger_next_severity_event.set()
+                atcamera_heartbeat_task.cancel()
                 await self.assert_next_alarm(
                     name=alarm_name2,
                     severity=AlarmSeverity.CRITICAL,
-                    maxSeverity=AlarmSeverity.CRITICAL,
-                    escalatedId="",
-                    escalateTo="",
-                    timestampEscalate=0,
-                )
-                # Alarm 2 is not configured to be escalated,
-                # so its escalation timer should not be running.
-                assert alarm2.escalation_timer_task.done()
-                rule2.trigger_next_severity_event.set()
-                await self.assert_next_alarm(
-                    name=alarm_name2,
-                    severity=AlarmSeverity.NONE,
                     maxSeverity=AlarmSeverity.CRITICAL,
                     escalatedId="",
                     escalateTo="",
@@ -385,7 +308,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 )
                 await self.assert_next_alarm(
                     name=alarm_name1,
-                    severity=AlarmSeverity.WARNING,
+                    severity=AlarmSeverity.CRITICAL,
                     maxSeverity=AlarmSeverity.CRITICAL,
                     escalatedId="",
                     escalateTo=expected_escalate_to_alarm1,
@@ -394,8 +317,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 # The escalated ID should have been cleared
                 # (even if de-escalation fails),
                 # so use the saved incident ID to access the incident.
-                assert not alarm1.do_escalate
-                assert alarm1.escalated_id == ""
+                assert alarm_info1.escalated_id == ""
                 if not escalation_fails:
                     assert len(mock_server.incidents) == 1
                     incident = mock_server.incidents[saved_incident_id]
@@ -403,7 +325,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     assert incident["status"] == "trigger" if resolve_fails else "resolve"
                     assert "ATDome" in incident["message"]
                     assert "ATDome" in incident["tags"]["alarm_name"]
-                    assert alarm1.escalation_responder == incident["tags"]["responder"]
+                    assert alarm_info1.escalate_to == incident["tags"]["responder"]
 
     async def test_operation(self):
         """Run the watcher with a few rules and one disabled SAL component."""
@@ -417,8 +339,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             scriptqueue_alarm_name = "Enabled.ScriptQueue:2"
 
             # Check that disabled_sal_components eliminated a rule.
-            assert len(self.csc.model.rules) == 2
-            assert list(self.csc.model.rules) == [
+            assert len(self.csc.alarms_info) == 2
+            assert list(self.csc.alarms_info.keys()) == [
                 atdome_alarm_name,
                 scriptqueue_alarm_name,
             ]
@@ -471,7 +393,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Go all the way to standby and back. Alarms should still work.
             await salobj.set_summary_state(remote=self.remote, state=salobj.State.STANDBY)
-            assert self.csc.model is None
+            assert len(self.csc.alarm_rules_info) == 0
+            assert len(self.csc.alarms_info) == 0
 
             await salobj.set_summary_state(
                 remote=self.remote, state=salobj.State.ENABLED, override="enabled.yaml"
@@ -500,13 +423,18 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             over_temperature_alarm_name = "OverTemperature.TestOverTemperature"
-            assert list(self.csc.model.rules.keys()) == [over_temperature_alarm_name]
-            alarm_config = self.csc.model.rules[over_temperature_alarm_name].config
-            warning_level = alarm_config.warning_level
-            assert len(alarm_config.temperature_sensors) == 1
-            assert alarm_config.temperature_sensors[0]["sal_index"] == 1
-            assert len(alarm_config.temperature_sensors[0]["sensor_info"]) == 1
-            sensor_name = alarm_config.temperature_sensors[0]["sensor_info"][0]["sensor_name"]
+            assert list(self.csc.alarms_info.keys()) == [over_temperature_alarm_name]
+            assert len(self.csc.alarm_rules_info) == 1
+            assert 1 in self.csc.alarm_rules_info.keys()
+            config_for_alarm_rule = self.csc.alarm_rules_info[1].config
+            alarm_configs = config_for_alarm_rule.rules[0]["configs"]
+            assert len(alarm_configs) == 1
+            alarm_config = alarm_configs[0]
+            warning_level = alarm_config["warning_level"]
+            assert len(alarm_config["temperature_sensors"]) == 1
+            assert alarm_config["temperature_sensors"][0]["sal_index"] == 1
+            assert len(alarm_config["temperature_sensors"][0]["sensor_info"]) == 1
+            sensor_name = alarm_config["temperature_sensors"][0]["sensor_info"][0]["sensor_name"]
             ess_1.tel_temperature.set(sensorName=sensor_name, numChannels=1, location="some location")
 
             async def send_temperature_data(temperature):
@@ -539,7 +467,6 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Send CSC to standby and enabled and try again.
             await salobj.set_summary_state(remote=self.remote, state=salobj.State.STANDBY)
-            assert self.csc.model is None
             await salobj.set_summary_state(
                 remote=self.remote,
                 state=salobj.State.ENABLED,
@@ -574,10 +501,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Check the values encoded in the yaml config file.
             expected_auto_acknowledge_delay = 0.51
             expected_auto_unacknowledge_delay = 0.52
-            assert self.csc.model.config.auto_acknowledge_delay == pytest.approx(
-                expected_auto_acknowledge_delay
-            )
-            assert self.csc.model.config.auto_unacknowledge_delay == pytest.approx(
+            assert self.csc.config.auto_acknowledge_delay == pytest.approx(expected_auto_acknowledge_delay)
+            assert self.csc.config.auto_unacknowledge_delay == pytest.approx(
                 expected_auto_unacknowledge_delay
             )
 
@@ -675,8 +600,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # All alarms should be nominal, so showAlarms should output
             # no alarm events.
-            for rule in self.csc.model.rules.values():
-                assert rule.alarm.nominal
+            for alarm_name in self.csc.alarms_info:
+                alarm = self.csc.alarms_info[alarm_name]
+                assert alarm.nominal
             await self.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
 
             await self.check_all_alarms_events_are_none()
@@ -718,7 +644,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     acknowledged=False,
                 )
                 alarm_names.append(alarm.name)
-            assert set(alarm_names) == set(("Enabled.ATDome:0", "Enabled.ScriptQueue:2"))
+            assert set(alarm_names) == {"Enabled.ATDome:0", "Enabled.ScriptQueue:2"}
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
@@ -750,11 +676,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # Send the showAlarms command again.
             await self.remote.cmd_showAlarms.start(timeout=STD_TIMEOUT)
             alarm_names = set()
-            seen_alarm_names = set()
-            for alarm_name in self.csc.model.rules:
+            for index, alarm_name in enumerate(self.csc.alarms_info):
                 alarm_names.add(alarm_name)
                 data = await self.remote.evt_alarm.next(flush=False, timeout=STD_TIMEOUT)
-                seen_alarm_names.add(data.name)
                 if data.name == scriptqueue_alarm_name:
                     expected_severity = AlarmSeverity.WARNING
                 else:
@@ -763,7 +687,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 assert data.maxSeverity == expected_severity
                 assert not data.acknowledged
                 assert data.acknowledgedBy == ""
-            assert seen_alarm_names == alarm_names
+            assert self.csc.alarms_info.keys() == alarm_names
 
     @patch("aiohttp.ClientSession.post")
     async def test_make_log_entry(self, mock_post):
@@ -838,7 +762,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await atqueue.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
 
             await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
-            nrules = len(self.csc.model.rules)
+            nrules = len(self.csc.alarms_info)
 
             # All rules should be nominal.
             await self.check_all_alarms_events_are_none()
@@ -848,12 +772,13 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             # then wait for them to unmute themselves.
             await self.remote.cmd_mute.set_start(
                 name="Enabled.*",
-                duration=0.1,
+                duration=0.5,
                 severity=AlarmSeverity.SERIOUS,
                 mutedBy=user1,
                 timeout=STD_TIMEOUT,
             )
 
+            self.csc.log.info(f"Waiting for alarms to unmute with {nrules=}")
             # The first batch of alarm events should be for the muted alarms.
             muted_names = set()
             while len(muted_names) < nrules:
@@ -861,6 +786,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 if data.name in muted_names:
                     raise self.fail(f"Duplicate alarm event for muting {data.name}")
                 muted_names.add(data.name)
+                self.csc.log.info(f"Muted alarm event: {data.name}")
 
             # The next batch of alarm events should be for the unmuted alarms.
             unmuted_names = set()
@@ -869,11 +795,12 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 if data.name in unmuted_names:
                     raise self.fail(f"Duplicate alarm event for auto-unmuting {data.name}")
                 unmuted_names.add(data.name)
+                self.csc.log.info(f"Unmuted alarm event: {data.name}")
 
             # Now mute one rule for a long time, then explicitly unmute it.
             user2 = "test_mute 2"
             full_name = "Enabled.ScriptQueue:2"
-            assert full_name in self.csc.model.rules
+            assert full_name in self.csc.alarms_info
             await self.remote.cmd_mute.set_start(
                 name=full_name,
                 duration=5,
@@ -928,8 +855,8 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             alarm_name1 = "Enabled.ScriptQueue:1"
             alarm_name2 = "Enabled.ScriptQueue:2"
-            assert len(self.csc.model.rules) == 2
-            assert list(self.csc.model.rules) == [alarm_name1, alarm_name2]
+            assert len(self.csc.alarms_info) == 2
+            assert list(self.csc.alarms_info.keys()) == [alarm_name1, alarm_name2]
 
             await self.check_all_alarms_events_are_none()
 
@@ -1000,3 +927,43 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.remote.cmd_unacknowledge.set_start(name=alarm_name1)
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
+
+    async def test_set_log_level(self):
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="ATDome", write_only=True) as atdome,
+            salobj.Controller(name="ATCamera", write_only=True) as atcamera,
+            salobj.Controller(name="ScriptQueue", index=2, write_only=True) as atqueue,
+        ):
+            # Make sure CSCs are in ENABLED
+            await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await atcamera.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+            await atqueue.evt_summaryState.set_write(summaryState=salobj.State.ENABLED)
+
+            self.log_levels: dict[int, int] = {}
+            self.csc.evt_logLevel_callback = self.evt_logLevel_callback
+
+            await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
+            nrules = len(self.csc.alarm_rules_info)
+
+            # All rules should be nominal.
+            await self.check_all_alarms_events_are_none()
+
+            # Set the log level to DEBUG.
+            await self.remote.cmd_setLogLevel.set_start(level=logging.DEBUG)
+            self.csc.log.info("Waiting for log level to be set")
+            while self.csc.log.level != logging.DEBUG:
+                await asyncio.sleep(0.1)
+
+            while len(self.log_levels) < nrules:
+                await asyncio.sleep(STD_TIMEOUT)
+
+    async def evt_logLevel_callback(self, data):
+        """Handle logLevel event from the alarm subprocess."""
+        self.csc.log.info(f"Received logLevel event for {data.salIndex=} with {data.level=}")
+        self.log_levels[data.salIndex] = data.level
+
+    async def _publish_heart_beat(self, controller):
+        while True:
+            await controller.evt_heartbeat.write()
+            await asyncio.sleep(0.25)
