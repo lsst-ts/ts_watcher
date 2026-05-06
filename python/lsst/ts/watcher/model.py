@@ -384,6 +384,7 @@ class Model:
             Name of user; used to set acknowledged_by.
         """
         for rule in self.get_rules(name):
+            self.log.info(f"Muting alarm {rule.name} with severity {severity} for {duration} seconds.")
             await rule.alarm.mute(duration=duration, severity=severity, user=user)
 
     async def unacknowledge_alarm(self, name):
