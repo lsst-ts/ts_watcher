@@ -53,7 +53,7 @@ class MTCameraAlert(BaseRule):
 
         # The CCS Alert ID as provided by the configuration.
         # This is the unique identifier used to differentiate the
-        # rules and associate each of them to the corresponding
+        # rules and associate each of them with the corresponding
         # CCS alert.
         self.alert_id = config.alertId
         remote_index = 0
