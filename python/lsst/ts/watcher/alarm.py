@@ -712,7 +712,9 @@ class Alarm:
         """
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")
+        self.log.info(f"Sleeping for {duration} seconds.")
         await asyncio.sleep(duration)
+        self.log.info(f"Alarm {self.name} unmuting itself.")
         await self.unmute()
 
     def _cancel_auto_acknowledge(self):
