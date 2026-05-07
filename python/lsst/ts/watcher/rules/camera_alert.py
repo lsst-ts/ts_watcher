@@ -33,7 +33,7 @@ from ..remote_info import RemoteInfo
 
 
 class CameraAlert(BaseRule):
-    """Monitor a Camera alertRaised events.
+    """Monitor Camera alertRaised events.
 
     Parameters
     ----------
