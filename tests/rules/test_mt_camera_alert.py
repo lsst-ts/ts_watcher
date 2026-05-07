@@ -23,6 +23,8 @@ import asyncio
 import types
 import unittest
 
+import yaml
+
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
@@ -32,9 +34,6 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        self.remote_name = "MTCamera"
-        self.rule_name = f"MTCameraAlert.{self.remote_name}.evt_alertRaised"
-        self.rule_config_dict = {}
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -42,39 +41,49 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_constructor(self):
         schema = watcher.rules.MTCameraAlert.get_schema()
-        assert schema is None
+        assert schema is not None
 
-        config = watcher.rules.MTCameraAlert.make_config(**self.rule_config_dict)
+        alertId = "power_highCurrent"
+        config = watcher.rules.MTCameraAlert.make_config(alertId=alertId)
+        desired_rule_name = f"MTCameraAlert.{alertId}"
         rule = watcher.rules.MTCameraAlert(config=config)
 
-        assert rule.name == self.rule_name
+        assert rule.name == desired_rule_name
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
         assert len(rule.remote_info_list) == 1
         remote_info = rule.remote_info_list[0]
-        assert remote_info.name == self.remote_name
+        assert remote_info.name == "MTCamera"
         assert remote_info.index == 0
-        assert self.rule_name in repr(rule)
+        assert desired_rule_name in repr(rule)
 
     async def test_operation(self):
-        watcher_config_dict = dict(
-            disabled_sal_components=[],
-            auto_acknowledge_delay=3600,
-            auto_unacknowledge_delay=3600,
-            rules=[dict(classname="MTCameraAlert", configs=[{}])],
-            escalation=(),
+        alert_id = "ccs_alertId"
+
+        watcher_config_dict = yaml.safe_load(
+            f"""
+            disabled_sal_components: []
+            auto_acknowledge_delay: 3600
+            auto_unacknowledge_delay: 3600
+            rules:
+            - classname: MTCameraAlert
+              configs:
+              - alertId: {alert_id}
+            escalation: []
+            """
         )
+
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
         async with (
-            salobj.Controller(name=self.remote_name, index=0) as controller,
+            salobj.Controller(name="MTCamera", index=0) as controller,
             watcher.Model(domain=controller.domain, config=watcher_config) as model,
         ):
-            rule = model.rules[self.rule_name]
+            rule = model.rules["MTCameraAlert.ccs_alertId"]
             rule.alarm.init_severity_queue()
             await model.enable()
 
-            alert_id = "TestId"
+            alert_id = "ccs_alertId"
             description = "A test alert"
             cause = "Test cause"
             origin = "lsstcam"
@@ -85,8 +94,8 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     "timestampAlertStatusChanged": utils.current_tai(),
                     "alertId": alert_id,
                     "description": description,
-                    "currentSeverity": watcher.rules.CameraSeverity.ALARM,
-                    "highestSeverity": watcher.rules.CameraSeverity.WARNING,
+                    "currentSeverity": AlarmSeverity.SERIOUS,
+                    "highestSeverity": AlarmSeverity.WARNING,
                     "isCleared": is_cleared,
                     "cause": cause,
                     "origin": origin,
@@ -96,7 +105,7 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
 
                 severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                 if not is_cleared:
-                    assert severity == AlarmSeverity.CRITICAL
+                    assert severity == AlarmSeverity.SERIOUS
                     assert rule.alarm.reason != ""
                     assert alert_id in rule.alarm.reason
                     assert description in rule.alarm.reason
@@ -105,3 +114,105 @@ class MTCameraAlertTestCase(unittest.IsolatedAsyncioTestCase):
                     assert additional_info in rule.alarm.reason
                 else:
                     assert severity == AlarmSeverity.NONE
+
+    async def test_multiple_rules(self):
+        alert_id1 = "ccs_alertId_1"
+        alert_id2 = "ccs_alertId_2"
+
+        watcher_config_dict = yaml.safe_load(
+            f"""
+            disabled_sal_components: []
+            auto_acknowledge_delay: 3600
+            auto_unacknowledge_delay: 3600
+            rules:
+            - classname: MTCameraAlert
+              configs:
+              - alertId: {alert_id1}
+              - alertId: {alert_id2}
+            escalation: []
+            """
+        )
+
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with (
+            salobj.Controller(name="MTCamera", index=0) as controller,
+            watcher.Model(domain=controller.domain, config=watcher_config) as model,
+        ):
+            assert len(model.rules) == 2
+
+            rule1 = model.rules["MTCameraAlert.ccs_alertId_1"]
+            assert rule1 is not None
+            rule1.alarm.init_severity_queue()
+            assert rule1.alarm.nominal is True
+
+            rule2 = model.rules["MTCameraAlert.ccs_alertId_2"]
+            assert rule2 is not None
+            rule2.alarm.init_severity_queue()
+            assert rule2.alarm.nominal is True
+
+            await model.enable()
+
+            ## Raise the first ccs alert id and test that only the first
+            ## rule got a severity update
+            alert_id = "ccs_alertId_1"
+            description = "A test alert"
+            cause = "Test cause"
+            origin = "lsstcam"
+            additional_info = "AdditionalInfo"
+            is_cleared = False
+
+            telemetry = {
+                "timestampAlertStatusChanged": utils.current_tai(),
+                "alertId": alert_id,
+                "description": description,
+                "currentSeverity": AlarmSeverity.SERIOUS,
+                "highestSeverity": AlarmSeverity.WARNING,
+                "isCleared": is_cleared,
+                "cause": cause,
+                "origin": origin,
+                "additionalInfo": additional_info,
+            }
+            await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+
+            severity1 = await asyncio.wait_for(rule1.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            try:
+                await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            except TimeoutError:
+                pass
+            else:
+                assert True is False
+
+            assert rule1.alarm.nominal is False
+            assert rule2.alarm.nominal is True
+
+            assert severity1 == AlarmSeverity.SERIOUS
+
+            ## Now raise the second ccs alert and test that only the second
+            ## rule got a change in severity
+            alert_id = "ccs_alertId_2"
+            telemetry = {
+                "timestampAlertStatusChanged": utils.current_tai(),
+                "alertId": alert_id,
+                "description": description,
+                "currentSeverity": AlarmSeverity.SERIOUS,
+                "highestSeverity": AlarmSeverity.WARNING,
+                "isCleared": is_cleared,
+                "cause": cause,
+                "origin": origin,
+                "additionalInfo": additional_info,
+            }
+            await watcher.write_and_wait(model, controller.evt_alertRaised, **telemetry)
+
+            try:
+                await asyncio.wait_for(rule1.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+            except TimeoutError:
+                pass
+            else:
+                assert True is False
+
+            severity2 = await asyncio.wait_for(rule2.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
+
+            assert rule1.alarm.nominal is False
+            assert rule2.alarm.nominal is False
+
+            assert severity2 == AlarmSeverity.SERIOUS
