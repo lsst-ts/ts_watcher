@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTCameraAlert"]
+__all__ = ["CameraAlert"]
 
 import typing
 
@@ -32,8 +32,8 @@ from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTCameraAlert(BaseRule):
-    """Monitor the MT Camera alertRaised events.
+class CameraAlert(BaseRule):
+    """Monitor Camera alertRaised events.
 
     Parameters
     ----------
@@ -48,14 +48,20 @@ class MTCameraAlert(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        rule_name = "MTCameraAlert"
-        remote_name = "MTCamera"
+        rule_name = "CameraAlert"
 
         # The CCS Alert ID as provided by the configuration.
         # This is the unique identifier used to differentiate the
         # rules and associate each of them with the corresponding
         # CCS alert.
         self.alert_id = config.alertId
+
+        # The Camera this alert rule applies to as provided by the
+        # configuration. This can only be one of MTCamera, ATCamera
+        # or CCCamera. These values are enforced in the configuration
+        # definition below.
+        remote_name = config.camera
+
         remote_index = 0
         callback_name = "evt_alertRaised"
 
@@ -69,7 +75,7 @@ class MTCameraAlert(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{rule_name}.{self.alert_id}",
+            name=f"{rule_name}.{remote_name}.{self.alert_id}",
             remote_info_list=remote_info_list,
             log=log,
         )
@@ -78,7 +84,7 @@ class MTCameraAlert(BaseRule):
     def get_schema(cls):
         schema_yaml = """
             $schema: 'http://json-schema.org/draft-07/schema#'
-            description: Configuration for MTCameraAlert
+            description: Configuration for CameraAlert
             type: object
             properties:
                 alertId:
@@ -89,6 +95,15 @@ class MTCameraAlert(BaseRule):
                     description: >-
                         The description of the corresponding CCS Alert
                     type: string
+                camera:
+                    description: >-
+                        The Camera this rule applies to
+                    type: string
+                    default: MTCamera
+                    enum:
+                        - MTCamera
+                        - ATCamera
+                        - CCCamera
             required:
             - alertId
             additionalProperties: false
