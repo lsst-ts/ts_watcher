@@ -8,6 +8,23 @@ Version History
 
 .. towncrier release notes start
 
+v1.25.0 (2026-05-19)
+====================
+
+New Features
+------------
+
+- Added the AlarmRuleRunner class to run rules in subprocesses. (`OSW-2065 <https://rubinobs.atlassian.net//browse/OSW-2065>`_)
+- Updated MTCameraAlarm rule to have unique alarms, one for each CCS alert. (`OSW-2208 <https://rubinobs.atlassian.net//browse/OSW-2208>`_)
+- Generalized MTCameraAlert rule to be available for all cameras. It is now called CameraAlert. (`OSW-2275 <https://rubinobs.atlassian.net//browse/OSW-2275>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Replaced more absolute imports with relative ones. (`OSW-2065 <https://rubinobs.atlassian.net//browse/OSW-2065>`_)
+
+
 v1.24.0 (2026-04-07)
 ====================
 
