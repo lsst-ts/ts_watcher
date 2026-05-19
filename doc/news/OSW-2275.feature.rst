@@ -1,0 +1,1 @@
+Generalized MTCameraAlert rule to be available for all cameras. It is now called CameraAlert.

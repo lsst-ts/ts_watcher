@@ -19,10 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["MTCameraAlert", "CameraSeverity"]
+__all__ = ["CameraAlert"]
 
-import enum
 import typing
+
+import yaml
 
 from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
@@ -31,8 +32,8 @@ from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
 
-class MTCameraAlert(BaseRule):
-    """Monitor the MT Camera alertRaised events.
+class CameraAlert(BaseRule):
+    """Monitor Camera alertRaised events.
 
     Parameters
     ----------
@@ -47,8 +48,20 @@ class MTCameraAlert(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        rule_name = "MTCameraAlert"
-        remote_name = "MTCamera"
+        rule_name = "CameraAlert"
+
+        # The CCS Alert ID as provided by the configuration.
+        # This is the unique identifier used to differentiate the
+        # rules and associate each of them with the corresponding
+        # CCS alert.
+        self.alert_id = config.alertId
+
+        # The Camera this alert rule applies to as provided by the
+        # configuration. This can only be one of MTCamera, ATCamera
+        # or CCCamera. These values are enforced in the configuration
+        # definition below.
+        remote_name = config.camera
+
         remote_index = 0
         callback_name = "evt_alertRaised"
 
@@ -62,15 +75,40 @@ class MTCameraAlert(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{rule_name}.{remote_name}.{callback_name}",
+            name=f"{rule_name}.{remote_name}.{self.alert_id}",
             remote_info_list=remote_info_list,
             log=log,
         )
 
     @classmethod
     def get_schema(cls):
-        # No schema needed for this rule.
-        return None
+        schema_yaml = """
+            $schema: 'http://json-schema.org/draft-07/schema#'
+            description: Configuration for CameraAlert
+            type: object
+            properties:
+                alertId:
+                    description: >-
+                        The id of the corresponding CCS Alert
+                    type: string
+                description:
+                    description: >-
+                        The description of the corresponding CCS Alert
+                    type: string
+                camera:
+                    description: >-
+                        The Camera this rule applies to
+                    type: string
+                    default: MTCamera
+                    enum:
+                        - MTCamera
+                        - ATCamera
+                        - CCCamera
+            required:
+            - alertId
+            additionalProperties: false
+        """
+        return yaml.safe_load(schema_yaml)
 
     def compute_alarm_severity(
         self, data: salobj.BaseMsgType, **kwargs: typing.Any
@@ -105,7 +143,11 @@ class MTCameraAlert(BaseRule):
         -----
         You may return `NoneNoReason` if the alarm state is ``NONE``.
         """
-        currentSeverity = CameraSeverity(data.currentSeverity)
+
+        if data.alertId != self.alert_id:
+            return None
+
+        currentSeverity = AlarmSeverity(data.currentSeverity)
 
         if not data.isCleared:
             reason = (
@@ -113,24 +155,8 @@ class MTCameraAlert(BaseRule):
                 f"currentSeverity={currentSeverity.name}, isCleared={data.isCleared}, "
                 f"cause={data.cause}, origin={data.origin}, additionalInfo={data.additionalInfo}"
             )
-            match data.currentSeverity:
-                case CameraSeverity.NOMINAL:
-                    severity = AlarmSeverity.WARNING
-                case CameraSeverity.WARNING:
-                    severity = AlarmSeverity.SERIOUS
-                case CameraSeverity.ALARM:
-                    severity = AlarmSeverity.CRITICAL
-                case _:
-                    severity, reason = NoneNoReason
+            severity = data.currentSeverity
         else:
             severity, reason = NoneNoReason
 
         return severity, reason
-
-
-class CameraSeverity(enum.IntEnum):
-    """Enum that represents CCCamera severity levels."""
-
-    NOMINAL = 1
-    WARNING = 2
-    ALARM = 3

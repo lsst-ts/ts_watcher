@@ -21,10 +21,10 @@
 
 __all__ = ["NoConfig"]
 
-from lsst.ts import watcher
+from ...base_rule import BaseRule
 
 
-class NoConfig(watcher.BaseRule):
+class NoConfig(BaseRule):
     """A minimal test rule that has no configuration and no remotes.
 
     Set alarm severity to NONE. This alarm basically does nothing

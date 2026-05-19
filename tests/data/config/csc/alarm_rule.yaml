@@ -1,0 +1,18 @@
+disabled_sal_components: []
+auto_acknowledge_delay: 3600
+auto_unacknowledge_delay: 3600
+escalation: []
+escalation_url: ""
+escalation_timeout: 1
+narrative_server_url: https://fake.url.com/narrativelog
+rules:
+- classname: Enabled
+  configs:
+  - name: MTDome
+  - name: ESS:113
+  - name: ESS:201
+- classname: Heartbeat
+  configs:
+  - name: ESS:111
+    timeout: 1
+  - name: ESS:112
