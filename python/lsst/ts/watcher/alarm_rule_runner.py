@@ -156,6 +156,8 @@ class AlarmRuleRunner(salobj.Controller):
         await self._wait_for_task_done(self._run_task)
         await self._wait_for_task_done(self._heartbeat_task)
 
+        await self.http_client.close()
+
     @contextlib.asynccontextmanager
     async def _stopping(self) -> typing.AsyncGenerator[None, None]:
         await self._set_state(AlarmRuleState.STOPPING)
@@ -332,11 +334,6 @@ class AlarmRuleRunner(salobj.Controller):
 
     async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
-        self.log.info(
-            f"Outputting alarm with {alarm.name=}, {alarm.severity=}, {alarm.reason=}, "
-            f"{alarm.acknowledged=}, {alarm.muted=}"
-        )
-
         if alarm.do_escalate:
             if not alarm.escalated_id and alarm.escalating_task.done():
                 try:
@@ -367,6 +364,10 @@ class AlarmRuleRunner(salobj.Controller):
                 finally:
                     alarm.escalated_id = ""
 
+        self.log.debug(
+            f"Outputting evt_alarm with {alarm.name=}, {alarm.severity=}, {alarm.reason=}, "
+            f"{alarm.acknowledged=}, {alarm.muted=}, {alarm.escalated_id=}"
+        )
         await self.evt_alarm.set_write(
             alarmName=alarm.name,
             severity=alarm.severity,

@@ -192,7 +192,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
 
             self.log.debug(f"Creating Remote[AlarmRule:{index}] for rule {rule['classname']}.")
-            alarm_rule_remote = salobj.Remote(domain=self.domain, name="AlarmRule", index=index)
+            alarm_rule_remote = salobj.Remote(
+                domain=self.domain, name="AlarmRule", index=index, discard_out_of_order_events=False
+            )
             alarm_rule_remote.evt_description.callback = self.evt_description_callback
             alarm_rule_remote.evt_state.callback = self.evt_state_callback
             alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
@@ -431,7 +433,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def evt_logMessage_callback(self, data):
         """Handle logMessage event from the alarm subprocess."""
-        self.log.info(
+        self.log.debug(
             f"Received logMessage event for {data.salIndex=} with {data.message=}, {data.traceback=}"
         )
 

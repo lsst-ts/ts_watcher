@@ -122,6 +122,8 @@ class Model:
                 rule = ruleclass(config=ruleconfig, log=self.log)
                 if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
                     self.add_rule(rule)
+                else:
+                    self.log.info(f"Rule {rule.alarm.name} is disabled.")
 
         # Accumulate a list of topics that have callback functions.
         self._topics_with_callbacks = list()

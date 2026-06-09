@@ -770,6 +770,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             user1 = "test_mute 1"
             # Mute all alarms for a short time,
             # then wait for them to unmute themselves.
+            logging.info(f"test_mute: Muting {nrules} alarms.")
             await self.remote.cmd_mute.set_start(
                 name="Enabled.*",
                 duration=0.5,
@@ -778,7 +779,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 timeout=STD_TIMEOUT,
             )
 
-            self.csc.log.info(f"Waiting for alarms to unmute with {nrules=}")
+            logging.info(f"test_mute: Waiting for {nrules} muted alarm events.")
             # The first batch of alarm events should be for the muted alarms.
             muted_names = set()
             while len(muted_names) < nrules:
@@ -786,8 +787,9 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 if data.name in muted_names:
                     raise self.fail(f"Duplicate alarm event for muting {data.name}")
                 muted_names.add(data.name)
-                self.csc.log.info(f"Muted alarm event: {data.name}")
+                logging.info(f"test_mute: Muted alarm event: {data.name}")
 
+            logging.info(f"test_mute: Waiting for {nrules} unmuted alarms.")
             # The next batch of alarm events should be for the unmuted alarms.
             unmuted_names = set()
             while len(unmuted_names) < nrules:
@@ -795,11 +797,12 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 if data.name in unmuted_names:
                     raise self.fail(f"Duplicate alarm event for auto-unmuting {data.name}")
                 unmuted_names.add(data.name)
-                self.csc.log.info(f"Unmuted alarm event: {data.name}")
+                logging.info(f"test_mute: Unmuted alarm event: {data.name}")
 
             # Now mute one rule for a long time, then explicitly unmute it.
             user2 = "test_mute 2"
             full_name = "Enabled.ScriptQueue:2"
+            logging.info(f"test_mute: Muting {full_name}.")
             assert full_name in self.csc.alarms_info
             await self.remote.cmd_mute.set_start(
                 name=full_name,
@@ -813,6 +816,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             with pytest.raises(asyncio.TimeoutError):
                 await self.remote.evt_alarm.next(flush=False, timeout=NODATA_TIMEOUT)
 
+            logging.info(f"test_mute: Unmuting {full_name}.")
             await self.remote.cmd_unmute.set_start(name=full_name, timeout=STD_TIMEOUT)
             await self.assert_next_alarm(name=full_name, mutedSeverity=AlarmSeverity.NONE, mutedBy="")
             # There should be the only alarm event from the unmute command.
