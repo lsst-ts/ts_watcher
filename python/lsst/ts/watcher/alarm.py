@@ -120,6 +120,7 @@ class Alarm:
         self.unmute_task = utils.make_done_future()
         self.severity_queue = None
         self.reset()
+        self.log.info(f"Created alarm with name {self.name}.")
 
     @property
     def muted(self):
@@ -160,6 +161,7 @@ class Alarm:
             Automatic unacknowledgement only occurs if the alarm persists,
             because an acknowledged alarm is reset if severity goes to NONE.
         """
+        self.log.info(f"Configuring alarm with name {self.name}.")
         if auto_acknowledge_delay < 0:
             raise ValueError(f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0")
         if auto_unacknowledge_delay < 0:
@@ -167,6 +169,7 @@ class Alarm:
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
+        self.log.info(f"Done configuring alarm with name {self.name}.")
 
     def configure_escalation(self, escalation_delay, escalation_responder):
         """Configure escalation.
@@ -662,7 +665,7 @@ class Alarm:
         """
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")
-        self.log.info(f"Sleeping for {duration} seconds.")
+        self.log.info(f"Muting for {duration} seconds.")
         await asyncio.sleep(duration)
         self.log.info(f"Alarm {self.name} unmuting itself.")
         await self.unmute()
