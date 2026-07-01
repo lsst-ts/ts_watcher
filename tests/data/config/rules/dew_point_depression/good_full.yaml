@@ -1,15 +1,24 @@
 name: Main Telescope
 dew_point_sensors:
-  - sal_index: 5
+  - sal_name: ESS
+    sal_index: 5
+    sal_topic: tel_dewPoint
+    sal_field: dewPointItem
     sensor_names:
       - high
       - low
       - outside
-  - sal_index: 1
+  - sal_name: ESS
+    sal_index: 1
+    sal_topic: tel_dewPoint
+    sal_field: dewPointItem
     sensor_names:
       - inside
 temperature_sensors:
-  - sal_index: 1
+  - sal_name: ESS
+    sal_index: 1
+    sal_topic: tel_temperature
+    sal_field: temperatureItem
     sensor_info:
       - sensor_name: maintel
       - sensor_name: auxtel

@@ -1,11 +1,17 @@
 name: Main Telescope
 dew_point_sensors:
-  - sal_index: 5
+  - sal_name: ESS
+    sal_index: 5
+    sal_topic: tel_dewPoint
+    sal_field: dewPointItem
     sensor_names:
       - up
       - down
 temperature_sensors:
-  - sal_index: 2
+  - sal_name: ESS
+    sal_index: 2
+    sal_topic: tel_temperature
+    sal_field: temperatureItem
     sensor_info:
       - sensor_name: somewhere
 warning_level: 2

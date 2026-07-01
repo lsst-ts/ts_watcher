@@ -19,10 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = [
-    "get_filtered_topic_wrapper_key",
-    "FilteredTopicWrapper",
-]
+__all__ = ["get_filtered_topic_wrapper_key", "FilteredTopicWrapper", "TopicWrapper"]
 
 import asyncio
 import collections
@@ -38,22 +35,22 @@ def get_filtered_topic_wrapper_key(topic_key, filter_field):
 class FilteredTopicWrapper:
     r"""Topic wrapper that caches data by the value of a filter field.
 
-    To make a topic wrapper call `Model.make_filtered_topic_wrapper`,
+    To make a topic wrapper, call `Model.make_filtered_topic_wrapper`,
     instead of constructing a `TopicWrapper` directly. That allows using
     a cached instance, if available (and avoids a `RuntimeError`
-    in the constructor, if an instance exists).
+    in the constructor if an instance exists).
 
     Parameters
     ----------
     model : `Model`
-        Watcher model. Used to add a TopicCallback to the topic,
+        Watcher model. Used to add a TopicCallback to the topic
         if one does not already exist.
     topic : `lsst.ts.salobj.ReadTopic`
         Topic to read.
     filter_field : `str`
         Field to filter on. The field must be a scalar.
-        It should also have a smallish number of expected values,
-        in order to avoid caching too much data.
+        It should also have a smallish number of expected values
+        to avoid caching too much data.
 
     Raises
     ------
@@ -87,11 +84,11 @@ class FilteredTopicWrapper:
     of `BaseFilteredFieldWrapper`) rather than `FilteredTopicWrapper`.
 
     Filtered field wrappers are high-level objects that store data for
-    a particular value of filter_field (e.g. a particular subsystem).
-    `FilteredTopicWrapper` is lower level object that stores data for
-    all values of ``filter_field`` (e.g. all subsystems).
+    a particular value of filter_field (e.g., a particular subsystem).
+    `FilteredTopicWrapper` is a lower level object that stores data for
+    all values of ``filter_field`` (e.g., all subsystems).
 
-    Each `BaseFilteredFieldWrapper` contains a `FilteredTopicWrapper`.
+    Each `BaseFilteredFieldWrapper` may contain a `FilteredTopicWrapper`.
     """
 
     def __init__(self, model, topic, filter_field):
@@ -152,7 +149,7 @@ class FilteredTopicWrapper:
     def __call__(self, data, topic_callback):
         """Update the cached data.
 
-        Set data_cache[filter_value] to the new data, and call update_value
+        Set data_cache[filter_value] to the new data and call update_value
         for each filtered field wrapper with the matching filter value.
 
         Parameters
@@ -175,3 +172,125 @@ class FilteredTopicWrapper:
 
     def __repr__(self):
         return f"FilteredTopicWrapper(topic={self.topic}, filter_field={self.filter_field})"
+
+
+class TopicWrapper:
+    r"""Topic wrapper that caches data by a specified key.
+
+    To make a topic wrapper, call `Model.make_non_filtered_topic_wrapper`,
+    instead of constructing a `TopicWrapper` directly. That allows using
+    a cached instance, if available (and avoids a `RuntimeError`
+    in the constructor if an instance exists).
+
+    Parameters
+    ----------
+    model : `Model`
+        Watcher model. Used to add a TopicCallback to the topic
+        if one does not already exist.
+    topic : `lsst.ts.salobj.ReadTopic`
+        Topic to read.
+
+    Raises
+    ------
+    ValueError
+        If the key does not exist in the data,
+        or if it exists but is an array.
+    RuntimeError
+        If this `NonFilteredTopicWrapper` already exists in the model.
+        To avoid this, construct field wrappers by calling
+        `Model.make_non_filtered_field_wrapper`.
+
+    Attributes
+    ----------
+    topic : `lsst.ts.salobj.ReadTopic`
+        ``topic`` constructor argument.
+    descr : `str`
+        A short description of the wrapper.
+    data_cache : `str`
+        Dict of value of key: most recent data seen for that value.
+    default_data
+        Default-constructed data. Use for validation of field wrappers.
+    call_event : `asyncio.Event`
+        An event that `__call__` sets when it finishes.
+        This is intended for use by unit tests.
+
+    Notes
+    -----
+    A rule will typically use non-filtered _field_ wrappers (subclasses
+    of `BaseFilteredFieldWrapper`) rather than `NonFilteredTopicWrapper`.
+
+    Non-filtered field wrappers are high-level objects that store data for
+    a particular key.
+    `NonFilteredTopicWrapper` is a lower level object that stores data for
+    all keys.
+
+    Each `BaseFilteredFieldWrapper` may contain a `NonFilteredTopicWrapper`.
+    """
+
+    def __init__(self, model, topic):
+        self.key = get_topic_key(topic)
+        if self.key in model.filtered_topic_wrappers:
+            raise RuntimeError(
+                f"The TopicWrapper with key={self.key} already exists in the model; "
+                "please use model.make_topic_filter_wrapper, instead of"
+                "constructing TopicWrapper directly."
+            )
+        if topic.callback is None:
+            topic.callback = TopicCallback(topic=topic, rule=None, model=model)
+        self.default_data = topic.DataType()
+
+        self.topic = topic
+        self.descr = f"{topic.salinfo.name_index}.{topic.attr_name}"
+
+        # Data cache: a dict of filter_value: data
+        self.data_cache = dict()
+
+        # Field wrapper cache:
+        # a dict of filter_value: list of FilteredFieldWrapper
+        self.field_wrappers = collections.defaultdict(list)
+
+        self.call_event = asyncio.Event()
+
+        self.topic.callback.add_topic_wrapper(self)
+
+        model.filtered_topic_wrappers[self.key] = self
+
+    def add_field_wrapper(self, field_wrapper):
+        """Add a filtered field wrapper to the internal cache.
+
+        Parameters
+        ----------
+        field_wrapper : `BaseFilteredFieldWrapper`
+            The filtered field wrapper to add.
+        """
+        self.field_wrappers[self.key].append(field_wrapper)
+
+    def get_data(self):
+        """Get the most recently seen data, or None if no data seen."""
+        return self.data_cache.get(self.key, None)
+
+    def __call__(self, data, topic_callback):
+        """Update the cached data.
+
+        Set data_cache["key"] to the new data and call update_value
+        for each field wrapper with the matching filter value "self.key".
+
+        Parameters
+        ----------
+        data : `lsst.ts.salobj.BaseMsgType`
+            Topic data.
+        topic_callback : `TopicCallback`
+            The topic callback that triggered this call.
+        """
+        self.call_event.set()
+        timestamp = data.private_sndStamp
+        self.data_cache[self.key] = data
+        for field_wrapper in self.field_wrappers.get(self.key, []):
+            field_wrapper.update_value(data)
+            field_wrapper.timestamp = timestamp
+
+    def __str__(self):
+        return self.descr
+
+    def __repr__(self):
+        return f"TopicWrapper(topic={self.topic})"

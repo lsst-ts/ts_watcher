@@ -30,7 +30,7 @@ import re
 from lsst.ts import salobj, utils
 
 from . import rules
-from .filtered_topic_wrapper import FilteredTopicWrapper, get_filtered_topic_wrapper_key
+from .filtered_topic_wrapper import FilteredTopicWrapper, TopicWrapper, get_filtered_topic_wrapper_key
 from .remote_wrapper import RemoteWrapper
 from .topic_callback import TopicCallback, get_topic_key
 
@@ -332,33 +332,40 @@ class Model:
         compiled_re = re.compile(name_regex)
         return (rule for name, rule in self.rules.items() if compiled_re.match(name) is not None)
 
-    def make_filtered_topic_wrapper(self, topic, filter_field):
-        """Make a FilteredTopicWrapper, or return an existing one, if found.
+    def make_filtered_topic_wrapper(self, topic, filter_field=None):
+        """Make a FilteredTopicWrapper or return an existing one, if found.
 
         Call this, instead of constructing a `FilteredTopicWrapper` directly.
-        That makes sure cached value is returned, if it exists (avoiding
+        That makes sure a cached value is returned if it exists (avoiding
         an exception in the class constructor).
 
         Parameters
         ----------
         topic : `lsst.ts.salobj.ReadTopic`
             Topic to read.
-        filter_field : `str`
+        filter_field : `str`, optional
             Field to filter on. The field must be a scalar.
-            It should also have a smallish number of expected values,
-            in order to avoid caching too much data.
+            It should also have a smallish number of expected values
+            to avoid caching too much data.
+            If None, then no filtering is done.
 
         Notes
         -----
         Watcher rules typically do not use `FilteredTopicWrapper` directly.
-        Instead they use subclasses of `BaseFilteredFieldWrapper`.
+        Instead, they use subclasses of `BaseFilteredFieldWrapper`.
         Each filtered field wrapper creates a `FilteredTopicWrapper`
         for internal use.
         """
-        key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
+        if filter_field is None:
+            key = get_topic_key(topic)
+        else:
+            key = get_filtered_topic_wrapper_key(topic_key=get_topic_key(topic), filter_field=filter_field)
         wrapper = self.filtered_topic_wrappers.get(key, None)
         if wrapper is None:
-            wrapper = FilteredTopicWrapper(model=self, topic=topic, filter_field=filter_field)
+            if filter_field is None:
+                wrapper = TopicWrapper(model=self, topic=topic)
+            else:
+                wrapper = FilteredTopicWrapper(model=self, topic=topic, filter_field=filter_field)
         return wrapper
 
     async def mute_alarm(self, name, duration, severity, user):

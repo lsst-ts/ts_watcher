@@ -123,7 +123,6 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 rule=rule,
                 pressure_topics=pressure_topics,
-                verbose=False,
             )
 
             # Stop the rule polling task and poll manually.
@@ -166,7 +165,6 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
         rule,
         pressure_topics,
         use_other_filter_values=False,
-        verbose=False,
     ):
         """Send ESS data.
 
@@ -185,8 +183,6 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
-        verbose : `bool`, optional
-            If True then print the data sent.
 
         Notes
         -----
@@ -197,15 +193,9 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
         This helps ensure that the rule uses the most pessimistic data
         from any sensor.
         """
-        if verbose:
-            print(f"send_ess_data(pressure={pressure}, use_other_filter_values={use_other_filter_values}")
-
         delta_pressure = 2
         pessimistic_pressure = pressure
         normal_pressure = pessimistic_pressure - delta_pressure
-        if verbose:
-            print(f"pessimistic_pressure={pessimistic_pressure}")
-            print(f"normal_pressure={normal_pressure}")
 
         rng = numpy.random.default_rng(seed=314)
         pessimistic_pressure_filter_value = rng.choice(list(pressure_topics.keys()))
@@ -227,5 +217,4 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=topic,
                 sensorName=filter_value,
                 pressureItem=pressures,
-                verbose=verbose,
             )

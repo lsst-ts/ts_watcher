@@ -28,18 +28,10 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import NoneNoReason
 from ..field_wrapper_list import FieldWrapperList
-from ..filtered_field_wrapper import FilteredEssFieldWrapper, IndexedFilteredEssFieldWrapper
+from ..filtered_field_wrapper import FieldWrapper, FilteredEssFieldWrapper, IndexedFilteredEssFieldWrapper
 from ..polling_rule import PollingRule
 from ..remote_info import RemoteInfo
 from ..threshold_handler import ThresholdHandler
-
-# Name of dew point field in ESS telemetry topics
-# for dew point and humidity sensors.
-ESSDewPointField = "dewPointItem"
-
-# Name of temperature field in ESS telemetry topics
-# for temperature sensors.
-ESSTemperatureField = "temperatureItem"
 
 
 class DewPointDepression(PollingRule):
@@ -95,22 +87,19 @@ class DewPointDepression(PollingRule):
         # Compute dict of (sal_name, sal_index): list of topic attribute names,
         # in order to create remote_info_list
         topic_names_dict = dict()
-        sal_name = "ESS"
 
         for is_dew_point in (False, True):
             if is_dew_point:
-                topic_attr_names = ["tel_dewPoint"]
                 sensor_info = config.dew_point_sensors
             else:
-                topic_attr_names = ["tel_temperature"]
                 sensor_info = config.temperature_sensors
             for sensor in sensor_info:
+                sal_name = sensor["sal_name"]
                 sal_index = sensor["sal_index"]
                 sal_name_index = (sal_name, sal_index)
                 if sal_name_index not in topic_names_dict:
-                    topic_names_dict[sal_name_index] = topic_attr_names
-                else:
-                    topic_names_dict[sal_name_index] += topic_attr_names
+                    topic_names_dict[sal_name_index] = []
+                topic_names_dict[sal_name_index].append(sensor["sal_topic"])
 
         remote_info_list = [
             RemoteInfo(
@@ -142,84 +131,132 @@ properties:
     type: string
   dew_point_sensors:
     description: >-
-        ESS dew point sensors. These report data using
-        the dewPoint telemetry topic.
+        Dew point sensors. These report data using
+        a dew point telemetry topic.
     type: array
     minItems: 1
     items:
       type: object
       properties:
+        sal_name:
+          description: The name of the CSC.
+          type: string
         sal_index:
-          description: SAL index of ESS CSC.
+          description: SAL index of the CSC. Empty if not applicable.
           type: integer
-        sensor_names:
-          description: Values of sensorName field to read.
-          type: array
-          minItems: 1
-          items:
+        sal_topic:
+          description: The name of the telemetry topic.
+          type: string
+        sal_field:
+          description: The name of the telemetry topic field.
+          type: string
+        if:
+          properties:
+            sal_name:
+              const: ESS
+        then:
+          properties:
+            sensor_names:
+            description: Values of sensorName field to read.
+            type: array
+            minItems: 1
+            items:
             type: string
-      required:
-        - sal_index
-        - sensor_names
-      additionalProperties: false
+        if:
+          properties:
+            sal_name:
+              const: ESS
+        then:
+          required:
+            - sal_name
+            - sal_index
+            - sal_topic
+            - sal_field
+            - sensor_names
+          additionalProperties: false
+        else:
+          required:
+            - sal_name
+            - sal_index
+            - sal_topic
+            - sal_field
+          additionalProperties: false
   temperature_sensors:
     description: >-
-        ESS temperature point sensors. These report data using
-        the temperature telemetry topic.
+        Temperature point sensors. These report data using
+        a temperature telemetry topic.
     type: array
     minItems: 1
     items:
       type: object
       properties:
+        sal_name:
+          description: The name of the CSC.
+          type: string
         sal_index:
-          description: SAL index of ESS CSC.
+          description: SAL index of the CSC. Empty if not applicable.
           type: integer
-        sensor_info:
-          description: List of dicts with keys sensor_name and indices.
-          type: array
-          minItems: 1
-          items:
-            type: object
-            properties:
-              sensor_name:
-                description: Value of sensorName field.
-                type: string
-              indices:
-                description: >-
-                  Indices of the data to read (optional).
-                  If omitted then read all non-nan values.
-                type: array
-                items:
-                  type: integer
-            required:
-              - sensor_name
-            additionalProperties: false
+        sal_topic:
+          description: The name of the telemetry topic.
+          type: string
+        sal_field:
+          description: The name of the telemetry topic field.
+          type: string
+        if:
+          properties:
+            sal_name:
+              const: ESS
+        then:
+          properties:
+            sensor_info:
+              description: >-
+                List of dicts with keys
+                sensor_name and indices.
+              type: array
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  sensor_name:
+                    description: Value of sensorName field.
+                    type: string
+                  indices:
+                    description: >-
+                      Indices of the data to read (optional).
+                      If omitted then read all non-nan values.
+                    type: array
+                    items:
+                      type: integer
+              required:
+                - sensor_name
+              additionalProperties: false
       required:
+        - sal_name
         - sal_index
-        - sensor_info
-      additionalProperties: false
+        - sal_topic
+        - sal_field
   warning_level:
     description: >-
-        The dew point depression (temperature - dew point) (C) below which
-        a warning alarm is issued.
-        Omit for no such alarm.
+      The dew point depression (temperature - dew point) (C) below which
+      a warning alarm is issued.
+      Omit for no such alarm.
     type: number
   serious_level:
     description: >-
-        The dew point depression (temperature - dew point) (C) below which
-        a serious alarm is issued.
-        Omit for no such alarm.
+      The dew point depression (temperature - dew point) (C) below which
+      a serious alarm is issued.
+      Omit for no such alarm.
     type: number
   critical_level:
     description: >-
-        The dew point depression (temperature - dew point) (C) below which
-        a critical alarm is issued.
-        Omit for no such alarm.
+      The dew point depression (temperature - dew point) (C) below which
+      a critical alarm is issued.
+      Omit for no such alarm.
     type: number
   hysteresis:
     description: >-
-        The amount by which temperature - dewPoint (C) must increase above
-        a severity level before alarm severity is decreased.
+      The amount by which temperature - dewPoint (C) must increase above
+      a severity level before alarm severity is decreased.
     type: number
     default: 0.2
   poll_interval:
@@ -251,40 +288,52 @@ additionalProperties: false
         model : `Model`
             The watcher model.
         """
-        sal_name = "ESS"
         for dew_point_sensor_info in self.config.dew_point_sensors:
+            sal_name = dew_point_sensor_info["sal_name"]
             sal_index = dew_point_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
+            topic = getattr(remote, dew_point_sensor_info["sal_topic"])
             for sensor_name in dew_point_sensor_info["sensor_names"]:
                 field_wrapper = FilteredEssFieldWrapper(
                     model=model,
-                    topic=remote.tel_dewPoint,
+                    topic=topic,
                     sensor_name=sensor_name,
-                    field_name=ESSDewPointField,
+                    field_name=dew_point_sensor_info["sal_field"],
                 )
                 self.dew_point_field_wrappers.add_wrapper(field_wrapper)
 
         for temperature_sensor_info in self.config.temperature_sensors:
+            sal_name = temperature_sensor_info["sal_name"]
             sal_index = temperature_sensor_info["sal_index"]
             remote = model.remotes[(sal_name, sal_index)]
-            for sensor_info in temperature_sensor_info["sensor_info"]:
-                sensor_name = sensor_info["sensor_name"]
-                indices = sensor_info.get("indices", None)
-                if indices is not None:
-                    field_wrapper = IndexedFilteredEssFieldWrapper(
-                        model=model,
-                        topic=remote.tel_temperature,
-                        sensor_name=sensor_name,
-                        field_name=ESSTemperatureField,
-                        indices=indices,
-                    )
-                else:
-                    field_wrapper = FilteredEssFieldWrapper(
-                        model=model,
-                        topic=remote.tel_temperature,
-                        sensor_name=sensor_name,
-                        field_name=ESSTemperatureField,
-                    )
+            topic = getattr(remote, temperature_sensor_info["sal_topic"])
+
+            if sal_name == "ESS":
+                for sensor_info in temperature_sensor_info["sensor_info"]:
+                    sensor_name = sensor_info["sensor_name"]
+                    indices = sensor_info.get("indices", None)
+                    if indices is not None:
+                        field_wrapper = IndexedFilteredEssFieldWrapper(
+                            model=model,
+                            topic=topic,
+                            sensor_name=sensor_name,
+                            field_name=temperature_sensor_info["sal_field"],
+                            indices=indices,
+                        )
+                    else:
+                        field_wrapper = FilteredEssFieldWrapper(
+                            model=model,
+                            topic=topic,
+                            sensor_name=sensor_name,
+                            field_name=temperature_sensor_info["sal_field"],
+                        )
+                    self.temperature_field_wrappers.add_wrapper(field_wrapper)
+            else:
+                field_wrapper = FieldWrapper(
+                    model=model,
+                    topic=topic,
+                    field_name=temperature_sensor_info["sal_field"],
+                )
                 self.temperature_field_wrappers.add_wrapper(field_wrapper)
 
     def compute_alarm_severity(self):
