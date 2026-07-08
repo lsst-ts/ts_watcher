@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.25.1 (2026-07-08)
+====================
+
+Performance Enhancement
+-----------------------
+
+- Ensured that the DewPointDepression rule can handle other telemetry than ESS. (`OSW-2252 <https://rubinobs.atlassian.net//browse/OSW-2252>`_)
+
+
 v1.25.0 (2026-05-19)
 ====================
 
