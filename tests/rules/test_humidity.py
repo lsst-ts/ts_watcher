@@ -131,7 +131,6 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 rule=rule,
                 humidity_topics=humidity_topics,
-                verbose=False,
             )
 
             # Stop the rule polling task and poll manually.
@@ -177,7 +176,6 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         rule,
         humidity_topics,
         use_other_filter_values=False,
-        verbose=False,
     ):
         """Send ESS data and wait for the rule to be triggered.
 
@@ -195,8 +193,6 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
-        verbose : `bool`, optional
-            If True then print the data sent.
 
         Notes
         -----
@@ -207,14 +203,9 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
         This helps ensure that the rule uses the most pessimistic data
         from any sensor.
         """
-        if verbose:
-            print(f"send_ess_data(humidity={humidity}, use_other_filter_values={use_other_filter_values}")
         delta_humidity = 2
         pessimistic_humidity = humidity
         normal_humidity = humidity - delta_humidity
-        if verbose:
-            print(f"pessimistic_humidity={pessimistic_humidity}")
-            print(f"normal_humidity={normal_humidity}")
 
         rng = numpy.random.default_rng(seed=314)
         pessimistic_humidity_filter_value = rng.choice(list(humidity_topics.keys()))
@@ -230,5 +221,4 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=topic,
                 sensorName=filter_value,
                 relativeHumidityItem=humidity,
-                verbose=verbose,
             )

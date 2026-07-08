@@ -21,6 +21,7 @@
 
 __all__ = [
     "BaseFilteredFieldWrapper",
+    "FieldWrapper",
     "FilteredEssFieldWrapper",
     "IndexedFilteredEssFieldWrapper",
 ]
@@ -43,15 +44,16 @@ class BaseFilteredFieldWrapper(abc.ABC):
         Watcher model.
     topic : `lsst.ts.salobj.ReadTopic`
         Topic to read.
-    filter_field : `str`
+    filter_field : `str`, optional
         Name of filter field.
-    filter_value : `str`
+    filter_value : `str`, optional
         Required value of the filter field.
 
     Raises
     ------
     ValueError
         If field wrapper validation fails.
+        If one of filter_field or filter_value is None.
 
     Attributes
     ----------
@@ -76,10 +78,17 @@ class BaseFilteredFieldWrapper(abc.ABC):
         None until set.
     """
 
-    def __init__(self, model, topic, filter_field, filter_value):
+    def __init__(self, model, topic, filter_value=None, filter_field=None):
+        if (filter_field is None and filter_value is not None) or (
+            filter_field is not None and filter_value is None
+        ):
+            raise ValueError("filter_field and filter_value must both be None or must both not be None.")
         self.topic_wrapper = model.make_filtered_topic_wrapper(topic=topic, filter_field=filter_field)
         self.filter_value = filter_value
-        self.topic_descr = f"{self.topic_wrapper.descr}({filter_field}={filter_value})"
+        if filter_field is not None:
+            self.topic_descr = f"{self.topic_wrapper.descr}({filter_field}={filter_value})"
+        else:
+            self.topic_descr = f"{self.topic_wrapper.descr}"
         self.nelts = self._get_nelts(self.topic_wrapper.default_data)
         self.value = None
         self.timestamp = None
@@ -140,6 +149,69 @@ class BaseFilteredFieldWrapper(abc.ABC):
 
     def __str__(self):
         return self.topic_descr
+
+
+class FieldWrapper(BaseFilteredFieldWrapper):
+    """Track a field of a telemetry topic.
+
+    Parameters
+    ----------
+    model : `Model`
+        Watcher model.
+    topic : `lsst.ts.salobj.ReadTopic`
+        Topic to read.
+    field_name : `str`
+        Name of field to read. The field may be a scalar or an array.
+    """
+
+    def __init__(
+        self,
+        model,
+        topic,
+        field_name,
+    ):
+        self.field_name = field_name
+        super().__init__(
+            model=model,
+            topic=topic,
+        )
+
+    def update_value(self, data):
+        self.value = getattr(data, self.field_name)
+
+    def _get_nelts(self, data):
+        value = getattr(data, self.field_name, None)
+        if value is None:
+            raise ValueError(f"{self} has no field {self.field_name}")
+        return len(value) if isinstance(value, list) else None
+
+    def get_value_descr(self, index):
+        """Get a description for a value.
+
+        Parameters
+        ----------
+        index : `int` or `None`
+            The index of the value; must be `None` for a scalar,
+            and an int for an array.
+
+        Raises
+        ------
+        ValueError
+            If the field is indexed and the index is None or out of range.
+            If the field is not indexed and the index is not None.
+        """
+        if self.nelts is None:
+            if index is not None:
+                raise ValueError(f"Index={index} must be None for scalar field {self.topic_descr}")
+            value_descr = self.topic_descr
+        else:
+            if index is None:
+                raise ValueError(f"Index must not be None for array field {self.topic_descr}")
+            if index < 0 or index >= self.nelts:
+                raise ValueError(f"Index {index} out of range [0, {self.nelts}) for {self.topic_descr}")
+            value_descr = f"{self.topic_descr}[{index}]"
+
+        return value_descr
 
 
 class FilteredEssFieldWrapper(BaseFilteredFieldWrapper):

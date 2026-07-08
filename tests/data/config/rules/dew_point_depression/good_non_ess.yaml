@@ -1,0 +1,20 @@
+name: Main Telescope
+dew_point_sensors:
+  - sal_name: ESS
+    sal_index: 5
+    sal_topic: tel_dewPoint
+    sal_field: dewPointItem
+    sensor_names:
+      - high
+      - low
+      - outside
+temperature_sensors:
+  - sal_name: MTCamera
+    sal_index: 0
+    sal_topic: tel_utiltrunk_UT
+    sal_field: coolPipeSplyTemp
+warning_level: 2.5
+serious_level: 2
+hysteresis: 0.2
+poll_interval: 10
+max_data_age: 60

@@ -123,7 +123,6 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 model=model,
                 rule=rule,
                 temperature_topics=temperature_topics,
-                verbose=False,
             )
 
             # Stop the rule polling task and poll manually.
@@ -166,7 +165,6 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         rule,
         temperature_topics,
         use_other_filter_values=False,
-        verbose=False,
     ):
         """Send ESS data.
 
@@ -185,8 +183,6 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
-        verbose : `bool`, optional
-            If True then print the data sent.
 
         Notes
         -----
@@ -197,17 +193,9 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
         This helps ensure that the rule uses the most pessimistic data
         from any sensor.
         """
-        if verbose:
-            print(
-                f"send_ess_data(temperature={temperature}, use_other_filter_values={use_other_filter_values}"
-            )
-
         delta_temperature = 2
         pessimistic_temperature = temperature
         normal_temperature = pessimistic_temperature - delta_temperature
-        if verbose:
-            print(f"pessimistic_temperature={pessimistic_temperature}")
-            print(f"normal_temperature={normal_temperature}")
 
         rng = numpy.random.default_rng(seed=314)
         pessimistic_temperature_filter_value = rng.choice(list(temperature_topics.keys()))
@@ -229,5 +217,4 @@ class OverTemperatureTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=topic,
                 sensorName=filter_value,
                 temperatureItem=temperatures,
-                verbose=verbose,
             )

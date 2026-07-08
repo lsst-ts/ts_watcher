@@ -21,6 +21,7 @@
 
 import asyncio
 import functools
+import logging
 import math
 import pathlib
 import types
@@ -51,6 +52,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         )
         # Number of values to set to real temperatures; the rest are NaN.
         self.num_valid_temperatures = 12
+        self.logger = logging.getLogger("DewPointDepressionTestCase")
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -80,20 +82,35 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     self.get_config(filepath=filepath)
 
     async def test_constructor(self):
-        config = self.get_config(filepath=self.configpath / "good_full.yaml")
-        rule = DewPointDepression(config=config)
-        assert len(rule.remote_info_list) == 2
-        expected_sal_indices = (1, 5)
-        expected_poll_names = [
-            ("tel_temperature", "tel_dewPoint"),
-            ("tel_dewPoint",),
-        ]
-        for i, remote_info in enumerate(rule.remote_info_list):
-            assert remote_info.name == "ESS"
-            assert remote_info.index == expected_sal_indices[i]
-            assert remote_info.poll_names == expected_poll_names[i]
+        for filename, expected_config in {
+            "good_full.yaml": types.SimpleNamespace(
+                csc_names=["ESS", "ESS"],
+                num_remotes=2,
+                sal_indices=[1, 5],
+                poll_names=[
+                    ("tel_temperature", "tel_dewPoint"),
+                    ("tel_dewPoint",),
+                ],
+            ),
+            "good_non_ess.yaml": types.SimpleNamespace(
+                csc_names=["MTCamera", "ESS"],
+                num_remotes=2,
+                sal_indices=[0, 5],
+                poll_names=[
+                    ("tel_utiltrunk_UT",),
+                    ("tel_dewPoint",),
+                ],
+            ),
+        }.items():
+            config = self.get_config(filepath=self.configpath / filename)
+            rule = DewPointDepression(config=config)
+            assert len(rule.remote_info_list) == expected_config.num_remotes
+            for i, remote_info in enumerate(rule.remote_info_list):
+                assert remote_info.name == expected_config.csc_names[i]
+                assert remote_info.index == expected_config.sal_indices[i]
+                assert remote_info.poll_names == expected_config.poll_names[i]
 
-    async def test_operation(self):
+    async def test_operation_ess(self):
         poll_interval = 0.05
         max_data_age = poll_interval * 10
         rule_config_path = self.configpath / "good_full.yaml"
@@ -135,8 +152,8 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 auxtel=(controller1.tel_temperature, (0, 2, 1, 3)),
             )
 
-            send_ess_data = functools.partial(
-                self.send_ess_data,
+            send_telemetry = functools.partial(
+                self.send_telemetry,
                 model=model,
                 rule=rule,
                 dew_point_topics=dew_point_topics,
@@ -149,7 +166,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             # Send data indicating condensation using filter values
             # other than those the rule is listening to.
             # This should not affect the rule.
-            await send_ess_data(dew_point_depression=-1, use_other_filter_values=True)
+            await send_telemetry(dew_point_depression=-1, use_other_filter_values=True)
             rule.poll_start_tai = utils.current_tai()
             await rule.update_alarm_severity()
             assert rule.alarm.severity == AlarmSeverity.NONE
@@ -160,7 +177,7 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 dew_point_depression,
                 expected_severity,
             ) in rule.threshold_handler.get_test_value_severities():
-                await send_ess_data(dew_point_depression=dew_point_depression)
+                await send_telemetry(dew_point_depression=dew_point_depression)
                 await rule.update_alarm_severity()
                 assert rule.alarm.severity == expected_severity
 
@@ -175,17 +192,97 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             with pytest.raises(asyncio.TimeoutError):
                 await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
 
-    async def send_ess_data(
+    async def test_operation_non_ess(self):
+        poll_interval = 0.05
+        max_data_age = poll_interval * 10
+        rule_config_path = self.configpath / "good_non_ess.yaml"
+        with open(rule_config_path, "r") as f:
+            rule_config_dict = yaml.safe_load(f)
+            rule_config_dict["poll_interval"] = poll_interval
+            rule_config_dict["max_data_age"] = max_data_age
+
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="DewPointDepression", configs=[rule_config_dict])],
+            escalation=(),
+        )
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with (
+            salobj.Controller(name="MTCamera") as controller1,
+            salobj.Controller(name="ESS", index=5) as controller5,
+            watcher.Model(domain=controller1.domain, config=watcher_config) as model,
+        ):
+            assert len(model.rules) == 1
+            rule = list(model.rules.values())[0]
+            rule.alarm.init_severity_queue()
+            assert rule.alarm.nominal
+
+            await model.enable()
+
+            # Dicts of sensor name: write topic.
+            # The content must match the rule configuration.
+            dew_point_topics = dict(
+                high=controller5.tel_dewPoint,
+                low=controller5.tel_dewPoint,
+                outside=controller5.tel_dewPoint,
+            )
+            temperature_topics = dict(maintel=(controller1.tel_utiltrunk_UT, None))
+
+            send_telemetry = functools.partial(
+                self.send_telemetry,
+                model=model,
+                rule=rule,
+                dew_point_topics=dew_point_topics,
+                temperature_topics=temperature_topics,
+                temperature_item="coolPipeSplyTemp",
+            )
+
+            # Stop the rule polling task and poll manually.
+            rule.stop()
+
+            # Send data indicating condensation using filter values
+            # other than those the rule is listening to.
+            # This should not affect the rule.
+            await send_telemetry(dew_point_depression=-1, use_other_filter_values=True)
+            rule.poll_start_tai = utils.current_tai()
+            await rule.update_alarm_severity()
+            assert rule.alarm.severity == AlarmSeverity.NONE
+            assert rule.alarm.nominal
+
+            # Check a sequence of dew points
+            for (
+                dew_point_depression,
+                expected_severity,
+            ) in rule.threshold_handler.get_test_value_severities():
+                self.logger.debug(f"{dew_point_depression=}, {expected_severity=}.")
+                await send_telemetry(dew_point_depression=dew_point_depression)
+                await rule.update_alarm_severity()
+                assert rule.alarm.severity == expected_severity
+
+            # Check that no data for max_data_age triggers severity=SERIOUS.
+            # Resume polling first.
+            rule.start()
+            rule.alarm.flush_severity_queue()
+            assert rule.alarm.severity != AlarmSeverity.SERIOUS
+            await asyncio.sleep(max_data_age + poll_interval * 2)
+            await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=False, check_empty=False)
+            # should not be published again
+            with pytest.raises(asyncio.TimeoutError):
+                await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
+
+    async def send_telemetry(
         self,
         dew_point_depression,
         model,
         rule,
         dew_point_topics,
         temperature_topics,
+        temperature_item="temperatureItem",
         use_other_filter_values=False,
-        verbose=False,
     ):
-        """Send ESS data.
+        """Send telemetry.
 
         The dew_point_depression argument changes the published temperatures
         but NOT the values published by the dew point sensors.
@@ -206,11 +303,11 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             Dict of filter_value: (controller topic, indices)
             where the topic writes temperature, and indices indicates
             which indices to write (None for all of them).
+        temperature_item : `str`
+            Name of temperature item.
         use_other_filter_values : `bool`, optional
             If True then send data for other filter values than those read by
             the rule. The rule should ignore this data.
-        verbose : `bool`, optional
-            If True then print the data sent.
 
         Notes
         -----
@@ -223,11 +320,6 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         are randomly chosen. This helps ensure that the rule uses the
         most pessimistic data from any sensor.
         """
-        if verbose:
-            print(
-                f"send_ess_data(dew_point_depression={dew_point_depression}, "
-                f"use_other_filter_values={use_other_filter_values}"
-            )
 
         # delta temperature is used as follows:
         # * temperature: regular temperature = delta + lowest temperature
@@ -239,9 +331,9 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
 
         pessimistic_dew_point = pessimistic_air_temperature - dew_point_depression
         normal_dew_point = pessimistic_dew_point - delta_temperature
-        if verbose:
-            print(f"pessimistic_dew_point={pessimistic_dew_point}")
-            print(f"normal_dew_point={normal_dew_point}")
+
+        self.logger.debug(f"pessimistic_dew_point={pessimistic_dew_point}")
+        self.logger.debug(f"normal_dew_point={normal_dew_point}")
 
         rng = numpy.random.default_rng(seed=314)
         pessimistic_dew_point_filter_value = rng.choice(list(dew_point_topics.keys()))
@@ -257,33 +349,39 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                 topic=topic,
                 sensorName=filter_value,
                 dewPointItem=dew_point,
-                verbose=verbose,
             )
 
         pessimistic_temperature = pessimistic_dew_point + dew_point_depression
         normal_temperature = pessimistic_temperature + delta_temperature
-        if verbose:
-            print(f"pessimistic_temperature={pessimistic_temperature}")
-            print(f"normal_temperature={normal_temperature}")
+
+        self.logger.debug(f"pessimistic_temperature={pessimistic_temperature}")
+        self.logger.debug(f"normal_temperature={normal_temperature}")
 
         pessimistic_temperature_filter_value = rng.choice(list(temperature_topics.keys()))
         for filter_value, (topic, indices) in temperature_topics.items():
-            num_temperatures = len(topic.data.temperatureItem)
-            assert self.num_valid_temperatures < num_temperatures
-            num_nans = num_temperatures - self.num_valid_temperatures
-            temperatures = [normal_temperature] * self.num_valid_temperatures + [math.nan] * num_nans
-            if filter_value == pessimistic_temperature_filter_value:
-                if indices is None:
-                    pessimistic_index = rng.choice(range(self.num_valid_temperatures))
-                else:
-                    pessimistic_index = rng.choice(indices)
-                temperatures[pessimistic_index] = pessimistic_temperature
-            if use_other_filter_values:
-                filter_value += " with modifications"
-            await watcher.write_and_wait(
-                model=model,
-                topic=topic,
-                sensorName=filter_value,
-                temperatureItem=temperatures,
-                verbose=verbose,
-            )
+            temp_data_item = getattr(topic.data, temperature_item)
+            if isinstance(temp_data_item, list):
+                num_temperatures = len(topic.data.temperatureItem)
+                assert self.num_valid_temperatures < num_temperatures
+                num_nans = num_temperatures - self.num_valid_temperatures
+                temperatures = [normal_temperature] * self.num_valid_temperatures + [math.nan] * num_nans
+                if filter_value == pessimistic_temperature_filter_value:
+                    if indices is None:
+                        pessimistic_index = rng.choice(range(self.num_valid_temperatures))
+                    else:
+                        pessimistic_index = rng.choice(indices)
+                    temperatures[pessimistic_index] = pessimistic_temperature
+                if use_other_filter_values:
+                    filter_value += " with modifications"
+                await watcher.write_and_wait(
+                    model=model,
+                    topic=topic,
+                    sensorName=filter_value,
+                    temperatureItem=temperatures,
+                )
+            else:
+                await watcher.write_and_wait(
+                    model=model,
+                    topic=topic,
+                    **{temperature_item: pessimistic_temperature},
+                )

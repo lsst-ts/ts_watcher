@@ -1,0 +1,1 @@
+Ensured that the DewPointDepression rule can handle other telemetry than ESS.
