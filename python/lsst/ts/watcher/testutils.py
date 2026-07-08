@@ -80,7 +80,7 @@ class MockModel:
         return wrapper
 
 
-async def write_and_wait(model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, verbose=False, **kwargs):
+async def write_and_wait(model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, **kwargs):
     """Write data and wait for it to be processed by the topic callback.
 
     Parmeters
@@ -91,16 +91,12 @@ async def write_and_wait(model, topic, timeout=DEFAULT_READ_WRITE_TIMEOUT, verbo
         Topic to write.
     timeout : `float`, optional
         Time limit, in seconds, to wait for the data to be processed.
-    verbose : `bool`, optional
-        If true, print the data being written.
     kwargs : `dict`
         Data to write.
     """
     remote = model.remotes[(topic.salinfo.name, topic.salinfo.index)]
     topic_callback = getattr(remote, topic.attr_name).callback
     topic_callback.call_event.clear()
-    if verbose:
-        print(f"{topic.salinfo.name_index}.{topic.attr_name}.set_write({kwargs})")
     await topic.set_write(**kwargs)
     await asyncio.wait_for(
         topic_callback.call_event.wait(),
