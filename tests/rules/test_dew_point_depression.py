@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import datetime
 import functools
 import logging
 import math
@@ -53,6 +54,8 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
         # Number of values to set to real temperatures; the rest are NaN.
         self.num_valid_temperatures = 12
         self.logger = logging.getLogger("DewPointDepressionTestCase")
+        # Event to set at the end of sending telemetry.
+        self.telemetry_sent = asyncio.Event()
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -272,6 +275,60 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
             with pytest.raises(asyncio.TimeoutError):
                 await rule.alarm.assert_next_severity(AlarmSeverity.SERIOUS, flush=True)
 
+    async def test_operation_non_ess_csv_data(self):
+        rule_config_path = self.configpath / "good_non_ess_csv.yaml"
+        with open(rule_config_path, "r") as f:
+            rule_config_dict = yaml.safe_load(f)
+        with open(self.configpath / "ess.txt") as f:
+            ess_lines = f.readlines()
+        with open(self.configpath / "utiltrunk_UT.txt") as f:
+            mtcamera_lines = f.readlines()
+
+        start_dt = datetime.datetime.fromisoformat("2026-07-12T21:00:00Z")
+        ess_data = {}
+        for line in ess_lines:
+            items = line.split(" -> ")
+            dt = datetime.datetime.fromisoformat(items[0])
+            td = (dt - start_dt).total_seconds() / 10
+            telemetry = eval(items[1][13:-2])
+            ess_data[td] = telemetry
+        mtcamera_data = {}
+        for line in mtcamera_lines:
+            items = line.split(" -> ")
+            dt = datetime.datetime.fromisoformat(items[0])
+            td = (dt - start_dt).total_seconds() / 10
+            telemetry = eval(items[1][17:-2])
+            for t in telemetry:
+                telemetry[t] = float(telemetry[t])
+            mtcamera_data[td] = telemetry
+
+        watcher_config_dict = dict(
+            disabled_sal_components=[],
+            auto_acknowledge_delay=3600,
+            auto_unacknowledge_delay=3600,
+            rules=[dict(classname="DewPointDepression", configs=[rule_config_dict])],
+            escalation=(),
+        )
+        watcher_config = types.SimpleNamespace(**watcher_config_dict)
+        async with (
+            salobj.Controller(name="MTCamera") as mtcamera,
+            salobj.Controller(name="ESS", index=111) as ess,
+            watcher.Model(domain=mtcamera.domain, config=watcher_config) as model,
+        ):
+            assert len(model.rules) == 1
+            rule = list(model.rules.values())[0]
+            rule.alarm.init_severity_queue()
+            assert rule.alarm.nominal
+
+            await model.enable()
+
+            ess_write_task = asyncio.create_task(self.tel_write_loop(model, ess.tel_dewPoint, ess_data))
+            mtcamera_write_task = asyncio.create_task(
+                self.tel_write_loop(model, mtcamera.tel_utiltrunk_UT, mtcamera_data)
+            )
+            alarm_task = asyncio.create_task(self.get_alarm_loop(rule))
+            await asyncio.gather(ess_write_task, mtcamera_write_task, alarm_task)
+
     async def send_telemetry(
         self,
         dew_point_depression,
@@ -385,3 +442,20 @@ class DewPointDepressionTestCase(unittest.IsolatedAsyncioTestCase):
                     topic=topic,
                     **{temperature_item: pessimistic_temperature},
                 )
+
+    async def tel_write_loop(self, model, topic, tel_data):
+        prev_td = 0
+        for td in tel_data:
+            await asyncio.sleep(td - prev_td)
+            prev_td = td
+            tel = tel_data[td]
+            self.logger.debug(f"Writing telemetry: {tel}")
+            await watcher.write_and_wait(model=model, topic=topic, **tel)
+        self.telemetry_sent.set()
+
+    async def get_alarm_loop(self, rule):
+        while not self.telemetry_sent.is_set():
+            await rule.update_alarm_severity()
+            assert rule.alarm.severity == AlarmSeverity.NONE
+            assert rule.alarm.nominal
+            await asyncio.sleep(rule.config.poll_interval)
