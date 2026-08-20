@@ -115,6 +115,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # Lock to protect access to self.alarms.
         self.alarms_lock = asyncio.Lock()
 
+        # Remote to communicate with AlarmRuleRunner instances.
+        self.alarm_rule_remote: salobj.Remote | None = None
+
     @staticmethod
     def get_config_pkg():
         return "ts_config_ocs"
@@ -127,10 +130,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         for index in self.alarm_rules_info:
             alarm_rule_info = self.alarm_rules_info[index]
 
-            self.log.debug(f"Stopping Remote[AlarmRule:{index}] for rule {alarm_rule_info.classname}.")
-            await alarm_rule_info.remote.cmd_stop.set_start()
-            await alarm_rule_info.remote.close()
-            self.log.debug(f"Remote[AlarmRule:{index}] is stopped.")
+            self.log.debug(f"Stopping AlarmRule:{index} for rule {alarm_rule_info.classname}.")
+            await self.alarm_rule_remote.cmd_stop.set_start(salIndex=index)
+            self.log.debug(f"AlarmRule:{index} is stopped.")
 
             process = alarm_rule_info.process
             self.log.debug(
@@ -139,6 +141,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
             while process.returncode is None:
                 await asyncio.sleep(0.1)
             self.log.debug(f"Alarm rule process {process.pid} exited with code {process.returncode}.")
+
+        self.log.debug("Stopping AlarmRuleRemote.")
+        await self.alarm_rule_remote.close()
+        self.log.debug("AlarmRuleRemote is stopped.")
 
         self.alarm_rules_info = {}
         self.alarms_info = {}
@@ -155,10 +161,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await super().begin_start(data)
 
         for index in self.alarm_rules_info:
-            alarm_rule_info = self.alarm_rules_info[index]
-            self.log.debug(f"Running Remote[AlarmRule:{index}].")
-            await alarm_rule_info.remote.cmd_run.set_start(timeout=STD_TIMEOUT)
-            self.log.debug(f"Remote[AlarmRule:{index}] is running.")
+            self.log.debug(f"Running AlarmRule:{index}.")
+            await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
+            self.log.debug(f"AlarmRule:{index} is running.")
 
     async def begin_disable(self, data) -> None:
         if self.summary_state == salobj.State.ENABLED:
@@ -181,6 +186,20 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
             config.escalation_url = self.escalation_endpoint_url
 
+        self.log.debug("Creating AlarmRuleRemote.")
+        self.alarm_rule_remote = salobj.Remote(
+            domain=self.domain, name="AlarmRule", discard_out_of_order_events=False
+        )
+        self.alarm_rule_remote.evt_description.callback = self.evt_description_callback
+        self.alarm_rule_remote.evt_state.callback = self.evt_state_callback
+        self.alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
+        self.alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
+        self.alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
+
+        self.log.debug("Waiting for AlarmRuleRemote start_task.")
+        await self.alarm_rule_remote.start_task
+        self.log.debug("AlarmRuleRemote start_task completed.")
+
         for index, rule in enumerate(config.rules, start=1):
             alarm_rule_config = copy.deepcopy(config)
             alarm_rule_config.rules = [rule]
@@ -191,35 +210,24 @@ class WatcherCsc(salobj.ConfigurableCsc):
                 SCRIPT_NAME, rule["classname"], str(index), stdin=asyncio.subprocess.PIPE
             )
 
-            self.log.debug(f"Creating Remote[AlarmRule:{index}] for rule {rule['classname']}.")
-            alarm_rule_remote = salobj.Remote(
-                domain=self.domain, name="AlarmRule", index=index, discard_out_of_order_events=False
-            )
-            alarm_rule_remote.evt_description.callback = self.evt_description_callback
-            alarm_rule_remote.evt_state.callback = self.evt_state_callback
-            alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
-            alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
-            alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
-
             self.alarm_rules_info[index] = AlarmRuleInfo(
                 classname=rule["classname"],
                 config=alarm_rule_config,
-                remote=alarm_rule_remote,
                 process=process,
                 rule_names=[],
             )
 
-            self.log.debug(f"Waiting for Remote[AlarmRule:{index}] start_task for rule {rule['classname']}.")
-            await alarm_rule_remote.start_task
-            self.log.debug(f"Remote[AlarmRule:{index}] start_task completed.")
+            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {rule['classname']}.")
+            data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
+            while data.salIndex != index:
+                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
+            self.log.debug(f"AlarmRule:{index} heartbeat received.")
 
-            self.log.debug(f"Waiting for Remote[AlarmRule:{index}] heartbeat for rule {rule['classname']}.")
-            await alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            self.log.debug(f"Remote[AlarmRule:{index}] heartbeat received.")
-
-            self.log.debug(f"Configuring Remote[AlarmRule:{index}] for rule {rule['classname']}.")
-            await alarm_rule_remote.cmd_configure.set_start(config=alarm_rule_config_str, timeout=STD_TIMEOUT)
-            self.log.debug(f"Configured Remote[AlarmRule:{index}].")
+            self.log.debug(f"Configuring AlarmRule:{index} for rule {rule['classname']}.")
+            await self.alarm_rule_remote.cmd_configure.set_start(
+                salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
+            )
+            self.log.debug(f"Configured AlarmRule:{index}.")
 
     async def output_alarm(self, alarm_info, force_output=True):
         """Output the alarm event for one alarm_info instance."""
@@ -271,29 +279,36 @@ class WatcherCsc(salobj.ConfigurableCsc):
             A list of remotes.
         """
         compiled_re = re.compile(name_regex)
-        remotes: set[salobj.Remote] = set()
+        indices: set[int] = set()
         for index in self.alarm_rules_info:
             alarm_rule_info = self.alarm_rules_info[index]
             for rule in alarm_rule_info.rule_names:
                 if compiled_re.match(rule):
-                    remotes.add(alarm_rule_info.remote)
-        return remotes
+                    indices.add(index)
+        return indices
 
     async def do_acknowledge(self, data):
         self.assert_enabled()
-        remotes = await self.find_remotes_for_rule_regex(data.name)
-        for remote in remotes:
-            await remote.cmd_acknowledge.set_start(
-                alarmName=data.name, severity=data.severity, acknowledgedBy=data.acknowledgedBy
+        indices = await self.find_remotes_for_rule_regex(data.name)
+        for index in indices:
+            await self.alarm_rule_remote.cmd_acknowledge.set_start(
+                salIndex=index,
+                alarmName=data.name,
+                severity=data.severity,
+                acknowledgedBy=data.acknowledgedBy,
             )
 
     async def do_mute(self, data):
         """Mute one or more alarms."""
         self.assert_enabled()
-        remotes = await self.find_remotes_for_rule_regex(data.name)
-        for remote in remotes:
-            await remote.cmd_mute.set_start(
-                alarmName=data.name, muteDuration=data.duration, severity=data.severity, mutedBy=data.mutedBy
+        indices = await self.find_remotes_for_rule_regex(data.name)
+        for index in indices:
+            await self.alarm_rule_remote.cmd_mute.set_start(
+                salIndex=index,
+                alarmName=data.name,
+                muteDuration=data.duration,
+                severity=data.severity,
+                mutedBy=data.mutedBy,
             )
 
     async def do_showAlarms(self, data):
@@ -304,16 +319,16 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def do_unacknowledge(self, data):
         """Unacknowledge one or more alarms."""
         self.assert_enabled()
-        remotes = await self.find_remotes_for_rule_regex(data.name)
-        for remote in remotes:
-            await remote.cmd_unacknowledge.set_start(alarmName=data.name)
+        indices = await self.find_remotes_for_rule_regex(data.name)
+        for index in indices:
+            await self.alarm_rule_remote.cmd_unacknowledge.set_start(salIndex=index, alarmName=data.name)
 
     async def do_unmute(self, data):
         """Unmute one or more alarms."""
         self.assert_enabled()
-        remotes = await self.find_remotes_for_rule_regex(data.name)
-        for remote in remotes:
-            await remote.cmd_unmute.set_start(alarmName=data.name)
+        indices = await self.find_remotes_for_rule_regex(data.name)
+        for index in indices:
+            await self.alarm_rule_remote.cmd_unmute.set_start(salIndex=index, alarmName=data.name)
 
     async def do_setLogLevel(self, data) -> None:
         """Set logging level.
@@ -328,8 +343,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await super().do_setLogLevel(data)
 
         for index in self.alarm_rules_info:
-            alarm_rule_info = self.alarm_rules_info[index]
-            await alarm_rule_info.remote.cmd_setLogLevel.set_start(level=data.level)
+            await self.alarm_rule_remote.cmd_setLogLevel.set_start(salIndex=index, level=data.level)
 
     async def make_log_entry_for_alarm(self, log_server_url, alarm):
         """Post a message to the narrative log entry in response to alarm.
@@ -399,11 +413,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def evt_description_callback(self, data):
         """Handle description event from alarm subprocesses."""
         self.log.debug(f"Received description event for {data.salIndex=} with {data=}")
-        alarm_rule_info = self.alarm_rules_info[data.salIndex]
-        alarm_rule_info.rule_names = [f"{data.alarmName}.{remote}" for remote in data.remotes.split(",")]
-        self.log.debug(
-            f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
-        )
+        if data.salIndex in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[data.salIndex]
+            alarm_rule_info.rule_names = [f"{data.alarmName}.{remote}" for remote in data.remotes.split(",")]
+            self.log.debug(
+                f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
+            )
+        else:
+            self.log.warning(f"Received description event for unknown AlarmRule:{data.salIndex}.")
 
     async def evt_state_callback(self, data):
         """Handle state event from alarm subprocesses."""

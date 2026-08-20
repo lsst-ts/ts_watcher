@@ -29,7 +29,6 @@ import logging
 import typing
 from dataclasses import dataclass
 
-from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 
@@ -43,8 +42,6 @@ class AlarmRuleInfo:
         Name of the alarm rule class.
     config : dict[str, `dict`]
         Configuration parameters for the alarm rule.
-    remote : `salobj.Remote`
-        The Remote to communicate with the AlarmRule subprocess.
     process : `asyncio.subprocess.Process`
         The process in which the AlarmRule runs.
     rule_names : list[str]
@@ -53,7 +50,6 @@ class AlarmRuleInfo:
 
     classname: str
     config: dict[str, typing.Any]
-    remote: salobj.Remote
     process: asyncio.subprocess.Process
     rule_names: list
 
