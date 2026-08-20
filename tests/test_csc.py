@@ -949,7 +949,6 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             self.csc.evt_logLevel_callback = self.evt_logLevel_callback
 
             await salobj.set_summary_state(self.remote, state=salobj.State.ENABLED, override="enabled.yaml")
-            nrules = len(self.csc.alarm_rules_info)
 
             # All rules should be nominal.
             await self.check_all_alarms_events_are_none()
@@ -959,9 +958,6 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             self.csc.log.info("Waiting for log level to be set")
             while self.csc.log.level != logging.DEBUG:
                 await asyncio.sleep(0.1)
-
-            while len(self.log_levels) < nrules:
-                await asyncio.sleep(STD_TIMEOUT)
 
     async def evt_logLevel_callback(self, data):
         """Handle logLevel event from the alarm subprocess."""

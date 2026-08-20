@@ -116,7 +116,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.alarms_lock = asyncio.Lock()
 
         # Remote to communicate with AlarmRuleRunner instances.
-        self.alarm_rule_remote: salobj.Remote | None = None
+        self.log.debug("Creating AlarmRuleRemote.")
+        self.alarm_rule_remote = salobj.Remote(
+            domain=self.domain, name="AlarmRule", discard_out_of_order_events=False
+        )
+        self.alarm_rule_remote.evt_description.callback = self.evt_description_callback
+        self.alarm_rule_remote.evt_state.callback = self.evt_state_callback
+        self.alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
+        self.alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
+        self.alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
 
     @staticmethod
     def get_config_pkg():
@@ -131,7 +139,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             alarm_rule_info = self.alarm_rules_info[index]
 
             self.log.debug(f"Stopping AlarmRule:{index} for rule {alarm_rule_info.classname}.")
-            await self.alarm_rule_remote.cmd_stop.set_start(salIndex=index)
+            await self.alarm_rule_remote.cmd_stop.set_start(salIndex=index, timeout=STD_TIMEOUT)
             self.log.debug(f"AlarmRule:{index} is stopped.")
 
             process = alarm_rule_info.process
@@ -141,10 +149,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             while process.returncode is None:
                 await asyncio.sleep(0.1)
             self.log.debug(f"Alarm rule process {process.pid} exited with code {process.returncode}.")
-
-        self.log.debug("Stopping AlarmRuleRemote.")
-        await self.alarm_rule_remote.close()
-        self.log.debug("AlarmRuleRemote is stopped.")
 
         self.alarm_rules_info = {}
         self.alarms_info = {}
@@ -185,20 +189,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
                 config.escalation_url + INCIDENT_WEBHOOK_URL_SUFFIX + escalation_key
             )
             config.escalation_url = self.escalation_endpoint_url
-
-        self.log.debug("Creating AlarmRuleRemote.")
-        self.alarm_rule_remote = salobj.Remote(
-            domain=self.domain, name="AlarmRule", discard_out_of_order_events=False
-        )
-        self.alarm_rule_remote.evt_description.callback = self.evt_description_callback
-        self.alarm_rule_remote.evt_state.callback = self.evt_state_callback
-        self.alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
-        self.alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
-        self.alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
-
-        self.log.debug("Waiting for AlarmRuleRemote start_task.")
-        await self.alarm_rule_remote.start_task
-        self.log.debug("AlarmRuleRemote start_task completed.")
 
         for index, rule in enumerate(config.rules, start=1):
             alarm_rule_config = copy.deepcopy(config)
@@ -344,6 +334,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         for index in self.alarm_rules_info:
             await self.alarm_rule_remote.cmd_setLogLevel.set_start(salIndex=index, level=data.level)
+
+        self.log.debug(f"Set log level for all alarm rules to {data.level}.")
 
     async def make_log_entry_for_alarm(self, log_server_url, alarm):
         """Post a message to the narrative log entry in response to alarm.
