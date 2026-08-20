@@ -72,6 +72,9 @@ class AlarmRuleRunner(salobj.Controller):
 
         self.escalation_endpoint_url = ""
 
+        # Variable to hold background stop task.
+        self._stop_task = utils.make_done_future()
+
         self.state = AlarmRuleState.UNCONFIGURED
         self.log.debug(f"AlarmRule:{self.salinfo.index} created.")
 
@@ -282,7 +285,11 @@ class AlarmRuleRunner(salobj.Controller):
         This is usually called when the Watcher goes to DISABLED state.
         """
         self.log.debug("do_stop")
-        asyncio.create_task(self._stop())
+        if not self._stop_task.done():
+            self.log.warning(f"{self.rule_name}:{self.salinfo.index} already stopping.")
+            return
+
+        self._stop_task = asyncio.create_task(self._stop())
 
     async def do_mute(self, data: type_hints.BaseMsgType) -> None:
         """Mute the alarm of this rule.
@@ -440,7 +447,7 @@ class AlarmRuleRunner(salobj.Controller):
                 else:
                     read_text = await response.text()
                     alarm.escalated_id = f"Failed: {read_text}"
-                    self.log.warning(f"Could not escalate alarm {alarm}: {read_text}")
+                    self.log.warning(f"Could not escalate alarm {alarm}: {read_text}", exc_info=True)
         except Exception as e:
             errmsg = f"Could not reach SquadCast: {e!r}"
             alarm.escalated_id = f"Failed: {errmsg}"
@@ -517,7 +524,7 @@ class AlarmRuleRunner(salobj.Controller):
         try:
             await runner.done_task
             await runner.close()
-        except Exception as e:
+        except BaseException as e:
             # The runner failed in cleanup.
             if runner.state != AlarmRuleState.FAILED:
                 warnings.warn(
