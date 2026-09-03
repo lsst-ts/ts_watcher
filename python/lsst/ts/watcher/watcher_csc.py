@@ -93,14 +93,27 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def __init__(self, config_dir=None, initial_state=salobj.State.STANDBY, override=""):
         self.http_client = aiohttp.ClientSession()
 
-        super().__init__(
-            "Watcher",
-            index=0,
-            config_schema=CONFIG_SCHEMA,
-            config_dir=config_dir,
-            initial_state=initial_state,
-            override=override,
-        )
+        # TODO OSW-2899 Remove backward compatibiliy with SalObj v8.2.9.
+        try:
+            super().__init__(
+                "Watcher",
+                index=0,
+                config_schema=CONFIG_SCHEMA,
+                config_dir=config_dir,
+                initial_state=initial_state,
+                override=override,
+                discard_out_of_order_telemetry=True,
+                discard_out_of_order_events=False,
+            )
+        except TypeError:
+            super().__init__(
+                "Watcher",
+                index=0,
+                config_schema=CONFIG_SCHEMA,
+                config_dir=config_dir,
+                initial_state=initial_state,
+                override=override,
+            )
         self.escalation_endpoint_url = ""
         self.config: types.SimpleNamespace | None = None
 
@@ -115,7 +128,13 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         # Remote to communicate with AlarmRuleRunner instances.
         self.log.debug("Creating AlarmRuleRemote.")
-        self.alarm_rule_remote = salobj.Remote(domain=self.domain, name="AlarmRule")
+        # TODO OSW-2899 Remove backward compatibiliy with SalObj v8.2.9.
+        try:
+            self.alarm_rule_remote = salobj.Remote(
+                domain=self.domain, name="AlarmRule", discard_out_of_order_events=False
+            )
+        except TypeError:
+            self.alarm_rule_remote = salobj.Remote(domain=self.domain, name="AlarmRule")
         self.alarm_rule_remote.evt_description.callback = self.evt_description_callback
         self.alarm_rule_remote.evt_state.callback = self.evt_state_callback
         self.alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
