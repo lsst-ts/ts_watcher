@@ -18,3 +18,4 @@ python/lsst/ts/watcher/version.py
 .clang-format
 .ruff.toml
 towncrier.toml
+.LICENSE.txt
