@@ -453,7 +453,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def evt_logLevel_callback(self, data):
         """Handle logLevel event from the alarm subprocess."""
-        self.log.info(f"Received logLevel event for {data.salIndex=} with {data.level=}")
+        self.log.info(
+            f"Received logLevel event for {data.salIndex=} with data.level={logging.getLevelName(data.level)}"
+        )
 
     async def evt_logMessage_callback(self, data):
         """Handle logMessage event from the alarm subprocess."""
