@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import contextlib
@@ -31,6 +31,8 @@ from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Timeout for normal operations (seconds)
 STD_TIMEOUT = 5
+# Timeout for operations that take a lot of time (seconds)
+LONG_TIMEOUT = 60
 # Minimal wait time (seconds).
 MINIMAL_WAIT = 0.001
 
@@ -77,48 +79,45 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_life_cycle(self):
         async with self.make_component_and_remote():
-            # Validate start up.
+            # Validate startup.
             assert self.rule_runner.salinfo is not None
             assert not self.rule_runner._heartbeat_task.done()
-            assert self.rule_runner._run_task.done()
             assert self.rule_runner.state == AlarmRuleState.UNCONFIGURED
             assert self.rule_runner.model is None
             async with asyncio.timeout(STD_TIMEOUT):
                 await self.rule_runner_remote.evt_heartbeat.next(flush=True)
 
             # Execute and validate do_configure.
-            await self.rule_runner.do_configure(self.config_data)
+            await self.rule_runner_remote.cmd_configure.set_start(
+                config=self.config_data.config, timeout=STD_TIMEOUT
+            )
             await asyncio.sleep(MINIMAL_WAIT)
             async with asyncio.timeout(STD_TIMEOUT):
                 data = await self.rule_runner_remote.evt_state.next(flush=False)
                 assert data.state == AlarmRuleState.CONFIGURED.value
             async with asyncio.timeout(STD_TIMEOUT):
                 await self.rule_runner_remote.evt_description.next(flush=False)
-            assert self.rule_runner._run_task.done()
             assert self.rule_runner.model is not None
             assert len(self.rule_runner.model.rules) == 2
 
             # Execute and validate do_run.
-            run_task = asyncio.create_task(self.rule_runner.do_run(self.run_data))
+            await self.rule_runner_remote.cmd_run.set_start(timeout=STD_TIMEOUT)
             await asyncio.sleep(MINIMAL_WAIT)
             async with asyncio.timeout(STD_TIMEOUT):
                 data = await self.rule_runner_remote.evt_state.next(flush=False)
                 assert data.state == AlarmRuleState.RUNNING.value
-            assert not self.rule_runner._run_task.done()
 
             # Execute and validate do_stop.
-            await self.rule_runner.do_stop(self.stop_data)
+            await self.rule_runner_remote.cmd_stop.set_start(timeout=STD_TIMEOUT)
             await asyncio.sleep(MINIMAL_WAIT)
             async with asyncio.timeout(STD_TIMEOUT):
                 data = await self.rule_runner_remote.evt_state.next(flush=False)
                 assert data.state == AlarmRuleState.STOPPING.value
-            async with asyncio.timeout(STD_TIMEOUT):
+            async with asyncio.timeout(LONG_TIMEOUT):
                 data = await self.rule_runner_remote.evt_state.next(flush=False)
                 assert data.state == AlarmRuleState.STOPPED.value
 
-            # Validate clean up.
-            while not run_task.done():
-                await asyncio.sleep(MINIMAL_WAIT)
+            # Validate cleanup.
             assert self.rule_runner._heartbeat_task.done()
             assert self.rule_runner._run_task.done()
             assert self.rule_runner.model is None
@@ -144,7 +143,7 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             self.raised_alarms.add(data.alarmName)
 
     async def validate_first_second_alarm_event(self):
-        # The first alarm event always is sent at start up and no alarm was
+        # The first alarm event always is sent at startup and no alarm was
         # raised yet. Since the config is for two Remotes, the event is
         # emitted twice, once for each Remote.
         await self.validate_alarm_event(
@@ -168,6 +167,17 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             expected_muted=False,
         )
 
+    async def wait_for_all_state_events(self):
+        for state in [
+            AlarmRuleState.CONFIGURED,
+            AlarmRuleState.RUNNING,
+            AlarmRuleState.STOPPING,
+            AlarmRuleState.STOPPED,
+        ]:
+            async with asyncio.timeout(LONG_TIMEOUT):
+                data = await self.rule_runner_remote.evt_state.next(flush=False)
+                assert data.state == state.value
+
     async def test_alarm(self):
         async with self.make_component_and_remote():
             await self.rule_runner.do_configure(self.config_data)
@@ -190,12 +200,14 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
             await self.rule_runner.do_stop(self.stop_data)
 
+            await self.wait_for_all_state_events()
+
     async def test_ack_unack_alarm(self):
         async with self.make_component_and_remote():
             await self.rule_runner.do_configure(self.config_data)
 
             # For some reason the alarms need to be reset here when running
-            # other tests that acknowledge alarms (heartbeat rule test for
+            # other tests that acknowledge alarms (heartbeat rule test, for
             # example). Resetting at the end of those tests doesn't work.
             for rule in self.rule_runner.model.rules:
                 self.rule_runner.model.rules[rule].alarm.reset()
@@ -226,6 +238,8 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
             await self.rule_runner.do_stop(self.stop_data)
 
+            await self.wait_for_all_state_events()
+
     async def test_mute_unmute_alarm(self):
         async with self.make_component_and_remote():
             await self.rule_runner.do_configure(self.config_data)
@@ -239,7 +253,7 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             for data in [self.mute_data, self.unmute_data]:
                 data.alarmName = raised_alarm
                 data.severity = AlarmSeverity.CRITICAL.value
-                data.duration = 18600
+                data.muteDuration = 18600
                 data.mutedBy = "Unit Test"
 
             # Mute the alarm.
@@ -255,3 +269,5 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             )
 
             await self.rule_runner.do_stop(self.stop_data)
+
+            await self.wait_for_all_state_events()

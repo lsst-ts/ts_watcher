@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["MTM1M3EGWFlow"]
 
@@ -27,7 +27,6 @@ import typing
 import yaml
 
 from lsst.ts import salobj
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
@@ -46,29 +45,18 @@ class MTM1M3EGWFlow(BaseRule):
     """
 
     def __init__(self, config, log=None):
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("MTM1M3TS", topic_subname="")
-        if "tel_flowMeter" in self.component_info.topics:
-            remote_info_list = [
-                RemoteInfo(
-                    name="MTM1M3TS",
-                    index=0,
-                    callback_names=["tel_flowMeter", "evt_summaryState", "evt_engineeringMode"],
-                ),
-            ]
-        else:
-            remote_info_list = [
-                RemoteInfo(
-                    name="MTM1M3TS",
-                    index=0,
-                    callback_names=["evt_summaryState", "evt_engineeringMode"],
-                ),
-                RemoteInfo(
-                    name="ESS",
-                    index=130,
-                    callback_names=["tel_flowMeter"],
-                ),
-            ]
+        remote_info_list = [
+            RemoteInfo(
+                name="MTM1M3TS",
+                index=0,
+                callback_names=["evt_summaryState", "evt_engineeringMode"],
+            ),
+            RemoteInfo(
+                name="ESS",
+                index=130,
+                callback_names=["tel_flowMeter"],
+            ),
+        ]
         super().__init__(
             config=config,
             name="MTM1M3EGWFlow",

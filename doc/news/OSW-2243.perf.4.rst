@@ -1,0 +1,1 @@
+Made the code backward compatible with SalObj v8.2.9.

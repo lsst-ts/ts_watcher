@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["get_rule_class", "Model"]
 
@@ -122,6 +122,8 @@ class Model:
                 rule = ruleclass(config=ruleconfig, log=self.log)
                 if rule.is_usable(disabled_sal_components=config.disabled_sal_components):
                     self.add_rule(rule)
+                else:
+                    self.log.info(f"Rule {rule.alarm.name} is disabled.")
 
         # Accumulate a list of topics that have callback functions.
         self._topics_with_callbacks = list()
@@ -206,19 +208,6 @@ class Model:
             rule.stop()
         self.disable()
         await asyncio.gather(*[remote.close() for remote in self.remotes.values()])
-
-    async def make_log_entry(self, name):
-        """MakeLogEntry for alarm.
-
-        Parameters
-        ----------
-        name : `str`
-            Regular expression for alarm name(s) to post to narrative log.
-        """
-        log_server = self.config.narrative_server_url
-
-        for rule in self.get_rules(name):
-            await rule.alarm.make_log_entry(log_server)
 
     async def acknowledge_alarm(self, name, severity, user):
         """Acknowledge one or more alarms.
@@ -384,6 +373,7 @@ class Model:
             Name of user; used to set acknowledged_by.
         """
         for rule in self.get_rules(name):
+            self.log.info(f"Muting alarm {rule.name} with severity {severity} for {duration} seconds.")
             await rule.alarm.mute(duration=duration, severity=severity, user=user)
 
     async def unacknowledge_alarm(self, name):

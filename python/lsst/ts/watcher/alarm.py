@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,21 +13,18 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["Alarm"]
 import asyncio
 import inspect
 import logging
 
-import aiohttp
-
 from lsst.ts import utils
-from lsst.ts.salobj.base import get_user_host
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 # Default timeout for Alarm.assert_next_severity
@@ -123,6 +120,7 @@ class Alarm:
         self.unmute_task = utils.make_done_future()
         self.severity_queue = None
         self.reset()
+        self.log.info(f"Created alarm with name {self.name}.")
 
     @property
     def muted(self):
@@ -163,6 +161,7 @@ class Alarm:
             Automatic unacknowledgement only occurs if the alarm persists,
             because an acknowledged alarm is reset if severity goes to NONE.
         """
+        self.log.info(f"Configuring alarm with name {self.name}.")
         if auto_acknowledge_delay < 0:
             raise ValueError(f"auto_acknowledge_delay={auto_acknowledge_delay} must be >= 0")
         if auto_unacknowledge_delay < 0:
@@ -170,6 +169,7 @@ class Alarm:
         self.callback = callback
         self.auto_acknowledge_delay = auto_acknowledge_delay
         self.auto_unacknowledge_delay = auto_unacknowledge_delay
+        self.log.info(f"Done configuring alarm with name {self.name}.")
 
     def configure_escalation(self, escalation_delay, escalation_responder):
         """Configure escalation.
@@ -214,53 +214,6 @@ class Alarm:
         self._cancel_auto_unacknowledge()
         self._cancel_escalation_timer()
         self._cancel_unmute()
-
-    async def make_log_entry(self, log_server_url):
-        """Post message to narrative log entry in response to alarm.
-
-        Parameters
-        ----------
-        log_server_url : `str`
-            URL of the narrativelog service.
-
-        Returns
-        -------
-        response : `dict`
-            JSON response from Post.
-        """
-        alarm_severity_level = {
-            AlarmSeverity.NONE: logging.DEBUG,
-            AlarmSeverity.SERIOUS: logging.INFO,
-            AlarmSeverity.WARNING: logging.WARNING,
-            AlarmSeverity.CRITICAL: logging.CRITICAL,
-        }
-
-        now = utils.astropy_time_from_tai_unix(utils.current_tai()).datetime.isoformat()
-        # Required? fields in payload:
-        #   message_text, level, user_id, user_agent, is_human
-        message = f"alarm:{self.name} severity={self.severity} {self.reason}"
-        payload = {
-            "message_text": message,
-            "level": alarm_severity_level[self.severity],
-            "user_id": get_user_host(),
-            "user_agent": "Watcher",
-            "is_human": False,
-            "tags": ["watcher", "alarm", "make_log_entry"],
-            "date_begin": now,
-            "date_end": now,
-        }
-
-        url = f"{log_server_url}/messages"
-
-        # AIOHTTP docs say don't create session per request. We do so anyhow.
-        # By not specifying a timeout, we accept the default value of
-        # 5 minutes (according to the doc)for the whole
-        # operation (connect, write, response).
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.post(url=url, json=payload) as response:
-                response: dict = await response.json()
-                self.log.debug(f"Response (json) from Post: {response=}")
-        return response
 
     async def acknowledge(self, severity, user):
         """Acknowledge the alarm.
@@ -712,7 +665,9 @@ class Alarm:
         """
         if duration <= 0:
             raise ValueError(f"duration={duration} must be positive")
+        self.log.info(f"Muting {self.name} for {duration} seconds.")
         await asyncio.sleep(duration)
+        self.log.info(f"Alarm {self.name} unmuting itself after {duration}s elapsed time.")
         await self.unmute()
 
     def _cancel_auto_acknowledge(self):

@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,18 +13,17 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -34,12 +33,7 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
         self.remote_name = "HVAC"
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("HVAC", topic_subname="")
-        if "tel_dynaleneP05" in self.component_info.topics:
-            self.callback_name = "tel_dynaleneP05"
-        else:
-            self.callback_name = "tel_dynalene"
+        self.callback_name = "tel_dynalene"
         self.rule_config_dict = {
             "rule_name": "Dynalene",
             "callback_names": [self.callback_name],
@@ -145,43 +139,23 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_stale_value_detection(self):
         """Test detection of stale/unchanging values."""
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        if "tel_dynaleneP05" in self.component_info.topics:
-            stale_config_dict = {
-                "rule_name": "Dynalene",
-                "callback_names": ["tel_dynaleneP05"],
-                "stale_value_limits": [
-                    {
-                        "item_name": "dynCH01supTS05",
-                        "num_samples": 3,
-                        "severity": AlarmSeverity.SERIOUS.name,
-                        "message": "HVAC value stuck - check sensors",
-                    },
-                    {
-                        "item_name": "dynCH01supFS01",
-                        "num_samples": 2,
-                        "severity": AlarmSeverity.WARNING.name,
-                    },
-                ],
-            }
-        else:
-            stale_config_dict = {
-                "rule_name": "Dynalene",
-                "callback_names": ["tel_dynalene"],
-                "stale_value_limits": [
-                    {
-                        "item_name": "dynCH01supTS05",
-                        "num_samples": 3,
-                        "severity": AlarmSeverity.SERIOUS.name,
-                        "message": "HVAC value stuck - check sensors",
-                    },
-                    {
-                        "item_name": "dynCH01supFS01",
-                        "num_samples": 2,
-                        "severity": AlarmSeverity.WARNING.name,
-                    },
-                ],
-            }
+        stale_config_dict = {
+            "rule_name": "Dynalene",
+            "callback_names": ["tel_dynalene"],
+            "stale_value_limits": [
+                {
+                    "item_name": "dynCH01supTS05",
+                    "num_samples": 3,
+                    "severity": AlarmSeverity.SERIOUS.name,
+                    "message": "HVAC value stuck - check sensors",
+                },
+                {
+                    "item_name": "dynCH01supFS01",
+                    "num_samples": 2,
+                    "severity": AlarmSeverity.WARNING.name,
+                },
+            ],
+        }
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
