@@ -58,7 +58,7 @@ class AlarmRuleRunner(salobj.Controller):
     def __init__(self, rule_name: str, index: int):
         self.http_client = aiohttp.ClientSession()
 
-        super().__init__(name="AlarmRule", index=index, do_callbacks=True, discard_out_of_order_events=False)
+        super().__init__(name="AlarmRule", index=index, do_callbacks=True)
 
         self.rule_name = rule_name
         self.model: Model | None = None
