@@ -100,8 +100,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             config_dir=config_dir,
             initial_state=initial_state,
             override=override,
-            discard_out_of_order_telemetry=True,
-            discard_out_of_order_events=False,
         )
         self.escalation_endpoint_url = ""
         self.config: types.SimpleNamespace | None = None
@@ -117,9 +115,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         # Remote to communicate with AlarmRuleRunner instances.
         self.log.debug("Creating AlarmRuleRemote.")
-        self.alarm_rule_remote = salobj.Remote(
-            domain=self.domain, name="AlarmRule", discard_out_of_order_events=False
-        )
+        self.alarm_rule_remote = salobj.Remote(domain=self.domain, name="AlarmRule")
         self.alarm_rule_remote.evt_description.callback = self.evt_description_callback
         self.alarm_rule_remote.evt_state.callback = self.evt_state_callback
         self.alarm_rule_remote.evt_alarm.callback = self.evt_alarm_callback
