@@ -24,6 +24,7 @@ from .at_estop import *
 from .atcamera_dewar import *
 from .camera_alert import *
 from .clock import *
+from .closed_loop_disabled import *
 from .dew_point_depression import *
 from .enabled import *
 from .generic_boolean import *
