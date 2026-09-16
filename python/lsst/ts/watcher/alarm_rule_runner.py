@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -15,19 +13,27 @@ from __future__ import annotations
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["AlarmRuleRunner", "UnexpectedAlarmRuleStateError"]
+from __future__ import annotations
 
+__all__ = ["AlarmRuleRunner", "UnexpectedAlarmRuleStateError", "run_alarm_rule_runner"]
+
+import argparse
 import asyncio
 import contextlib
+import sys
 import types
 import typing
+import uuid
+import warnings
+from http import HTTPStatus
 
+import aiohttp
 import yaml
 
 from lsst.ts import salobj, utils
@@ -41,6 +47,7 @@ RUN_TASK_WAIT = 0.1  # seconds
 TASK_CANCEL_WAIT_TIME = 0.1  # seconds
 MAX_TASK_CANCEL_WAIT_TIME = 5.0  # seconds
 HEARTBEAT_INTERVAL = 5.0  # seconds
+ACK_IN_PROGRESS_WAIT_TIME = 5.0  # seconds
 
 
 class UnexpectedAlarmRuleStateError(Exception):
@@ -49,18 +56,33 @@ class UnexpectedAlarmRuleStateError(Exception):
 
 class AlarmRuleRunner(salobj.Controller):
     def __init__(self, rule_name: str, index: int):
-        super().__init__(name="AlarmRule", index=index)
+        self.http_client = aiohttp.ClientSession()
+
+        # TODO OSW-2899 Remove backward compatibiliy with SalObj v8.2.9.
+        try:
+            super().__init__(
+                name="AlarmRule", index=index, do_callbacks=True, discard_out_of_order_events=False
+            )
+        except TypeError:
+            super().__init__(name="AlarmRule", index=index, do_callbacks=True)
 
         self.rule_name = rule_name
         self.model: Model | None = None
 
         self._run_task: asyncio.Future = utils.make_done_future()
+        self._close_task: asyncio.Future = utils.make_done_future()
         self._heartbeat_task: asyncio.Future = utils.make_done_future()
 
         self._should_be_running: asyncio.Future = utils.make_done_future()
         self._should_produce_heartbeats = False
 
+        self.escalation_endpoint_url = ""
+
+        # Variable to hold background stop task.
+        self._stop_task = utils.make_done_future()
+
         self.state = AlarmRuleState.UNCONFIGURED
+        self.log.debug(f"AlarmRule:{self.salinfo.index} created.")
 
     async def _heartbeat_loop(self) -> None:
         """Output heartbeat at regular intervals."""
@@ -96,8 +118,11 @@ class AlarmRuleRunner(salobj.Controller):
                     task.cancel()
 
     async def _set_state(self, state: AlarmRuleState) -> None:
-        self.state = state
-        await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
+        if self.state != state:
+            self.log.info(f"Transitioning from {self.state.name} to {state.name}.")
+            self.state = state
+            await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
+            self.log.debug(f"Done transitioning to {state.name}.")
 
     async def start(self) -> None:
         """Finish construction and start running the alarm rule."""
@@ -106,13 +131,26 @@ class AlarmRuleRunner(salobj.Controller):
         await self._wait_for_task_done(self._heartbeat_task)
         self._should_produce_heartbeats = True
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        self.log.info(f"AlarmRule:{self.salinfo.index} started.")
 
     async def _run(self) -> None:
         """Run the alarm rule."""
-        await self._set_state(AlarmRuleState.RUNNING)
-        self._should_be_running = asyncio.Future()
-        await self.model.enable()
-        await self._should_be_running
+        try:
+            await self._set_state(AlarmRuleState.RUNNING)
+            self._should_be_running = asyncio.Future()
+            await self.model.enable()
+            await self._should_be_running
+        except asyncio.CancelledError:
+            # Deliberately ignore.
+            pass
+        except BaseException as e:
+            if not isinstance(e, salobj.ExpectedError):
+                self.log.exception("Error in run.")
+            async with self._faling():
+                await self.close_tasks()
+        finally:
+            if self.state not in [AlarmRuleState.FAILED, AlarmRuleState.STOPPING, AlarmRuleState.STOPPED]:
+                await self._stop()
 
     async def close_tasks(self) -> None:
         """Close all tasks."""
@@ -127,6 +165,8 @@ class AlarmRuleRunner(salobj.Controller):
         await self._wait_for_task_done(self._run_task)
         await self._wait_for_task_done(self._heartbeat_task)
 
+        await self.http_client.close()
+
     @contextlib.asynccontextmanager
     async def _stopping(self) -> typing.AsyncGenerator[None, None]:
         await self._set_state(AlarmRuleState.STOPPING)
@@ -137,7 +177,8 @@ class AlarmRuleRunner(salobj.Controller):
         """Stop the alarm rule and all tasks."""
         async with self._stopping():
             await self.close_tasks()
-        asyncio.create_task(self.close())
+        self._close_task = asyncio.create_task(self.close())
+        await self._close_task
 
     async def do_configure(self, data: type_hints.BaseMsgType) -> None:
         """Configure the currently loaded alarm rule.
@@ -166,6 +207,8 @@ class AlarmRuleRunner(salobj.Controller):
         try:
             config_dict_from_yaml = yaml.safe_load(config_yaml)
             config = types.SimpleNamespace(**config_dict_from_yaml)
+            self.escalation_endpoint_url = config.escalation_url
+
             # Only keep the rule for which this AlarmRuleRunner was created.
             config.rules = [rule for rule in config.rules if rule["classname"] == self.rule_name]
             self.model = Model(
@@ -223,26 +266,17 @@ class AlarmRuleRunner(salobj.Controller):
         """
         self.log.debug("do_run")
 
+        self.log.debug("Sending cmd_run.ack_in_progress")
+        await self.cmd_run.ack_in_progress(data=data, timeout=ACK_IN_PROGRESS_WAIT_TIME)
+        self.log.debug("Done sending cmd_run.ack_in_progress")
+
         expected_state = AlarmRuleState.CONFIGURED
         if self.state != expected_state:
             raise UnexpectedAlarmRuleStateError(
                 f"Invalid AlarmRule state {self.state.name}; expected {expected_state.name}."
             )
 
-        try:
-            self._run_task = asyncio.create_task(self._run())
-            await self._run_task
-        except asyncio.CancelledError:
-            # Deliberately ignore.
-            pass
-        except BaseException as e:
-            if not isinstance(e, salobj.ExpectedError):
-                self.log.exception("Error in run.")
-            async with self._faling():
-                await self.close_tasks()
-        finally:
-            if self.state != AlarmRuleState.FAILED:
-                await self._stop()
+        self._run_task = asyncio.create_task(self._run())
 
     async def do_stop(self, data: type_hints.BaseMsgType) -> None:
         """Stop the alarm rule.
@@ -257,8 +291,11 @@ class AlarmRuleRunner(salobj.Controller):
         This is usually called when the Watcher goes to DISABLED state.
         """
         self.log.debug("do_stop")
+        if not self._stop_task.done():
+            self.log.warning(f"{self.rule_name}:{self.salinfo.index} already stopping.")
+            return
 
-        await self._stop()
+        self._stop_task = asyncio.create_task(self._stop())
 
     async def do_mute(self, data: type_hints.BaseMsgType) -> None:
         """Mute the alarm of this rule.
@@ -268,8 +305,9 @@ class AlarmRuleRunner(salobj.Controller):
         data : ``cmd_mute.DataType``
             The data for the mute command.
         """
+        self.log.info(f"do_mute {data.alarmName=}, {data.severity=}, {data.muteDuration=}, {data.mutedBy=}")
         await self.model.mute_alarm(
-            name=data.alarmName, duration=data.duration, severity=data.severity, user=data.mutedBy
+            name=data.alarmName, duration=data.muteDuration, severity=data.severity, user=data.mutedBy
         )
 
     async def do_unmute(self, data: type_hints.BaseMsgType) -> None:
@@ -280,6 +318,7 @@ class AlarmRuleRunner(salobj.Controller):
         data : ``cmd_unmute.DataType``
             The data for the unmute command.
         """
+        self.log.info(f"do_unmute {data.alarmName=}")
         await self.model.unmute_alarm(name=data.alarmName)
 
     async def do_acknowledge(self, data: type_hints.BaseMsgType) -> None:
@@ -290,7 +329,7 @@ class AlarmRuleRunner(salobj.Controller):
         data : ``cmd_acknowledge.DataType``
             The data for the acknowledge command.
         """
-        self.log.debug(f"do_acknowledge {data.alarmName=}, {data.severity=}, {data.acknowledgedBy=}")
+        self.log.info(f"do_acknowledge {data.alarmName=}, {data.severity=}, {data.acknowledgedBy=}")
         await self.model.acknowledge_alarm(
             name=data.alarmName, severity=data.severity, user=data.acknowledgedBy
         )
@@ -303,14 +342,44 @@ class AlarmRuleRunner(salobj.Controller):
         data : ``cmd_unacknowledge.DataType``
             The data for the unacknowledge command.
         """
-        self.log.debug(f"do_unacknowledge {data.alarmName=}")
+        self.log.info(f"do_unacknowledge {data.alarmName=}")
         await self.model.unacknowledge_alarm(name=data.alarmName)
 
     async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
+        if alarm.do_escalate:
+            if not alarm.escalated_id and alarm.escalating_task.done():
+                try:
+                    alarm.escalating_task = asyncio.create_task(
+                        asyncio.wait_for(
+                            self.escalate_alarm(alarm),
+                            timeout=self.model.config.escalation_timeout,
+                        )
+                    )
+                    await alarm.escalating_task
+                except asyncio.TimeoutError:
+                    errmsg = "Timed out waiting for SquadCast"
+                    alarm.escalated_id = f"Failed: {errmsg}"
+                    self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
+                except RuntimeError as e:
+                    self.log.error(f"Bug: escalation of {alarm} could not be attempted: {e!r}")
+        else:
+            if alarm.escalated_id:
+                try:
+                    await asyncio.wait_for(
+                        self.deescalate_alarm(alarm),
+                        timeout=self.model.config.escalation_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    self.log.warning(f"Could not de-escalate alarm {alarm}: timed out waiting for SquadCast")
+                except Exception:
+                    self.log.exception(f"Failed to de-escalate alarm {alarm}")
+                finally:
+                    alarm.escalated_id = ""
+
         self.log.debug(
-            f"Outputting alarm with {alarm.name=}, {alarm.severity=}, {alarm.reason=}, "
-            f"{alarm.acknowledged=}, {alarm.muted=}"
+            f"Outputting evt_alarm with {alarm.name=}, {alarm.severity=}, {alarm.reason=}, "
+            f"{alarm.acknowledged=}, {alarm.muted=}, {alarm.escalated_id=}"
         )
         await self.evt_alarm.set_write(
             alarmName=alarm.name,
@@ -333,10 +402,148 @@ class AlarmRuleRunner(salobj.Controller):
             force_output=True,
         )
 
-    @classmethod
-    def make_from_cmd_line(cls, **kwargs: typing.Any) -> AlarmRuleRunner | None:
-        raise NotImplementedError()
+    async def escalate_alarm(self, alarm):
+        """Escalate an alarm by creating a SquadCast incident.
+
+        Store the ID of the alert in alarm.escalation_id.
+        If the attempt fails, store an error message that begins with
+        "Failed: " in alarm.escalation_id.
+
+        If self.model.config.escalation_url is blank, then check the
+        conditions in the Raises section but do nothing else.
+
+        Raises
+        ------
+        RuntimeError
+            If pre-conditions are not met (escalation is not attempted):
+
+            * alarm.escalated_id is not blank: the alarm was already
+              escalated (or at least an attempt was made).
+            * alarm.do_escalate false: alarm should not be escalated.
+            * alarm.escalation_responder empty: there is nobody to escalate
+              the alarm to (so do_escalate should never have been set).
+        """
+        if alarm.escalated_id:
+            raise RuntimeError("Alarm already escalated")
+        if not alarm.do_escalate:
+            raise RuntimeError("Alarm do_escalate false")
+        if not alarm.escalation_responder:
+            raise RuntimeError("Alarm escalation_responder empty")
+        if self.model.config.escalation_url == "":
+            return
+
+        # Try to create a SquadCast incident
+        try:
+            escalated_id = str(uuid.uuid4())
+            async with self.http_client.post(
+                url=self.escalation_endpoint_url,
+                json=dict(
+                    status="trigger",
+                    event_id=escalated_id,
+                    message=f"Watcher alarm {alarm.name!r} escalated",
+                    description=alarm.reason,
+                    tags=dict(
+                        responder=alarm.escalation_responder,
+                        alarm_name=alarm.name,
+                    ),
+                ),
+            ) as response:
+                if response.status == HTTPStatus.ACCEPTED:
+                    alarm.escalated_id = escalated_id
+                else:
+                    read_text = await response.text()
+                    alarm.escalated_id = f"Failed: {read_text}"
+                    self.log.warning(f"Could not escalate alarm {alarm}: {read_text}", exc_info=True)
+        except Exception as e:
+            errmsg = f"Could not reach SquadCast: {e!r}"
+            alarm.escalated_id = f"Failed: {errmsg}"
+            self.log.warning(f"Could not escalate alarm {alarm}: {errmsg}")
+
+    async def deescalate_alarm(self, alarm):
+        """De-escalate an alarm by resolving the associated SquadCast incident.
+
+        Clear alarm.escalated_id and, if alarm.escalated_id is valid
+        (does not start with "Failed"), tell SquadCast to close the alert.
+        """
+        if not alarm.escalated_id:
+            return
+
+        escalated_id = alarm.escalated_id
+        alarm.escalated_id = ""
+        if escalated_id.startswith("Failed") or self.model.config.escalation_url == "":
+            # Nothing else to do
+            return
+
+        # Try to resolve the SquadCast incident
+        async with self.http_client.post(
+            url=self.escalation_endpoint_url,
+            json=dict(
+                status="resolve",
+                event_id=escalated_id,
+            ),
+        ) as response:
+            if response.status != HTTPStatus.ACCEPTED:
+                read_text = await response.text()
+                self.log.warning(
+                    f"Could not resolve SquadCast incident {escalated_id} for alarm {alarm}: {read_text}"
+                )
 
     @classmethod
-    async def amain(cls, **kwargs: typing.Any) -> None:
-        raise NotImplementedError()
+    def make_from_cmd_line(cls) -> AlarmRuleRunner:
+        """Creates an instance of the class using command-line arguments.
+
+        This class method processes command-line arguments passed in as
+        keyword arguments. It converts the specified arguments into parameters
+        required to create an instance of the class.
+
+        Returns
+        -------
+        AlarmRuleRunner
+            Returns an instance of AlarmRuleRunner if the necessary arguments
+            are correctly provided.
+
+        Raises
+        ------
+        argparse.ArgumentError
+            If there are issues with parsing command-line arguments.
+        """
+        parser = argparse.ArgumentParser(f"Run {cls.__name__} from the command line.")
+        parser.add_argument(
+            "rule_name",
+            type=str,
+            help="AlarmRuleRunner SAL Component name.",
+        )
+        parser.add_argument(
+            "index",
+            type=int,
+            help="AlarmRuleRunner SAL Component index; must be unique among running AlarmRuleRunners",
+        )
+        args = parser.parse_args()
+
+        return cls(rule_name=args.rule_name, index=args.index)
+
+    @classmethod
+    async def amain(cls) -> None:
+        """Run an AlarmRuleRunner instance from the command line."""
+        runner = cls.make_from_cmd_line()
+
+        try:
+            await runner.done_task
+            await runner.close()
+        except BaseException as e:
+            # The runner failed in cleanup.
+            if runner.state != AlarmRuleState.FAILED:
+                warnings.warn(
+                    f"AlarmRuleRunner failed in cleanup with {e!r}, "
+                    f"but final state {runner.state!r} != FAILED",
+                    RuntimeWarning,
+                )
+            sys.exit(1)
+
+        if runner.state != AlarmRuleState.STOPPED:
+            sys.exit(1)
+
+
+def run_alarm_rule_runner():
+    """Run an AlarmRuleRunner instance."""
+    asyncio.run(AlarmRuleRunner.amain())

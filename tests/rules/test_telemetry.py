@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import contextlib
@@ -30,7 +30,6 @@ import pytest
 import yaml
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 NEXT_SEVERITY_WAIT_TIME = 10
@@ -39,12 +38,7 @@ NEXT_SEVERITY_WAIT_TIME = 10
 class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("HVAC", topic_subname="")
-        if "tel_airInletFan01P01" in self.component_info.topics:
-            self.callback_name = "tel_airInletFan01P01"
-        else:
-            self.callback_name = "tel_airCirculationFan01Lab"
+        self.callback_name = "tel_airCirculationFan01Lab"
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""

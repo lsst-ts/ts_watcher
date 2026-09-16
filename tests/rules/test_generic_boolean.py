@@ -1,6 +1,6 @@
 # This file is part of ts_watcher.
 #
-# Developed for Vera C. Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,18 +13,17 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -33,12 +32,7 @@ STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
 class GenericBooleanTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("HVAC", topic_subname="")
-        if "evt_chiller01P01" in self.component_info.topics:
-            self.callback_name = "evt_chiller01P01"
-        else:
-            self.callback_name = "evt_coldGlycolChiller01"
+        self.callback_name = "evt_coldGlycolChiller01"
         self.remote_name = "HVAC"
         self.rule_config_dict = {
             "rule_name": "HVAC_chiller01",
