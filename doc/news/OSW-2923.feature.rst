@@ -1,1 +1,0 @@
-Created new rule to alert when the MTAOS closed loop is disabled and the MTScheduler is running.
