@@ -25,7 +25,6 @@ import types
 import unittest
 
 from lsst.ts import salobj, watcher
-from lsst.ts.xml.component_info import ComponentInfo
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 5  # Max time to send/receive a topic (seconds)
@@ -35,8 +34,6 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
         self.log = logging.getLogger("MTM1M3EGWFlow")
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        self.component_info = ComponentInfo("MTM1M3TS", topic_subname="")
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -49,11 +46,7 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
-        # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-        if "tel_flowMeter" in self.component_info.topics:
-            expected_num_remotes = 1
-        else:
-            expected_num_remotes = 2
+        expected_num_remotes = 2
         assert len(rule.remote_info_list) == expected_num_remotes
 
     async def test_operation(self):
@@ -73,17 +66,11 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
             rule: watcher.rules.MTM1M3EGWFlow = model.rules["MTM1M3EGWFlow"]
             rule.alarm.init_severity_queue()
 
-            # TODO OSW-2079 Remove backward compatibility with XML v26.0.0
-            if "tel_flowMeter" in self.component_info.topics:
-                flowmeter_controller = mtm1m3ts
-            else:
-                flowmeter_controller = ess
-
             await model.enable()
 
             test_data_items = [
                 {
-                    "topic": flowmeter_controller.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110, "private_sndStamp": 0},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
@@ -101,26 +88,26 @@ class MTM1M3EGWFlowTestCase(unittest.IsolatedAsyncioTestCase):
                     "expected_reason": "",
                 },
                 {
-                    "topic": flowmeter_controller.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
                 },
                 {
-                    "topic": flowmeter_controller.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 10},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",
                 },
                 {
-                    "topic": flowmeter_controller.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "delay": 2,
                     "items": {"flowRate": 11},
                     "expected_severity": AlarmSeverity.WARNING,
                     "expected_reason": "Low flow rate: 11.00, minimum is 100.00",
                 },
                 {
-                    "topic": flowmeter_controller.tel_flowMeter,
+                    "topic": ess.tel_flowMeter,
                     "items": {"flowRate": 110},
                     "expected_severity": AlarmSeverity.NONE,
                     "expected_reason": "",

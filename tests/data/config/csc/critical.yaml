@@ -1,16 +1,14 @@
 # Two alarms that go critical, one with escalation, one without.
 # severities are NONE=1, WARNING=2, SERIOUS=3, CRITICAL=4
 rules:
-- classname: test.TriggeredSeverities
+- classname: Heartbeat
   configs:
   - name: ATDome
-    severities: [2, 4, 2]
-    repeats: 1
+    timeout: 1.0
   - name: ATCamera
-    severities: [3, 4, 1]
-    repeats: 1
+    timeout: 1.0
 escalation:
-- alarms: [test.TriggeredSeverities.ATDome]
+- alarms: [Heartbeat.ATDome:0]
   responder: stella
   delay: 0.1
 # This assumes the mock squadcast uses the standard port,
