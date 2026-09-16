@@ -8,6 +8,34 @@ Version History
 
 .. towncrier release notes start
 
+v2.0.0 (2026-09-16)
+===================
+
+New Features
+------------
+
+- Restructured the code such that all alarm rules run in subprocesses. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Created new rule to alert when the MTAOS closed loop is disabled and the MTScheduler is running. (`OSW-2923 <https://rubinobs.atlassian.net//browse/OSW-2923>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Made the code backward compatible with SalObj v8.2.9. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Improved evt_logLevel_callback log message. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Added script to run AlarmRuleRunner instances. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Avoided discarding out of order events for the alarm remotes. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Temporarily removed 'discard_out_of_order' constructor arguments. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Removed backward compatibility with XML 26. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Updated all Python headers. (`OSW-2243 <https://rubinobs.atlassian.net//browse/OSW-2243>`_)
+- Updated all Python license headers. (`OSW-2863 <https://rubinobs.atlassian.net//browse/OSW-2863>`_)
+
+
 v1.25.1 (2026-07-08)
 ====================
 
