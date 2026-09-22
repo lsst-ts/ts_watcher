@@ -142,7 +142,8 @@ class AlarmCategorizer(SphinxDirective):
 
                 # Create a reference to the class
                 ref = nodes.reference("", "")
-                ref["refuri"] = f"py-api/lsst.ts.watcher.rules.{name}.html"
+                api_dir = self.config.automodapi_toctreedirnm
+                ref["refuri"] = f"{api_dir}/lsst.ts.watcher.rules.{name}.html"
                 ref += nodes.strong(text=name)
                 para += ref
 
