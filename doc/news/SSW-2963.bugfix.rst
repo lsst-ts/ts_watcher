@@ -1,0 +1,1 @@
+Restore the categorized List of Watcher Alarms and its API links after the documentation configuration migration.
