@@ -24,6 +24,12 @@
 This configuration only affects single-package Sphinx documentation builds.
 """
 
+import sys
+from pathlib import Path
+
+# Make local Sphinx extensions importable.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import lsst.ts.watcher  # noqa
 
 from documenteer.conf.guide import *  # noqa

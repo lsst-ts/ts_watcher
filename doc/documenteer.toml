@@ -13,7 +13,7 @@ documentation_url_key = "documentation"
 github_url_key = "source_code"
 
 [sphinx]
-extensions = ["sphinx-jsonschema"]
+extensions = ["sphinx-jsonschema", "sphinx_alarm_categorizer"]
 
 [sphinx.intersphinx.projects]
 ts-salobj = "https://ts-salobj.lsst.io"
