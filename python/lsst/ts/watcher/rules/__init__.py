@@ -33,6 +33,7 @@ from .humidity import *
 from .hvac import *
 from .mt_air_compressors_pressure import MTAirCompressorsPressure
 from .mt_air_compressors_state import *
+from .mt_aos_lag import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *
 from .mt_hexapod_overcurrent import *
