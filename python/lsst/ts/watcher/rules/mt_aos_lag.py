@@ -26,18 +26,17 @@ import typing
 
 import yaml
 
-from lsst.ts import utils
 from lsst.ts.xml.enums import MTAOS
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
 from ..remote_info import RemoteInfo
 
-REASON = "Lag {} between MTAOS and MTCamera is above threshold {}."
+REASON = "Lag {} between MTAOS and MTCamera is at or above threshold {}."
 
 
 class MTAOSLag(BaseRule):
-    """Monitor the lag of MTAOs.
+    """Monitor the lag of MTAOS.
 
     If the lag is too high, raise an alarm. The lag is defined as the
     difference between the current visit ID and the visit ID of the last
@@ -80,17 +79,13 @@ class MTAOSLag(BaseRule):
             ),
         ]
 
-        self.warning_lag_interval = config.warning_lag_interval
-        self.serious_lag_interval = config.serious_lag_interval
-        self.critical_lag_interval = config.critical_lag_interval
-        self.lag_threshold = config.lag_threshold
-
-        self.lag_start_tai = math.nan
-        self.lag_amount = 0
+        self.warning_lag_threshold = config.warning_lag_threshold
+        self.serious_lag_threshold = config.serious_lag_threshold
+        self.critical_lag_threshold = getattr(config, "critical_lag_threshold", None)
 
         self.mtaos_closed_loop_state = None
-        self.mtaos_dof_visit_id = 0
-        self.camera_visit_id = 0
+        self.mtaos_dof_visit_id = math.inf
+        self.camera_visit_id = math.inf
 
         super().__init__(
             config=config,
@@ -106,30 +101,27 @@ class MTAOSLag(BaseRule):
             description: Configuration for MTAOSLag
             type: object
             properties:
-              warning_lag_interval:
+              warning_lag_threshold:
                 description: >-
-                  Interval in seconds after which lag in MTAOS may lead to a WARNING alarm.
-                  Default is 30 seconds.
-                type: number
-                default: 30
-              serious_lag_interval:
+                  Threshold from which lag in MTAOS may lead to a WARNING alarm.
+                  Default is 6.
+                anyOf:
+                  - type: number
+                  - type: "null"
+                default: 6
+              serious_lag_threshold:
                 description: >-
-                  Interval in seconds after which lag in MTAOS may lead to a SERIOUS alarm.
-                  Default is 60 seconds.
-                type: number
-                default: 60
-              critical_lag_interval:
+                  Threshold from which lag in MTAOS may lead to a SERIOUS alarm.
+                  Default is 8.
+                anyOf:
+                  - type: number
+                  - type: "null"
+                default: 8
+              critical_lag_threshold:
                 description: >-
-                  Interval in seconds after which lag in MTAOS may lead to a CRITIAL alarm.
-                  Default is 120 seconds.
+                  Threshold from which lag in MTAOS may lead to a CRITIAL alarm.
+                  No default is set so leaving this value unset means the value is None.
                 type: number
-                default: 120
-              lag_threshold:
-                description: >-
-                  Threshold from which lag in MTAOS may may lead to an alarm.
-                  Default is 5.
-                type: number
-                default: 5
         """
         return yaml.safe_load(schema_yaml)
 
@@ -159,27 +151,19 @@ class MTAOSLag(BaseRule):
 
         self.log.debug("In closed loop.")
 
-        self.lag_amount = self.camera_visit_id - self.mtaos_dof_visit_id
-        self.log.debug(f"{self.lag_amount=}.")
-
-        if self.lag_amount >= self.lag_threshold and math.isnan(self.lag_start_tai):
-            # Only set the start tai if not set before.
-            self.lag_start_tai = utils.current_tai()
-            self.log.debug(f"{self.lag_start_tai=}.")
-        elif self.lag_amount < self.lag_threshold:
-            # Reset the start tai if there is no lag.
-            self.lag_start_tai = math.nan
+        lag_amount = self.camera_visit_id - self.mtaos_dof_visit_id
+        self.log.debug(f"{lag_amount=}.")
 
         # Determine the alarm severity.
-        lag_duration = utils.current_tai() - self.lag_start_tai
-        self.log.debug(f"{lag_duration=}.")
-        reason = REASON.format(self.lag_amount, self.lag_threshold)
-        if lag_duration >= self.critical_lag_interval:
+        if self.critical_lag_threshold is not None and lag_amount >= self.critical_lag_threshold:
             severity = AlarmSeverity.CRITICAL
-        elif lag_duration >= self.serious_lag_interval:
+            reason = REASON.format(lag_amount, self.critical_lag_threshold)
+        elif self.serious_lag_threshold is not None and lag_amount >= self.serious_lag_threshold:
             severity = AlarmSeverity.SERIOUS
-        elif lag_duration >= self.warning_lag_interval:
+            reason = REASON.format(lag_amount, self.serious_lag_threshold)
+        elif self.warning_lag_threshold is not None and lag_amount >= self.warning_lag_threshold:
             severity = AlarmSeverity.WARNING
+            reason = REASON.format(lag_amount, self.warning_lag_threshold)
         else:
             severity = AlarmSeverity.NONE
             reason = ""

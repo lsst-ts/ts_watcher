@@ -21,6 +21,7 @@
 
 import asyncio
 import datetime
+import math
 import types
 import unittest
 
@@ -34,7 +35,7 @@ STD_TIMEOUT = 1  # Max time to send/receive a topic (seconds)
 class MTAOSLagTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         salobj.set_test_topic_subname(randomize=True)
-        self._image_sequence = 1
+        self._image_sequence = 0
         self._date_string = datetime.datetime.now().strftime("%Y%m%d")
 
     async def asyncTearDown(self) -> None:
@@ -59,32 +60,18 @@ class MTAOSLagTestCase(unittest.IsolatedAsyncioTestCase):
         assert desired_rule_name in repr(rule)
 
     async def test_call(self):
-        warning_lag_interval = STD_TIMEOUT
-        serious_lag_interval = 2 * STD_TIMEOUT
-        critical_lag_interval = 4 * STD_TIMEOUT
         watcher_config_dict = dict(
             disabled_sal_components=[],
             auto_acknowledge_delay=3600,
             auto_unacknowledge_delay=3600,
-            rules=[
-                dict(
-                    classname="MTAOSLag",
-                    configs=[
-                        {
-                            "warning_lag_interval": warning_lag_interval,
-                            "serious_lag_interval": serious_lag_interval,
-                            "critical_lag_interval": critical_lag_interval,
-                        }
-                    ],
-                )
-            ],
+            rules=[dict(classname="MTAOSLag", configs=[{"serious_lag_threshold": None}])],
             escalation=(),
         )
         watcher_config = types.SimpleNamespace(**watcher_config_dict)
 
         # Test both when in closed loop and when not. Alarms should only be
         # raised when in closed loop.
-        for state in [ClosedLoopState.WAITING_IMAGE, ClosedLoopState.IDLE]:
+        for state in {ClosedLoopState.WAITING_IMAGE, ClosedLoopState.IDLE}:
             with self.subTest(state=state):
                 async with (
                     salobj.Controller(name="MTAOS") as self.mtaos,
@@ -96,25 +83,32 @@ class MTAOSLagTestCase(unittest.IsolatedAsyncioTestCase):
                     assert len(self.model.rules) == 1
                     rule_name = "MTAOSLag"
                     rule = self.model.rules[rule_name]
-                    assert rule.warning_lag_interval == warning_lag_interval
-                    assert rule.serious_lag_interval == serious_lag_interval
-                    assert rule.critical_lag_interval == critical_lag_interval
                     rule.alarm.init_severity_queue()
 
                     # Reset the rule.
                     rule.current_severity = None
                     rule.current_reason = None
+                    rule.mtaos_dof_visit_id = math.inf
+                    rule.camera_visit_id = math.inf
 
                     await self.send_closed_loop_state_event(state=state)
                     severity = await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
                     assert severity == AlarmSeverity.NONE
+
+                    await self.send_end_readout_event()
+                    # No changes, so a timeout happens.
+                    with self.assertRaises(TimeoutError):
+                        await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
 
                     await self.send_dof_event()
                     # No changes, so a timeout happens.
                     with self.assertRaises(TimeoutError):
                         await asyncio.wait_for(rule.alarm.severity_queue.get(), timeout=STD_TIMEOUT)
 
-                    for i in range(rule.lag_threshold + 1):
+                    # Send one endReadout event less because after this
+                    # for-loop an endReaout event is sent that triggers the
+                    # alarm.
+                    for i in range(rule.warning_lag_threshold - 1):
                         await self.send_end_readout_event()
                         # No changes, so a timeout happens.
                         with self.assertRaises(TimeoutError):
@@ -151,7 +145,7 @@ class MTAOSLagTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def send_end_readout_event(self) -> None:
         topic = getattr(self.mtcamera, "evt_endReadout")
+        self._image_sequence += 1
         await watcher.write_and_wait(
             self.model, topic, imageDate=self._date_string, imageNumber=self._image_sequence
         )
-        self._image_sequence += 1
