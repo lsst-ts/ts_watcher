@@ -8,6 +8,21 @@ Version History
 
 .. towncrier release notes start
 
+v2.1.0 (2026-09-24)
+===================
+
+New Features
+------------
+
+- Created a new rule to alert when MTAOS is in closed loop and corrections lag too much. (`SSW-2944 <https://rubinobs.atlassian.net//browse/SSW-2944>`_)
+
+
+Bug Fixes
+---------
+
+- Restore the categorized List of Watcher Alarms and its API links after the documentation configuration migration. (`SSW-2963 <https://rubinobs.atlassian.net//browse/SSW-2963>`_)
+
+
 v2.0.0 (2026-09-16)
 ===================
 
