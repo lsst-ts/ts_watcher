@@ -135,54 +135,53 @@ class MTAOSLag(BaseRule):
 
     def compute_alarm_severity(self, **kwargs: typing.Any) -> AlarmSeverityReasonType:
         data = kwargs.get("data", None)
-        assert data is not None
-
-        data_vars = vars(data)
 
         # Get the MTAOS closed loop state.
-        if "state" in data_vars:
-            self.mtaos_closed_loop_state = MTAOS.ClosedLoopState(data_vars["state"])
+        if (state := getattr(data, "state", None)) is not None:
+            self.mtaos_closed_loop_state = MTAOS.ClosedLoopState(state)
 
         # Get the visitId of the degreesOfFreedom event.
-        if "visitId" in data_vars:
-            self.mtaos_dof_visit_id = data_vars["visitId"]
+        if (mtaos_dof_visit_id := getattr(data, "visitId", None)) is not None:
+            self.mtaos_dof_visit_id = mtaos_dof_visit_id
 
         # Get the visitId of the endReadout event.
-        if "imageDate" in data_vars and "imageNumber" in data_vars:
-            self.camera_visit_id = int(int(data_vars["imageDate"]) * 1e5 + data_vars["imageNumber"])
+        if (image_date := getattr(data, "imageDate", None)) is not None and (
+            image_number := getattr(data, "imageNumber", None)
+        ) is not None:
+            self.camera_visit_id = int(int(image_date) * 1e5 + image_number)
 
         self.log.debug(f"{self.camera_visit_id=}, {self.mtaos_dof_visit_id=}.")
 
         # Only raise an alarm when in closed loop.
-        if self.mtaos_closed_loop_state not in [MTAOS.ClosedLoopState.IDLE, MTAOS.ClosedLoopState.ERROR]:
-            self.log.debug("In closed loop.")
+        if self.mtaos_closed_loop_state in {MTAOS.ClosedLoopState.IDLE, MTAOS.ClosedLoopState.ERROR}:
+            self.log.debug("Not in closed loop.")
+            return NoneNoReason
 
-            self.lag_amount = self.camera_visit_id - self.mtaos_dof_visit_id
-            self.log.debug(f"{self.lag_amount=}.")
+        self.log.debug("In closed loop.")
 
-            if self.lag_amount >= self.lag_threshold and math.isnan(self.lag_start_tai):
-                # Only set the start tai if not set before.
-                self.lag_start_tai = utils.current_tai()
-                self.log.debug(f"{self.lag_start_tai=}.")
-            elif self.lag_amount < self.lag_threshold:
-                # Reset the start tai if there is no lag.
-                self.lag_start_tai = math.nan
+        self.lag_amount = self.camera_visit_id - self.mtaos_dof_visit_id
+        self.log.debug(f"{self.lag_amount=}.")
 
-            # Determine the alarm severity.
-            lag_duration = utils.current_tai() - self.lag_start_tai
-            self.log.debug(f"{lag_duration=}.")
-            reason = REASON.format(self.lag_amount, self.lag_threshold)
-            if lag_duration >= self.critical_lag_interval:
-                severity = AlarmSeverity.CRITICAL
-            elif lag_duration >= self.serious_lag_interval:
-                severity = AlarmSeverity.SERIOUS
-            elif lag_duration >= self.warning_lag_interval:
-                severity = AlarmSeverity.WARNING
-            else:
-                severity = AlarmSeverity.NONE
-                reason = ""
+        if self.lag_amount >= self.lag_threshold and math.isnan(self.lag_start_tai):
+            # Only set the start tai if not set before.
+            self.lag_start_tai = utils.current_tai()
+            self.log.debug(f"{self.lag_start_tai=}.")
+        elif self.lag_amount < self.lag_threshold:
+            # Reset the start tai if there is no lag.
+            self.lag_start_tai = math.nan
 
-            return severity, reason
+        # Determine the alarm severity.
+        lag_duration = utils.current_tai() - self.lag_start_tai
+        self.log.debug(f"{lag_duration=}.")
+        reason = REASON.format(self.lag_amount, self.lag_threshold)
+        if lag_duration >= self.critical_lag_interval:
+            severity = AlarmSeverity.CRITICAL
+        elif lag_duration >= self.serious_lag_interval:
+            severity = AlarmSeverity.SERIOUS
+        elif lag_duration >= self.warning_lag_interval:
+            severity = AlarmSeverity.WARNING
+        else:
+            severity = AlarmSeverity.NONE
+            reason = ""
 
-        self.log.debug("Not in closed loop.")
-        return NoneNoReason
+        return severity, reason
