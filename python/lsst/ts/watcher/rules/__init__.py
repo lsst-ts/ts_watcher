@@ -37,6 +37,7 @@ from .mt_aos_lag import *
 from .mt_ccw_following_rotator import *
 from .mt_force_error import *
 from .mt_hexapod_overcurrent import *
+from .mt_image_ingestion_lag import *
 from .mt_m1m3_egw_flow import *
 from .mt_m1m3_temperature import *
 from .mt_m1m3_thermal_fans import *
