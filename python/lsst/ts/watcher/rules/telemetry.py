@@ -206,7 +206,8 @@ class Telemetry(BaseRule):
 
     def stop_timers(self):
         self.log.debug(f"stopping {len(self.telemetry_timer_tasks)} telemetry timer(s) for {self.name}.")
-        for telemetry_timer_task in self.telemetry_timer_tasks:
+        while self.telemetry_timer_tasks:
+            telemetry_timer_task: asyncio.Future = self.telemetry_timer_tasks.pop()
             telemetry_timer_task.cancel()
 
     def start(self):
