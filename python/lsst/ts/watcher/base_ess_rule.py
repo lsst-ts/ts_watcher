@@ -260,6 +260,8 @@ class BaseEssRule(PollingRule):
             )
             return severity_reason
 
+        self.poll_start_tai = utils.current_tai()
+
         # We got data; use the most pessimistic measured value.
         reported_value, field_wrapper, wrapper_index = max(reported_values, key=lambda v: v[0])
         source_descr = field_wrapper.get_value_descr(wrapper_index)

@@ -359,6 +359,8 @@ additionalProperties: false
                 # We have not been polling long enough to complain
                 return NoneNoReason
 
+        self.poll_start_tai = utils.current_tai()
+
         # We got data; use the most pessimistic measured value.
         max_dew_point, dew_point_wrapper, dew_point_index = max(dew_points, key=lambda v: v[0])
         min_temperature, temperature_wrapper, temperature_index = min(temperatures, key=lambda v: v[0])
