@@ -26,7 +26,7 @@ import typing
 
 import yaml
 
-from lsst.ts import salobj, utils
+from lsst.ts import salobj
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 from ..base_rule import AlarmSeverityReasonType, BaseRule, NoneNoReason
@@ -48,7 +48,7 @@ class Telemetry(BaseRule):
 
     Notes
     -----
-    The alarm name is f"Telemetry.{name}:{index}",
+    The alarm name is Telemetry.{name}:{index},
     where name and index are derived from ``config.name``.
     The alarm severity is configurable as well as the amount of time after
     which the alarm will be raised.
@@ -77,7 +77,7 @@ class Telemetry(BaseRule):
             remote_info_list=remote_info,
             log=log,
         )
-        self.telemetry_timer_task = utils.make_done_future()
+        self.telemetry_timer_tasks = []
         self.csc_should_receive_telemetry = False
         self.summary_states = [salobj.State[state] for state in self.config.summary_states]
 
@@ -110,72 +110,102 @@ class Telemetry(BaseRule):
                       enum:
                       - {salobj.State.DISABLED.name}
                       - {salobj.State.ENABLED.name}
-                timeout:
-                    description: Maximum allowed time between telemetry (sec).
-                    type: number
-                    default: 15
-                alarm_severity:
+                warning_timeout:
                     description: >-
-                        Alarm severity if the time is exceeded. One of:
-                        * {AlarmSeverity.WARNING.value} for warning
-                        * {AlarmSeverity.SERIOUS.value} for serious
-                        * {AlarmSeverity.CRITICAL.value} for critical
-                    type: integer
-                    enum:
-                    - {AlarmSeverity.WARNING.value}
-                    - {AlarmSeverity.SERIOUS.value}
-                    - {AlarmSeverity.CRITICAL.value}
-                    default: {AlarmSeverity.CRITICAL.value}
+                        Maximum allowed time between telemetry (sec) before a WARNING alarm is raised.
+                    anyOf:
+                    - type: number
+                    - type: "null"
+                serious_timeout:
+                    description: >-
+                        Maximum allowed time between telemetry (sec) before a SERIOUS alarm is raised.
+                    anyOf:
+                    - type: number
+                    - type: "null"
+                critical_timeout:
+                    description: >-
+                        Maximum allowed time between telemetry (sec) before a CRITICAL alarm is raised.
+                    anyOf:
+                    - type: number
+                    - type: "null"
             required:
             - name
             - callback_name
-            - timeout
-            - alarm_severity
+            anyOf:
+            - required: [warning_timeout]
+            - required: [serious_timeout]
+            - required: [critical_timeout]
             additionalProperties: false
         """
         return yaml.safe_load(schema_yaml)
 
-    def compute_alarm_severity(
-        self, data: salobj.BaseMsgType, **kwargs: typing.Any
-    ) -> AlarmSeverityReasonType:
+    def compute_alarm_severity(self, **kwargs: typing.Any) -> AlarmSeverityReasonType:
+        data = kwargs.get("data", None)
+
         topic_callback = kwargs["topic_callback"]
         _, _, topic_name = topic_callback.topic_key
         if topic_name == "evt_summaryState":
             self.log.debug(f"Received evt_summaryState for {self.name} with summaryState={data.summaryState}")
             self.csc_should_receive_telemetry = data.summaryState in self.summary_states
             if not self.csc_should_receive_telemetry:
-                self.stop_timer()
+                self.stop_timers()
             else:
-                self.restart_timer()
+                self.restart_timers()
         elif self.csc_should_receive_telemetry:
-            self.restart_timer()
+            self.restart_timers()
         return NoneNoReason
 
-    async def telemetry_timer(self):
-        """telemetry timer."""
-        await asyncio.sleep(self.config.timeout)
+    async def telemetry_timer(self, timeout, alarm_severity):
+        """Telemetry timer.
+
+        Parameters
+        ----------
+         timeout : `float`
+            The timeout in seconds.
+         alarm_severity : `AlarmSeverity`
+            The alarm severity.
+        """
+        await asyncio.sleep(timeout)
         if self.csc_should_receive_telemetry:
             severity_reason = (
-                self.config.alarm_severity,
-                f"Telemetry {self.config.callback_name} not seen in {self.config.timeout} seconds",
+                alarm_severity,
+                f"Telemetry {self.config.callback_name} not seen in {timeout} seconds",
             )
         else:
             severity_reason = NoneNoReason
         severity, reason = self._get_publish_severity_reason(severity_reason)
         await self.alarm.set_severity(severity=severity, reason=reason)
 
-    def restart_timer(self):
-        """Start or restart the telemetry timer."""
-        self.stop_timer()
-        self.log.debug("(re)starting telemetry timer.")
-        self.telemetry_timer_task = asyncio.ensure_future(self.telemetry_timer())
+    def restart_timers(self):
+        """Start or restart the telemetry timers."""
+        self.stop_timers()
 
-    def stop_timer(self):
-        self.log.debug("stopping telemetry timer.")
-        self.telemetry_timer_task.cancel()
+        warning_timeout = getattr(self.config, "warning_timeout", None)
+        if warning_timeout:
+            self.log.debug(f"(re)starting WARNING telemetry timer(s) for {self.name}.")
+            self.telemetry_timer_tasks.append(
+                asyncio.ensure_future(self.telemetry_timer(warning_timeout, AlarmSeverity.WARNING))
+            )
+        serious_timeout = getattr(self.config, "serious_timeout", None)
+        if serious_timeout:
+            self.log.debug(f"(re)starting SERIOUS telemetry timer(s) for {self.name}.")
+            self.telemetry_timer_tasks.append(
+                asyncio.ensure_future(self.telemetry_timer(serious_timeout, AlarmSeverity.SERIOUS))
+            )
+        critical_timeout = getattr(self.config, "critical_timeout", None)
+        if critical_timeout:
+            self.log.debug(f"(re)starting CRITICAL telemetry timer(s) for {self.name}.")
+            self.telemetry_timer_tasks.append(
+                asyncio.ensure_future(self.telemetry_timer(critical_timeout, AlarmSeverity.CRITICAL))
+            )
+
+    def stop_timers(self):
+        self.log.debug(f"stopping telemetry timer(s) for {self.name}.")
+        for telemetry_timer_task in self.telemetry_timer_tasks:
+            telemetry_timer_task.cancel()
 
     def start(self):
-        self.restart_timer()
+        self.restart_timers()
 
     def stop(self):
-        self.stop_timer()
+        self.stop_timers()
