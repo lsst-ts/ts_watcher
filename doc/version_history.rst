@@ -8,6 +8,27 @@ Version History
 
 .. towncrier release notes start
 
+v2.2.0 (2026-09-29)
+===================
+
+New Features
+------------
+
+- Created a new rule to alert when image ingestions lag too much. (`SSW-2945 <https://rubinobs.atlassian.net//browse/SSW-2945>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Improved the config schema of the Telemetry rule such that optional timeouts for the three alarm severities can be specified, at least one of which is mandatory. (`SSW-2946 <https://rubinobs.atlassian.net//browse/SSW-2946>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Updated setup.py to avoid local version. (`SSW-2945 <https://rubinobs.atlassian.net//browse/SSW-2945>`_)
+
+
 v2.1.0 (2026-09-24)
 ===================
 
