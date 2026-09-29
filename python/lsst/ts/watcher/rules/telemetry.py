@@ -22,7 +22,9 @@
 __all__ = ["Telemetry"]
 
 import asyncio
+import math
 import typing
+from itertools import combinations
 
 import yaml
 
@@ -50,8 +52,9 @@ class Telemetry(BaseRule):
     -----
     The alarm name is Telemetry.{name}:{index},
     where name and index are derived from ``config.name``.
-    The alarm severity is configurable as well as the amount of time after
-    which the alarm will be raised.
+
+    If two or all timeouts have the same value, warnings are logged but no
+    exception is raised.
     """
 
     def __init__(self, config, log=None):
@@ -77,6 +80,19 @@ class Telemetry(BaseRule):
             remote_info_list=remote_info,
             log=log,
         )
+
+        self.timeouts = {
+            "warning_timeout": (getattr(self.config, "warning_timeout", None), AlarmSeverity.WARNING),
+            "serious_timeout": (getattr(self.config, "serious_timeout", None), AlarmSeverity.SERIOUS),
+            "critical_timeout": (getattr(self.config, "critical_timeout", None), AlarmSeverity.CRITICAL),
+        }
+
+        for timeout_name1, timeout_name2 in combinations(self.timeouts.keys(), 2):
+            timeout1 = self.timeouts[timeout_name1][0]
+            timeout2 = self.timeouts[timeout_name2][0]
+            if timeout1 is not None and timeout2 is not None and math.isclose(timeout1, timeout2):
+                self.log.warning(f"{timeout_name1} and {timeout_name2} have the same timeout {timeout1}.")
+
         self.telemetry_timer_tasks = []
         self.csc_should_receive_telemetry = False
         self.summary_states = [salobj.State[state] for state in self.config.summary_states]
@@ -180,27 +196,16 @@ class Telemetry(BaseRule):
         """Start or restart the telemetry timers."""
         self.stop_timers()
 
-        warning_timeout = getattr(self.config, "warning_timeout", None)
-        if warning_timeout:
-            self.log.debug(f"(re)starting WARNING telemetry timer(s) for {self.name}.")
-            self.telemetry_timer_tasks.append(
-                asyncio.ensure_future(self.telemetry_timer(warning_timeout, AlarmSeverity.WARNING))
-            )
-        serious_timeout = getattr(self.config, "serious_timeout", None)
-        if serious_timeout:
-            self.log.debug(f"(re)starting SERIOUS telemetry timer(s) for {self.name}.")
-            self.telemetry_timer_tasks.append(
-                asyncio.ensure_future(self.telemetry_timer(serious_timeout, AlarmSeverity.SERIOUS))
-            )
-        critical_timeout = getattr(self.config, "critical_timeout", None)
-        if critical_timeout:
-            self.log.debug(f"(re)starting CRITICAL telemetry timer(s) for {self.name}.")
-            self.telemetry_timer_tasks.append(
-                asyncio.ensure_future(self.telemetry_timer(critical_timeout, AlarmSeverity.CRITICAL))
-            )
+        for timeout in self.timeouts:
+            timeout, alarm_severity = self.timeouts[timeout]
+            if timeout:
+                self.log.debug(f"(re)starting {alarm_severity} telemetry timer for {self.name}.")
+                self.telemetry_timer_tasks.append(
+                    asyncio.ensure_future(self.telemetry_timer(timeout, alarm_severity))
+                )
 
     def stop_timers(self):
-        self.log.debug(f"stopping telemetry timer(s) for {self.name}.")
+        self.log.debug(f"stopping {len(self.telemetry_timer_tasks)} telemetry timer(s) for {self.name}.")
         for telemetry_timer_task in self.telemetry_timer_tasks:
             telemetry_timer_task.cancel()
 
