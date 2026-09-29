@@ -1,0 +1,1 @@
+Improved the config schema of the Telemetry rule such that optional timeouts for the three alarm severities can be specified, at least one of which is mandatory.
