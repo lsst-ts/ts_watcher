@@ -54,8 +54,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
             name=name,
             callback_name=callback_name,
             summary_states=["DISABLED", "ENABLED"],
-            timeout=timeout,
-            alarm_severity=3,
+            critical_timeout=timeout,
         )
         desired_rule_name = f"Telemetry.{name}:0"
 
@@ -73,30 +72,27 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
 
     def test_config_validation(self):
         # Check defaults
-        minimal_config_dict = dict(name="MTDome", callback_name="tel_azimuth")
+        minimal_config_dict = dict(name="MTDome", callback_name="tel_azimuth", warning_timeout=15)
         minimal_config = watcher.rules.Telemetry.make_config(**minimal_config_dict)
         assert minimal_config.name == minimal_config_dict["name"]
-        assert minimal_config.timeout == 15
-        assert minimal_config.alarm_severity == AlarmSeverity.CRITICAL
+        assert minimal_config.warning_timeout == 15
 
         # Check all values specified
         good_config_dict = dict(
             name="MTDome",
             callback_name="tel_azimuth",
             summary_states=["DISABLED", "ENABLED"],
-            timeout=1,
-            alarm_severity=AlarmSeverity.SERIOUS,
+            serious_timeout=1,
         )
         good_config = watcher.rules.Telemetry.make_config(**good_config_dict)
         for key, value in good_config_dict.items():
             assert getattr(good_config, key) == value
 
+        minimal_config_dict = dict(name="MTDome", callback_name="tel_azimuth")
         for bad_sub_config in (
-            dict(timeout="not_a_number"),
-            dict(alarm_severity=AlarmSeverity.NONE),
-            dict(alarm_severity=AlarmSeverity.CRITICAL + 1),
-            dict(alarm_severity="not_a_number"),
-            dict(no_such_field=5),
+            dict(summary_states="not_a_number", warning_timeout=15),
+            dict(no_such_field=5, warning_timeout=15),
+            dict(),
         ):
             bad_config_dict = minimal_config_dict.copy()
             bad_config_dict.update(bad_sub_config)
@@ -107,7 +103,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
         name = "HVAC"
         callback_name = self.callback_name
         index = 0
-        timeout = 2.0
+        critical_timeout = 2.0
         alarm_severity = AlarmSeverity.CRITICAL
 
         watcher_config_dict = yaml.safe_load(
@@ -121,8 +117,7 @@ class TelemetryTestCase(unittest.IsolatedAsyncioTestCase):
               - name: {name}:{index}
                 callback_name: {callback_name}
                 summary_states: ["DISABLED", "ENABLED"]
-                timeout: {timeout}
-                alarm_severity: {alarm_severity}
+                critical_timeout: {critical_timeout}
             escalation: []
             """
         )

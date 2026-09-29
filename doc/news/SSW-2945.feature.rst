@@ -1,0 +1,1 @@
+Created a new rule to alert when image ingestions lag too much.
