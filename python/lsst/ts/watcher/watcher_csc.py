@@ -193,9 +193,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
             await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
             self.log.debug(f"AlarmRule:{index} is running.")
 
-    async def begin_disable(self, data) -> None:
-        if self.summary_state == salobj.State.ENABLED:
-            await self.close_tasks()
+    async def begin_standby(self, data) -> None:
+        await self.close_tasks()
 
     async def end_enable(self, data):
         await super().end_enable(data)
