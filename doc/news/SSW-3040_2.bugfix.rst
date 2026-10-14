@@ -1,0 +1,1 @@
+Fixed alarm rule runner to only emit alarms when Watcher is in ENABLED state.

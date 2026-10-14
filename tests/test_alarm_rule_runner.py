@@ -21,6 +21,7 @@
 
 import asyncio
 import contextlib
+import os
 import pathlib
 import unittest
 from collections.abc import AsyncGenerator
@@ -28,6 +29,7 @@ from collections.abc import AsyncGenerator
 from lsst.ts import salobj, utils, watcher
 from lsst.ts.xml.enums.AlarmRule import AlarmRuleState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 # Timeout for normal operations (seconds)
 STD_TIMEOUT = 5
@@ -46,6 +48,7 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         salobj.set_test_topic_subname(randomize=True)
+        os.environ["LSST_SITE"] = "Test"
 
     async def asyncTearDown(self) -> None:
         """Runs after each test is completed."""
@@ -61,6 +64,7 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             salobj.Remote(
                 domain=self.rule_runner.domain, name="AlarmRule", index=index
             ) as self.rule_runner_remote,
+            watcher.WatcherCsc() as self.watcher,
         ):
             # Prepare the configuraration and other data.
             self.config_data = self.rule_runner.cmd_configure.DataType()
@@ -167,13 +171,8 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             expected_muted=False,
         )
 
-    async def wait_for_all_state_events(self):
-        for state in [
-            AlarmRuleState.CONFIGURED,
-            AlarmRuleState.RUNNING,
-            AlarmRuleState.STOPPING,
-            AlarmRuleState.STOPPED,
-        ]:
+    async def wait_for_state_events(self, states):
+        for state in states:
             async with asyncio.timeout(LONG_TIMEOUT):
                 data = await self.rule_runner_remote.evt_state.next(flush=False)
                 assert data.state == state.value
@@ -182,6 +181,9 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
         async with self.make_component_and_remote():
             await self.rule_runner.do_configure(self.config_data)
             asyncio.create_task(self.rule_runner.do_run(self.run_data))
+
+            await self.wait_for_state_events([AlarmRuleState.CONFIGURED, AlarmRuleState.RUNNING])
+            await self.watcher.evt_summaryState.set_write(summaryState=State.ENABLED)
 
             # Make sure that an alarm is raised.
             await self.validate_first_second_alarm_event()
@@ -200,7 +202,7 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
             await self.rule_runner.do_stop(self.stop_data)
 
-            await self.wait_for_all_state_events()
+            await self.wait_for_state_events([AlarmRuleState.STOPPING])
 
     async def test_ack_unack_alarm(self):
         async with self.make_component_and_remote():
@@ -213,6 +215,9 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
                 self.rule_runner.model.rules[rule].alarm.reset()
 
             asyncio.create_task(self.rule_runner.do_run(self.run_data))
+
+            await self.wait_for_state_events([AlarmRuleState.CONFIGURED, AlarmRuleState.RUNNING])
+            await self.watcher.evt_summaryState.set_write(summaryState=State.ENABLED)
 
             # Make sure that an alarm is raised.
             await self.validate_first_second_alarm_event()
@@ -238,12 +243,15 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
             await self.rule_runner.do_stop(self.stop_data)
 
-            await self.wait_for_all_state_events()
+            await self.wait_for_state_events([AlarmRuleState.STOPPING])
 
     async def test_mute_unmute_alarm(self):
         async with self.make_component_and_remote():
             await self.rule_runner.do_configure(self.config_data)
             asyncio.create_task(self.rule_runner.do_run(self.run_data))
+
+            await self.wait_for_state_events([AlarmRuleState.CONFIGURED, AlarmRuleState.RUNNING])
+            await self.watcher.evt_summaryState.set_write(summaryState=State.ENABLED)
 
             # Make sure that an alarm is raised.
             await self.validate_first_second_alarm_event()
@@ -270,4 +278,4 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
 
             await self.rule_runner.do_stop(self.stop_data)
 
-            await self.wait_for_all_state_events()
+            await self.wait_for_state_events([AlarmRuleState.STOPPING])

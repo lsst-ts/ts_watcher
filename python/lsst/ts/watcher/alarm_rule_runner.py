@@ -39,6 +39,7 @@ import yaml
 from lsst.ts import salobj, utils
 from lsst.ts.salobj import type_hints
 from lsst.ts.xml.enums.AlarmRule import AlarmRuleState
+from lsst.ts.xml.sal_enums import State
 
 from .model import Model
 
@@ -78,11 +79,26 @@ class AlarmRuleRunner(salobj.Controller):
 
         self.escalation_endpoint_url = ""
 
+        # Keep trach of the Watcher summary state.
+        self.watcher_remote = salobj.Remote(
+            domain=self.domain, name="Watcher", readonly=True, include=["summaryState"]
+        )
+        self.watcher_summary_state = State.OFFLINE
+
         # Variable to hold background stop task.
         self._stop_task = utils.make_done_future()
 
         self.state = AlarmRuleState.UNCONFIGURED
         self.log.debug(f"AlarmRule:{self.salinfo.index} created.")
+
+    async def evt_summary_state_callback(self, data):
+        """Handle summary state event from the Watcher."""
+        watcher_summary_state = State(data.summaryState)
+        self.log.debug(f"Received summary state event {watcher_summary_state.name}.")
+        self.watcher_summary_state = watcher_summary_state
+        if watcher_summary_state == State.ENABLED:
+            for rule in self.model.rules.values():
+                await rule.alarm.run_callback()
 
     async def _heartbeat_loop(self) -> None:
         """Output heartbeat at regular intervals."""
@@ -131,6 +147,19 @@ class AlarmRuleRunner(salobj.Controller):
         await self._wait_for_task_done(self._heartbeat_task)
         self._should_produce_heartbeats = True
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+        # Get the current summary state of the Watcher CSC.
+        self.watcher_summary_state = State.OFFLINE
+        try:
+            self.watcher_summary_state = State(
+                (await self.watcher_remote.evt_summaryState.aget(timeout=HEARTBEAT_INTERVAL)).summaryState
+            )
+        except asyncio.TimeoutError:
+            self.log.warning("Could not retrieve the Watcher summary state.")
+
+        # Set the callback to get future Watcher summary states.
+        self.watcher_remote.evt_summaryState.callback = self.evt_summary_state_callback
+
         self.log.info(f"AlarmRule:{self.salinfo.index} started.")
 
     async def _run(self) -> None:
@@ -347,6 +376,9 @@ class AlarmRuleRunner(salobj.Controller):
 
     async def output_alarm(self, alarm):
         """Output the alarm event for one alarm."""
+        if self.watcher_summary_state != State.ENABLED:
+            return
+
         if alarm.do_escalate:
             if not alarm.escalated_id and alarm.escalating_task.done():
                 try:
