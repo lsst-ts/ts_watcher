@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v2.2.1 (2026-10-14)
+===================
+
+Bug Fixes
+---------
+
+- Fixed alarm rule runner to only emit alarms when Watcher is in ENABLED state. (`SSW-3040_2 <https://rubinobs.atlassian.net//browse/SSW-3040_2>`_)
+
+
 v2.2.0 (2026-09-29)
 ===================
 
