@@ -126,6 +126,12 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # Lock to protect access to self.alarms.
         self.alarms_lock = asyncio.Lock()
 
+        # Keep track of the number of alarm rules for unit tests.
+        self.number_of_enabled_alarm_rules = 0
+        # Event to set when the number of distinct received alarms equals the
+        # number of enabled alarm rules. Used by unit tests.
+        self.all_alarm_rules_received = asyncio.Event()
+
         # Remote to communicate with AlarmRuleRunner instances.
         self.log.debug("Creating AlarmRuleRemote.")
         # TODO OSW-2899 Remove backward compatibiliy with SalObj v8.2.9.
@@ -167,6 +173,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         self.alarm_rules_info = {}
         self.alarms_info = {}
+
+        self.number_of_enabled_alarm_rules = 0
+        self.all_alarm_rules_received.clear()
 
         await self.http_client.close()
         # aiohttp.ClientSession needs a bit more time to fully close.
@@ -426,6 +435,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.log.debug(
                 f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
             )
+            self.number_of_enabled_alarm_rules += len(alarm_rule_info.rule_names)
         else:
             self.log.warning(f"Received description event for unknown AlarmRule:{data.salIndex}.")
 
@@ -444,6 +454,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
                 alarm_info = AlarmInfo(name=data.alarmName, log=self.log)
                 alarm_info.callback = self.output_alarm
                 self.alarms_info[alarm_info.name] = alarm_info
+                if len(self.alarms_info) == self.number_of_enabled_alarm_rules:
+                    self.all_alarm_rules_received.set()
 
             alarm_info = self.alarms_info[data.alarmName]
             await alarm_info.set_from_data(data)
