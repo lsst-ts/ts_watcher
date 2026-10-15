@@ -132,17 +132,18 @@ class MTImageIngestionLag(BaseRule):
         self.log.debug(f"{lag_amount=}.")
 
         # Determine the alarm severity.
-        if self.critical_lag_threshold is not None and lag_amount >= self.critical_lag_threshold:
-            severity = AlarmSeverity.CRITICAL
-            reason = REASON.format(lag_amount, self.critical_lag_threshold)
-        elif self.serious_lag_threshold is not None and lag_amount >= self.serious_lag_threshold:
-            severity = AlarmSeverity.SERIOUS
-            reason = REASON.format(lag_amount, self.serious_lag_threshold)
-        elif self.warning_lag_threshold is not None and lag_amount >= self.warning_lag_threshold:
-            severity = AlarmSeverity.WARNING
-            reason = REASON.format(lag_amount, self.warning_lag_threshold)
-        else:
-            severity = AlarmSeverity.NONE
-            reason = ""
+        match lag_amount:
+            case _ if self.critical_lag_threshold is not None and lag_amount >= self.critical_lag_threshold:
+                severity = AlarmSeverity.CRITICAL
+                reason = REASON.format(lag_amount, self.critical_lag_threshold)
+            case _ if self.serious_lag_threshold is not None and lag_amount >= self.serious_lag_threshold:
+                severity = AlarmSeverity.SERIOUS
+                reason = REASON.format(lag_amount, self.serious_lag_threshold)
+            case _ if self.warning_lag_threshold is not None and lag_amount >= self.warning_lag_threshold:
+                severity = AlarmSeverity.WARNING
+                reason = REASON.format(lag_amount, self.warning_lag_threshold)
+            case _:
+                severity = AlarmSeverity.NONE
+                reason = ""
 
         return severity, reason

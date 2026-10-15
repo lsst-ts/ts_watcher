@@ -1,0 +1,1 @@
+Replaced an if/elif/else with a match in the MTImageIngestionLag rule.
