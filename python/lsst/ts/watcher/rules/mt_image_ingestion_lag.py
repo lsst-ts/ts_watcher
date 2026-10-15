@@ -124,8 +124,7 @@ class MTImageIngestionLag(BaseRule):
 
         # Get the visitId of the imageInOODS event.
         if (obs_id := getattr(data, "obsid", None)) is not None:
-            obs_id_items = obs_id.split("_")
-            self.ingested_image_visit_id = int(obs_id_items[2] + obs_id_items[3][1:])
+            self.ingested_image_visit_id = int(obs_id)
 
         self.log.debug(f"{self.camera_visit_id=}, {self.ingested_image_visit_id=}.")
 
@@ -133,17 +132,18 @@ class MTImageIngestionLag(BaseRule):
         self.log.debug(f"{lag_amount=}.")
 
         # Determine the alarm severity.
-        if self.critical_lag_threshold is not None and lag_amount >= self.critical_lag_threshold:
-            severity = AlarmSeverity.CRITICAL
-            reason = REASON.format(lag_amount, self.critical_lag_threshold)
-        elif self.serious_lag_threshold is not None and lag_amount >= self.serious_lag_threshold:
-            severity = AlarmSeverity.SERIOUS
-            reason = REASON.format(lag_amount, self.serious_lag_threshold)
-        elif self.warning_lag_threshold is not None and lag_amount >= self.warning_lag_threshold:
-            severity = AlarmSeverity.WARNING
-            reason = REASON.format(lag_amount, self.warning_lag_threshold)
-        else:
-            severity = AlarmSeverity.NONE
-            reason = ""
+        match lag_amount:
+            case _ if self.critical_lag_threshold is not None and lag_amount >= self.critical_lag_threshold:
+                severity = AlarmSeverity.CRITICAL
+                reason = REASON.format(lag_amount, self.critical_lag_threshold)
+            case _ if self.serious_lag_threshold is not None and lag_amount >= self.serious_lag_threshold:
+                severity = AlarmSeverity.SERIOUS
+                reason = REASON.format(lag_amount, self.serious_lag_threshold)
+            case _ if self.warning_lag_threshold is not None and lag_amount >= self.warning_lag_threshold:
+                severity = AlarmSeverity.WARNING
+                reason = REASON.format(lag_amount, self.warning_lag_threshold)
+            case _:
+                severity = AlarmSeverity.NONE
+                reason = ""
 
         return severity, reason
