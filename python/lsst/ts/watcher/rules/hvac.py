@@ -96,7 +96,7 @@ class Hvac(BaseRule):
         ]
         super().__init__(
             config=config,
-            name=f"{remote_name}.{rule_name}",
+            name=f"Hvac.{rule_name}",
             remote_info_list=remote_info_list,
             log=log,
         )

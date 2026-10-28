@@ -1,0 +1,17 @@
+disabled_sal_components: []
+auto_acknowledge_delay: 3600
+auto_unacknowledge_delay: 3600
+escalation: []
+escalation_url: ""
+escalation_timeout: 1
+narrative_server_url: https://fake.url.com/narrativelog
+rules:
+- classname: Hvac
+  configs:
+  - rule_name: Dynalene
+    callback_names: [tel_dynalene]
+    individual_limits:
+    - item_name: dynCH01LS01
+      limit_type: lower
+      limit_value: 25.0
+      severity: CRITICAL

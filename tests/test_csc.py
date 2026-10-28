@@ -32,6 +32,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from lsst.ts import salobj, utils, watcher
+from lsst.ts.xml import sal_enums
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
 
 STD_TIMEOUT = 20  # standard command timeout (sec)
@@ -88,7 +89,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         alarm_names = set()
         async with self.csc.alarms_lock:
             for index, alarm_name in enumerate(self.csc.alarms_info):
-                self.csc.log.debug(f"Waiting for alarm {index} of {len(self.csc.alarms_info)}.")
+                self.csc.log.debug(f"Waiting for alarm {index + 1} of {len(self.csc.alarms_info)}.")
                 alarm_names.add(alarm_name)
                 await self.assert_next_alarm(
                     severity=AlarmSeverity.NONE,
@@ -97,6 +98,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     acknowledgedBy="",
                 )
         assert self.csc.alarms_info.keys() == alarm_names
+        self.csc.log.debug("All alarms received.")
 
     async def test_bin_script(self):
         await self.check_bin_script(
@@ -147,6 +149,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Check that the CSC can still be configured.
             # This also exercises specifying a rule with no configuration.
+            self.csc._tasks.pop("ack_in_progress_task", None)
             await self.remote.cmd_start.set_start(configurationOverride="basic.yaml", timeout=STD_TIMEOUT)
 
     async def test_standard_state_transitions(self):
@@ -162,6 +165,96 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 ),
                 override="two_scriptqueue_enabled.yaml",
             )
+
+    async def test_alarm_rule_runners(self):
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
+            # Start in STANDBY state. No AlarmRules configured and no alarms
+            # received.
+            assert self.csc.summary_state == sal_enums.State.STANDBY
+            await self.assert_next_summary_state(sal_enums.State.STANDBY)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 0
+
+            # Send start; AlarmRules configured but no alarms received.
+            await self.remote.cmd_start.set_start(
+                configurationOverride="two_scriptqueue_enabled.yaml", timeout=STD_TIMEOUT
+            )
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send enable; AlarmRules configured and alarms received.
+            await self.remote.cmd_enable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.ENABLED
+            await self.assert_next_summary_state(sal_enums.State.ENABLED)
+            await self.csc.all_alarm_rules_received.wait()
+            await self.check_all_alarms_events_are_none()
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send disable; AlarmRules configured and alarms received.
+            await self.remote.cmd_disable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send enable; AlarmRules configured and alarms received.
+            await self.remote.cmd_enable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.ENABLED
+            await self.assert_next_summary_state(sal_enums.State.ENABLED)
+            await self.csc.all_alarm_rules_received.wait()
+            await self.check_all_alarms_events_are_none()
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send disable; AlarmRules configured and alarms received.
+            await self.remote.cmd_disable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send standby; All cleaned up.
+            await self.remote.cmd_standby.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.STANDBY
+            await self.assert_next_summary_state(sal_enums.State.STANDBY)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 0
+
+            # Repeat to verify that all works well.
+            # Send start; AlarmRules configured but no alarms received.
+            await self.remote.cmd_start.set_start(
+                configurationOverride="two_scriptqueue_enabled.yaml", timeout=STD_TIMEOUT
+            )
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send enable; AlarmRules configured and alarms received.
+            await self.remote.cmd_enable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.ENABLED
+            await self.assert_next_summary_state(sal_enums.State.ENABLED)
+            await self.csc.all_alarm_rules_received.wait()
+            await self.check_all_alarms_events_are_none()
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send disable; AlarmRules configured and alarms received.
+            await self.remote.cmd_disable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send standby; All cleaned up.
+            await self.remote.cmd_standby.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.STANDBY
+            await self.assert_next_summary_state(sal_enums.State.STANDBY)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 0
 
     async def test_escalation_success(self):
         await self.check_escalation()
@@ -389,6 +482,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Set the state to ENABLED; this should reset the alarm.
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
+
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -405,13 +499,13 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.set_remote_to_enabled_and_verify_nominal(override="enabled.yaml")
 
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
-            await self.assert_next_alarm(
-                name=atdome_alarm_name,
-                severity=AlarmSeverity.WARNING,
-                maxSeverity=AlarmSeverity.WARNING,
-                acknowledged=False,
-                acknowledgedBy="",
-            )
+
+            for i in range(2):
+                data = await self.assert_next_sample(self.remote.evt_alarm, flush=False, timeout=STD_TIMEOUT)
+                if data.name == atdome_alarm_name:
+                    assert data.severity == AlarmSeverity.WARNING
+                else:
+                    assert data.severity == AlarmSeverity.NONE
 
     async def test_ess_operation_after_standby(self):
         async with (
@@ -561,6 +655,44 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             dt1 = utils.current_tai() - t1
             assert alarm.timestampAcknowledged >= t1 - TIME_EPSILON
             assert dt1 >= expected_auto_unacknowledge_delay - TIME_EPSILON
+
+    async def test_acknowledge_hvac(self):
+        user = "chaos"
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="HVAC", write_only=True) as hvac,
+        ):
+            await self.set_remote_to_enabled_and_verify_nominal(override="hvac.yaml")
+
+            alarm_name = "Hvac.Dynalene"
+            await hvac.tel_dynalene.set_write(dynCH01LS01=20.0, force_output=True)
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=False,
+                acknowledgedBy="",
+            )
+
+            await self.remote.cmd_acknowledge.set_start(
+                name=alarm_name, severity=AlarmSeverity.CRITICAL, acknowledgedBy=user
+            )
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=True,
+                acknowledgedBy=user,
+            )
+
+            await salobj.set_summary_state(self.remote, salobj.State.DISABLED)
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.NONE,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=True,
+                acknowledgedBy=user,
+            )
 
     async def test_show_alarms(self):
         """Test the showAlarms command."""

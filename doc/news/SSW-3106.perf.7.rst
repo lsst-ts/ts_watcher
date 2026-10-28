@@ -1,0 +1,1 @@
+Modified Watcher CSC to reset all alarm levels when going from ENABLED to DISABLED.

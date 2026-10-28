@@ -1,0 +1,1 @@
+Fixed processing of the Camera ImageInOODS event obsid in the MTImageIngestionLag rule.

@@ -1,0 +1,1 @@
+Modified Watcher CSC unit test case for resetting all alarm levels when going from ENABLED to DISABLED.

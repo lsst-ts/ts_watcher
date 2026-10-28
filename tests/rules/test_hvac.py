@@ -90,7 +90,7 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
         rule = watcher.rules.Hvac(config=config)
 
         rule_name = "Dynalene"
-        assert rule.name == f"{self.remote_name}.{rule_name}"
+        assert rule.name == f"Hvac.{rule_name}"
         assert isinstance(rule.alarm, watcher.Alarm)
         assert rule.alarm.name == rule.name
         assert rule.alarm.nominal
@@ -116,7 +116,7 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
         ):
             topic = getattr(controller, self.callback_name)
 
-            rule = model.rules[f"{self.remote_name}.{config['rule_name']}"]
+            rule = model.rules[f"Hvac.{config['rule_name']}"]
             rule.alarm.init_severity_queue()
             await model.enable()
 
@@ -168,7 +168,7 @@ class HvacTestCase(unittest.IsolatedAsyncioTestCase):
             salobj.Controller(name=self.remote_name, index=0) as controller,
             watcher.Model(domain=controller.domain, config=watcher_config) as model,
         ):
-            rule = model.rules[f"{self.remote_name}.{stale_config_dict['rule_name']}"]
+            rule = model.rules[f"Hvac.{stale_config_dict['rule_name']}"]
             rule.alarm.init_severity_queue()
             await model.enable()
 
