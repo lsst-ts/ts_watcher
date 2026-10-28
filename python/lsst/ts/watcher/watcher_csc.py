@@ -35,6 +35,7 @@ from lsst.ts import salobj, utils
 from lsst.ts.salobj.base import get_user_host
 from lsst.ts.xml.enums.AlarmRule import AlarmRuleState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
@@ -243,6 +244,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
     async def begin_standby(self, data) -> None:
         await self.close_tasks()
+
+    async def begin_disable(self, data) -> None:
+        if self.summary_state == State.ENABLED:
+            # Loop over all alarms and reset the severity. No need to force
+            # alarm output in case the severity hasn't changed.
+            for alarm_info_name in self.alarms_info:
+                alarm_info = self.alarms_info[alarm_info_name]
+                alarm_info.severity = AlarmSeverity.NONE
+                await self.output_alarm(alarm_info, force_output=False)
 
     async def end_enable(self, data):
         await super().end_enable(data)
