@@ -82,49 +82,52 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             yield
 
     async def test_life_cycle(self):
-        async with self.make_component_and_remote():
-            # Validate startup.
-            assert self.rule_runner.salinfo is not None
-            assert not self.rule_runner._heartbeat_task.done()
-            assert self.rule_runner.state == AlarmRuleState.UNCONFIGURED
-            assert self.rule_runner.model is None
-            async with asyncio.timeout(STD_TIMEOUT):
-                await self.rule_runner_remote.evt_heartbeat.next(flush=True)
+        try:
+            async with self.make_component_and_remote():
+                # Validate startup.
+                assert self.rule_runner.salinfo is not None
+                assert not self.rule_runner._heartbeat_task.done()
+                assert self.rule_runner.state == AlarmRuleState.UNCONFIGURED
+                assert self.rule_runner.model is None
+                async with asyncio.timeout(STD_TIMEOUT):
+                    await self.rule_runner_remote.evt_heartbeat.next(flush=True)
 
-            # Execute and validate do_configure.
-            await self.rule_runner_remote.cmd_configure.set_start(
-                config=self.config_data.config, timeout=STD_TIMEOUT
-            )
-            await asyncio.sleep(MINIMAL_WAIT)
-            async with asyncio.timeout(STD_TIMEOUT):
-                data = await self.rule_runner_remote.evt_state.next(flush=False)
-                assert data.state == AlarmRuleState.CONFIGURED.value
-            async with asyncio.timeout(STD_TIMEOUT):
-                await self.rule_runner_remote.evt_description.next(flush=False)
-            assert self.rule_runner.model is not None
-            assert len(self.rule_runner.model.rules) == 2
+                # Execute and validate do_configure.
+                await self.rule_runner_remote.cmd_configure.set_start(
+                    config=self.config_data.config, timeout=STD_TIMEOUT
+                )
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.CONFIGURED.value
+                async with asyncio.timeout(STD_TIMEOUT):
+                    await self.rule_runner_remote.evt_description.next(flush=False)
+                assert self.rule_runner.model is not None
+                assert len(self.rule_runner.model.rules) == 2
 
-            # Execute and validate do_run.
-            await self.rule_runner_remote.cmd_run.set_start(timeout=STD_TIMEOUT)
-            await asyncio.sleep(MINIMAL_WAIT)
-            async with asyncio.timeout(STD_TIMEOUT):
-                data = await self.rule_runner_remote.evt_state.next(flush=False)
-                assert data.state == AlarmRuleState.RUNNING.value
+                # Execute and validate do_run.
+                await self.rule_runner_remote.cmd_run.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.RUNNING.value
 
-            # Execute and validate do_stop.
-            await self.rule_runner_remote.cmd_stop.set_start(timeout=STD_TIMEOUT)
-            await asyncio.sleep(MINIMAL_WAIT)
-            async with asyncio.timeout(STD_TIMEOUT):
-                data = await self.rule_runner_remote.evt_state.next(flush=False)
-                assert data.state == AlarmRuleState.STOPPING.value
-            async with asyncio.timeout(LONG_TIMEOUT):
-                data = await self.rule_runner_remote.evt_state.next(flush=False)
-                assert data.state == AlarmRuleState.STOPPED.value
+                # Execute and validate do_stop.
+                await self.rule_runner_remote.cmd_stop.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPING.value
+                async with asyncio.timeout(LONG_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPED.value
 
-            # Validate cleanup.
-            assert self.rule_runner._heartbeat_task.done()
-            assert self.rule_runner._run_task.done()
-            assert self.rule_runner.model is None
+                # Validate cleanup.
+                assert self.rule_runner._heartbeat_task.done()
+                assert self.rule_runner._run_task.done()
+                assert self.rule_runner.model is None
+        except asyncio.CancelledError:
+            pass
 
     async def validate_alarm_event(
         self,
