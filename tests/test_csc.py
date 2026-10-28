@@ -149,6 +149,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Check that the CSC can still be configured.
             # This also exercises specifying a rule with no configuration.
+            self.csc._tasks.pop("ack_in_progress_task", None)
             await self.remote.cmd_start.set_start(configurationOverride="basic.yaml", timeout=STD_TIMEOUT)
 
     async def test_standard_state_transitions(self):

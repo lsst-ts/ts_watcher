@@ -1,0 +1,1 @@
+Made Watcher CSC configuration test case more robust.
