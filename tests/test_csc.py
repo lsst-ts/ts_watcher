@@ -655,6 +655,35 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert alarm.timestampAcknowledged >= t1 - TIME_EPSILON
             assert dt1 >= expected_auto_unacknowledge_delay - TIME_EPSILON
 
+    async def test_acknowledge_hvac(self):
+        user = "chaos"
+        async with (
+            self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY),
+            salobj.Controller(name="HVAC", write_only=True) as hvac,
+        ):
+            await self.set_remote_to_enabled_and_verify_nominal(override="hvac.yaml")
+
+            alarm_name = "Hvac.Dynalene"
+            await hvac.tel_dynalene.set_write(dynCH01LS01=20.0, force_output=True)
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=False,
+                acknowledgedBy="",
+            )
+
+            await self.remote.cmd_acknowledge.set_start(
+                name=alarm_name, severity=AlarmSeverity.CRITICAL, acknowledgedBy=user
+            )
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=True,
+                acknowledgedBy=user,
+            )
+
     async def test_show_alarms(self):
         """Test the showAlarms command."""
         async with (
