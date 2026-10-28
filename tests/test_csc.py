@@ -89,7 +89,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         alarm_names = set()
         async with self.csc.alarms_lock:
             for index, alarm_name in enumerate(self.csc.alarms_info):
-                self.csc.log.debug(f"Waiting for alarm {index} of {len(self.csc.alarms_info)}.")
+                self.csc.log.debug(f"Waiting for alarm {index + 1} of {len(self.csc.alarms_info)}.")
                 alarm_names.add(alarm_name)
                 await self.assert_next_alarm(
                     severity=AlarmSeverity.NONE,
@@ -98,6 +98,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     acknowledgedBy="",
                 )
         assert self.csc.alarms_info.keys() == alarm_names
+        self.csc.log.debug("All alarms received.")
 
     async def test_bin_script(self):
         await self.check_bin_script(
