@@ -1,1 +1,0 @@
-Added Watcher CSC unit test for acknowledging HVAC alarms.
