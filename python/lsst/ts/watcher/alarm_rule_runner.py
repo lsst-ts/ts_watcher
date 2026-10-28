@@ -256,16 +256,14 @@ class AlarmRuleRunner(salobj.Controller):
             raise salobj.ExpectedError(full_errmsg) from e
 
         # Prepare and send the description event.
-        remote_names = []
+        rule_names = []
         for rule in self.model.rules.values():
-            remote_info_list = rule.remote_info_list
-            for remote_info in remote_info_list:
-                remote_names.append(f"{remote_info.name}:{remote_info.index}")
+            rule_names.append(rule.name)
 
         await self.evt_description.set_write(
             alarmName=self.rule_name,
             description=f"AlarmRule:{self.salinfo.index} for {self.rule_name}",
-            remotes=",".join(remote_names),
+            remotes=",".join(rule_names),
         )
 
         await self._set_state(AlarmRuleState.CONFIGURED)

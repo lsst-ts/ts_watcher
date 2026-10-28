@@ -1,0 +1,1 @@
+Adopted HVAC rule test cases to rule name improvement.

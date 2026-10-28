@@ -35,6 +35,7 @@ from lsst.ts import salobj, utils
 from lsst.ts.salobj.base import get_user_host
 from lsst.ts.xml.enums.AlarmRule import AlarmRuleState
 from lsst.ts.xml.enums.Watcher import AlarmSeverity
+from lsst.ts.xml.sal_enums import State
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
@@ -60,6 +61,9 @@ alarm_severity_level = {
     AlarmSeverity.WARNING: logging.WARNING,
     AlarmSeverity.CRITICAL: logging.CRITICAL,
 }
+
+# The ack in progress task name.
+ACK_IN_PROGRESS_TASK = "ack_in_progress_task"
 
 
 class WatcherCsc(salobj.ConfigurableCsc):
@@ -185,14 +189,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await asyncio.sleep(0.1)
 
     async def begin_start(self, data):
-        if "ack_in_progress_task" in self._tasks and not self._tasks["ack_in_progress_task"].done():
+        if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
             raise salobj.ExpectedError(
                 "Watcher is already executing a start command. "
                 "Sometimes this process can take a while to finish as the "
                 "Watcher needs to start several subprocesses."
             )
 
-        self._tasks["ack_in_progress_task"] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
+        self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
 
         await super().begin_start(data)
 
@@ -202,16 +206,19 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.log.debug(f"AlarmRule:{index} is running.")
 
     async def end_start(self, data):
-        self._tasks["ack_in_progress_task"].cancel()
+        if ACK_IN_PROGRESS_TASK not in self._tasks:
+            return
+
+        self._tasks[ACK_IN_PROGRESS_TASK].cancel()
 
         try:
-            await self._tasks["ack_in_progress_task"]
+            await self._tasks[ACK_IN_PROGRESS_TASK]
         except asyncio.CancelledError:
             pass
         except Exception:
             self.log.exception("Error stopping ack in progress task.")
         finally:
-            self._tasks.pop("ack_in_progress_task", None)
+            self._tasks.pop(ACK_IN_PROGRESS_TASK, None)
 
     async def _cmd_start_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
         """Continuously send in progress acknowledgements.
@@ -231,14 +238,21 @@ class WatcherCsc(salobj.ConfigurableCsc):
         """
         while True:
             await self.cmd_start.ack_in_progress(
-                data,
-                timeout=self.default_command_timeout,
-                result="Start command still in progress.",
+                data, timeout=PROCESS_COMM_TIMEOUT, result="Start command still in progress."
             )
             await asyncio.sleep(0.5)
 
     async def begin_standby(self, data) -> None:
         await self.close_tasks()
+
+    async def begin_disable(self, data) -> None:
+        if self.summary_state == State.ENABLED:
+            # Loop over all alarms and reset the severity. No need to force
+            # alarm output in case the severity hasn't changed.
+            for alarm_info_name in self.alarms_info:
+                alarm_info = self.alarms_info[alarm_info_name]
+                alarm_info.severity = AlarmSeverity.NONE
+                await self.output_alarm(alarm_info, force_output=False)
 
     async def end_enable(self, data):
         await super().end_enable(data)
@@ -474,7 +488,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.log.debug(f"Received description event for {data.salIndex=} with {data=}")
         if data.salIndex in self.alarm_rules_info:
             alarm_rule_info = self.alarm_rules_info[data.salIndex]
-            alarm_rule_info.rule_names = [f"{data.alarmName}.{remote}" for remote in data.remotes.split(",")]
+            alarm_rule_info.rule_names = [f"{rule_name}" for rule_name in data.remotes.split(",")]
             self.log.debug(
                 f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
             )
