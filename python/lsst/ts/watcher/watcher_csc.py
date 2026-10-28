@@ -61,6 +61,9 @@ alarm_severity_level = {
     AlarmSeverity.CRITICAL: logging.CRITICAL,
 }
 
+# The ack in progress task name.
+ACK_IN_PROGRESS_TASK = "ack_in_progress_task"
+
 
 class WatcherCsc(salobj.ConfigurableCsc):
     """The Watcher CSC.
@@ -185,14 +188,14 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await asyncio.sleep(0.1)
 
     async def begin_start(self, data):
-        if "ack_in_progress_task" in self._tasks and not self._tasks["ack_in_progress_task"].done():
+        if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
             raise salobj.ExpectedError(
                 "Watcher is already executing a start command. "
                 "Sometimes this process can take a while to finish as the "
                 "Watcher needs to start several subprocesses."
             )
 
-        self._tasks["ack_in_progress_task"] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
+        self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
 
         await super().begin_start(data)
 
@@ -202,16 +205,19 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.log.debug(f"AlarmRule:{index} is running.")
 
     async def end_start(self, data):
-        self._tasks["ack_in_progress_task"].cancel()
+        if ACK_IN_PROGRESS_TASK not in self._tasks:
+            return
+
+        self._tasks[ACK_IN_PROGRESS_TASK].cancel()
 
         try:
-            await self._tasks["ack_in_progress_task"]
+            await self._tasks[ACK_IN_PROGRESS_TASK]
         except asyncio.CancelledError:
             pass
         except Exception:
             self.log.exception("Error stopping ack in progress task.")
         finally:
-            self._tasks.pop("ack_in_progress_task", None)
+            self._tasks.pop(ACK_IN_PROGRESS_TASK, None)
 
     async def _cmd_start_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
         """Continuously send in progress acknowledgements.
