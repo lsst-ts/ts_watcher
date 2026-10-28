@@ -231,9 +231,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         """
         while True:
             await self.cmd_start.ack_in_progress(
-                data,
-                timeout=self.default_command_timeout,
-                result="Start command still in progress.",
+                data, timeout=PROCESS_COMM_TIMEOUT, result="Start command still in progress."
             )
             await asyncio.sleep(0.5)
 
