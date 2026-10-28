@@ -482,6 +482,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             # Set the state to ENABLED; this should reset the alarm.
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.ENABLED, force_output=True)
+
             await self.assert_next_alarm(
                 name=atdome_alarm_name,
                 severity=AlarmSeverity.NONE,
@@ -498,13 +499,13 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.set_remote_to_enabled_and_verify_nominal(override="enabled.yaml")
 
             await atdome.evt_summaryState.set_write(summaryState=salobj.State.DISABLED, force_output=True)
-            await self.assert_next_alarm(
-                name=atdome_alarm_name,
-                severity=AlarmSeverity.WARNING,
-                maxSeverity=AlarmSeverity.WARNING,
-                acknowledged=False,
-                acknowledgedBy="",
-            )
+
+            for i in range(2):
+                data = await self.assert_next_sample(self.remote.evt_alarm, flush=False, timeout=STD_TIMEOUT)
+                if data.name == atdome_alarm_name:
+                    assert data.severity == AlarmSeverity.WARNING
+                else:
+                    assert data.severity == AlarmSeverity.NONE
 
     async def test_ess_operation_after_standby(self):
         async with (
@@ -679,6 +680,15 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.assert_next_alarm(
                 name=alarm_name,
                 severity=AlarmSeverity.CRITICAL,
+                maxSeverity=AlarmSeverity.CRITICAL,
+                acknowledged=True,
+                acknowledgedBy=user,
+            )
+
+            await salobj.set_summary_state(self.remote, salobj.State.DISABLED)
+            await self.assert_next_alarm(
+                name=alarm_name,
+                severity=AlarmSeverity.NONE,
                 maxSeverity=AlarmSeverity.CRITICAL,
                 acknowledged=True,
                 acknowledgedBy=user,
