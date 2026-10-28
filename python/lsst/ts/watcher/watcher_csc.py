@@ -478,7 +478,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.log.debug(f"Received description event for {data.salIndex=} with {data=}")
         if data.salIndex in self.alarm_rules_info:
             alarm_rule_info = self.alarm_rules_info[data.salIndex]
-            alarm_rule_info.rule_names = [f"{data.alarmName}.{remote}" for remote in data.remotes.split(",")]
+            alarm_rule_info.rule_names = [f"{rule_name}" for rule_name in data.remotes.split(",")]
             self.log.debug(
                 f"AlarmRule:{data.salIndex} for {data.alarmName} has rules {alarm_rule_info.rule_names}."
             )
