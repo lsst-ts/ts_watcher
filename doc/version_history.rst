@@ -8,6 +8,33 @@ Version History
 
 .. towncrier release notes start
 
+v2.2.2 (2026-10-28)
+===================
+
+Bug Fixes
+---------
+
+- Made sure that AlarmRuleRunners get stopped when going to STANDBY instead of going from ENABLED to DISABLED. (`SSW-3057 <https://rubinobs.atlassian.net//browse/SSW-3057>`_)
+- Fixed processing of the Camera ImageInOODS event obsid in the MTImageIngestionLag rule. (`SSW-3057 <https://rubinobs.atlassian.net//browse/SSW-3057>`_)
+- Fixed AlarmRuleRunner bug reporting Remote names instead of Rule names. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Fixed missing ack_in_progress timeout. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Made sure to continuously send an in progress ack until started. (`SSW-3057 <https://rubinobs.atlassian.net//browse/SSW-3057>`_)
+- Modified Watcher CSC unit test case for resetting all alarm levels when going from ENABLED to DISABLED. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Improved Watcher CSC test log statements. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Improved sending in progress ack. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Improved Watcher CSC receiving alarm rule names. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Modified Watcher CSC to reset all alarm levels when going from ENABLED to DISABLED. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Added Watcher CSC unit test for acknowledging HVAC alarms. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Improved HVAC rule name. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Adopted HVAC rule test cases to rule name improvement. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+- Made Watcher CSC configuration test case more robust. (`SSW-3106 <https://rubinobs.atlassian.net//browse/SSW-3106>`_)
+
+
 v2.2.1 (2026-10-14)
 ===================
 

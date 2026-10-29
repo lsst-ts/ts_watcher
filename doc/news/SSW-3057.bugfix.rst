@@ -1,1 +1,0 @@
-Made sure that AlarmRuleRunners get stopped when going to STANDBY instead of going from ENABLED to DISABLED.
