@@ -161,6 +161,11 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def close_tasks(self):
         await super().close_tasks()
 
+        # Stop all background tasks. Use a shallow copy because the tasks get
+        # popped from the dict during iteration.
+        for task_name in self._tasks.copy():
+            await self._stop_task(task_name)
+
         # Command all remotes to stop and stop the remotes themselves as well
         # as the subprocesses.
         for index in self.alarm_rules_info:
@@ -206,19 +211,22 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.log.debug(f"AlarmRule:{index} is running.")
 
     async def end_start(self, data):
-        if ACK_IN_PROGRESS_TASK not in self._tasks:
+        await self._stop_task(ACK_IN_PROGRESS_TASK)
+
+    async def _stop_task(self, task_name: str) -> None:
+        if task_name not in self._tasks:
             return
 
-        self._tasks[ACK_IN_PROGRESS_TASK].cancel()
+        self._tasks[task_name].cancel()
 
         try:
-            await self._tasks[ACK_IN_PROGRESS_TASK]
+            await self._tasks[task_name]
         except asyncio.CancelledError:
             pass
         except Exception:
-            self.log.exception("Error stopping ack in progress task.")
+            self.log.exception(f"Error stopping {task_name} task.")
         finally:
-            self._tasks.pop(ACK_IN_PROGRESS_TASK, None)
+            self._tasks.pop(task_name, None)
 
     async def _cmd_start_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
         """Continuously send in progress acknowledgements.
