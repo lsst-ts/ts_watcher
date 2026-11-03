@@ -1,0 +1,1 @@
+Extracted creation of subprocess to a new method in Watcher CSC.

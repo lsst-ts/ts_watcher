@@ -282,31 +282,38 @@ class WatcherCsc(salobj.ConfigurableCsc):
         for index, rule in enumerate(config.rules, start=1):
             alarm_rule_config = copy.deepcopy(config)
             alarm_rule_config.rules = [rule]
-            alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
 
-            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {rule['classname']}.")
-            process = await asyncio.create_subprocess_exec(
-                SCRIPT_NAME, rule["classname"], str(index), stdin=asyncio.subprocess.PIPE
-            )
+            await self._create_and_start_subprocess(alarm_rule_config, index)
 
+    async def _create_and_start_subprocess(self, alarm_rule_config: types.SimpleNamespace, index: int):
+        classname = alarm_rule_config.rules[0]["classname"]
+        self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
+        process = await asyncio.create_subprocess_exec(
+            SCRIPT_NAME, classname, str(index), stdin=asyncio.subprocess.PIPE
+        )
+
+        if index not in self.alarm_rules_info:
             self.alarm_rules_info[index] = AlarmRuleInfo(
-                classname=rule["classname"],
+                classname=classname,
                 config=alarm_rule_config,
                 process=process,
                 rule_names=[],
             )
+        else:
+            self.alarm_rules_info[index].process = process
 
-            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {rule['classname']}.")
+        self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
+        data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
+        while data.salIndex != index:
             data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            while data.salIndex != index:
-                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} heartbeat received.")
+        self.log.debug(f"AlarmRule:{index} heartbeat received.")
 
-            self.log.debug(f"Configuring AlarmRule:{index} for rule {rule['classname']}.")
-            await self.alarm_rule_remote.cmd_configure.set_start(
-                salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
-            )
-            self.log.debug(f"Configured AlarmRule:{index}.")
+        self.log.debug(f"Configuring AlarmRule:{index} for rule {classname}.")
+        alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
+        await self.alarm_rule_remote.cmd_configure.set_start(
+            salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
+        )
+        self.log.debug(f"Configured AlarmRule:{index}.")
 
     async def output_alarm(self, alarm_info, force_output=True):
         """Output the alarm event for one alarm_info instance."""

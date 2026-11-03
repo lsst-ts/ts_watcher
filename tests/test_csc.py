@@ -841,7 +841,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert post_args["json"]["message_text"] == "alarm:Enabled.ATDome:0 severity=4 FAULT state"
             # The POST response contains three additional keys
             # (user_id, date_begin, date_end) that will vary from
-            # test to test.  The are removed from this expected value
+            # test to test. They are removed from this expected value
             # and the mock_post.call_args dict.
             expected = {
                 "url": "https://fake.url.com/narrativelog/messages",
