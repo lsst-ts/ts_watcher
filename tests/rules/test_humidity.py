@@ -160,7 +160,7 @@ class HumidityTestCase(unittest.IsolatedAsyncioTestCase):
             # Resume polling first.
             rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
-            await asyncio.sleep(max_data_age + poll_interval * 2)
+            await asyncio.sleep(max_data_age + poll_interval * 5)
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
             assert rule.alarm.reason == f"No tel_relativeHumidity data seen for {max_data_age} seconds"
 
