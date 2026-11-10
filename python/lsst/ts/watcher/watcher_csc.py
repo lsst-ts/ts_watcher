@@ -341,6 +341,31 @@ class WatcherCsc(salobj.ConfigurableCsc):
             force_output=force_output,
         )
 
+    async def output_alarm_for_alarm_rule_runner(self, alarm, force_output=False):
+        """Output the alarm event for one alarm rule runner instance."""
+        if self.summary_state != salobj.State.ENABLED:
+            return
+
+        await self.evt_alarm.set_write(
+            name=alarm.name,
+            severity=alarm.severity,
+            reason=alarm.reason,
+            maxSeverity=alarm.max_severity,
+            acknowledged=alarm.acknowledged,
+            acknowledgedBy=alarm.acknowledged_by,
+            mutedSeverity=alarm.muted_severity,
+            mutedBy=alarm.muted_by,
+            escalatedId=alarm.escalated_id,
+            timestampSeverityOldest=alarm.timestamp_severity_oldest,
+            timestampMaxSeverity=alarm.timestamp_max_severity,
+            timestampAcknowledged=alarm.timestamp_acknowledged,
+            timestampAutoAcknowledge=alarm.timestamp_auto_acknowledge,
+            timestampAutoUnacknowledge=alarm.timestamp_auto_unacknowledge,
+            timestampEscalate=alarm.timestamp_escalate,
+            timestampUnmute=alarm.timestamp_unmute,
+            force_output=force_output,
+        )
+
     async def output_alarms(self):
         """Output the alarm events for all alarms."""
         async with self.alarms_lock:
