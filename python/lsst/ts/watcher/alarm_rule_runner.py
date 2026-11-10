@@ -56,7 +56,7 @@ class UnexpectedAlarmRuleStateError(Exception):
 
 
 class AlarmRuleRunner(salobj.Controller):
-    def __init__(self, rule_name: str, index: int):
+    def __init__(self, rule_name: str, index: int, halt_heartbeat_after_startup=False):
         self.http_client = aiohttp.ClientSession()
 
         # TODO OSW-2899 Remove backward compatibiliy with SalObj v8.2.9.
@@ -76,6 +76,7 @@ class AlarmRuleRunner(salobj.Controller):
 
         self._should_be_running: asyncio.Future = utils.make_done_future()
         self._should_produce_heartbeats = False
+        self.halt_heartbeat_after_startup = halt_heartbeat_after_startup
 
         self.escalation_endpoint_url = ""
 
@@ -102,6 +103,7 @@ class AlarmRuleRunner(salobj.Controller):
 
     async def _heartbeat_loop(self) -> None:
         """Output heartbeat at regular intervals."""
+        self.log.debug("WOUTER Creating heartbeat loop.")
         while self._should_produce_heartbeats:
             try:
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
@@ -165,9 +167,20 @@ class AlarmRuleRunner(salobj.Controller):
     async def _run(self) -> None:
         """Run the alarm rule."""
         try:
+            if self.halt_heartbeat_after_startup:
+                await self._wait_for_task_done(self._heartbeat_task)
+                self._should_produce_heartbeats = False
+            else:
+                # This is the case when the AlarmRuleRunner was stopped and
+                # then `do_run` was called again.
+                if self._heartbeat_task.done():
+                    self._should_produce_heartbeats = True
+                    self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
             await self._set_state(AlarmRuleState.RUNNING)
             self._should_be_running = asyncio.Future()
             await self.model.enable()
+
             await self._should_be_running
         except asyncio.CancelledError:
             # Deliberately ignore.
@@ -546,11 +559,21 @@ class AlarmRuleRunner(salobj.Controller):
         parser.add_argument(
             "index",
             type=int,
-            help="AlarmRuleRunner SAL Component index; must be unique among running AlarmRuleRunners",
+            help="AlarmRuleRunner SAL Component index; must be unique among running AlarmRuleRunners.",
+        )
+        parser.add_argument(
+            "--halt_heartbeat_after_startup",
+            action="store_true",
+            help="Halt the heartbeat loop after the AlarmRuleRunner has started up or not? "
+            "Defaults to True. Only for unit tests.",
         )
         args = parser.parse_args()
 
-        return cls(rule_name=args.rule_name, index=args.index)
+        return cls(
+            rule_name=args.rule_name,
+            index=args.index,
+            halt_heartbeat_after_startup=args.halt_heartbeat_after_startup,
+        )
 
     @classmethod
     async def amain(cls) -> None:
