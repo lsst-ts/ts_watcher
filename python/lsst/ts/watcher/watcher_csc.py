@@ -260,7 +260,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             for alarm_info_name in self.alarms_info:
                 alarm_info = self.alarms_info[alarm_info_name]
                 alarm_info.severity = AlarmSeverity.NONE
-                await self.output_alarm(alarm_info, force_output=False)
+                await self.output_alarm(alarm_info)
 
     async def end_enable(self, data):
         await super().end_enable(data)
@@ -315,7 +315,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
         )
         self.log.debug(f"Configured AlarmRule:{index}.")
 
-    async def output_alarm(self, alarm_info, force_output=True):
+    async def output_alarm(self, alarm_info, force_output=False):
         """Output the alarm event for one alarm_info instance."""
         if self.summary_state != salobj.State.ENABLED:
             return
@@ -347,7 +347,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             for alarm_name in self.alarms_info:
                 alarm_info = self.alarms_info[alarm_name]
                 self.log.debug(f"Outputting alarm {alarm_info.name}")
-                await self.output_alarm(alarm_info)
+                await self.output_alarm(alarm_info, force_output=True)
                 await asyncio.sleep(0.001)
 
     async def find_remotes_for_rule_regex(self, name_regex):
@@ -533,7 +533,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             await alarm_info.set_from_data(data)
 
             if self.summary_state == salobj.State.ENABLED:
-                await self.output_alarm(alarm_info, force_output=False)
+                await self.output_alarm(alarm_info)
 
     async def evt_logLevel_callback(self, data):
         """Handle logLevel event from the alarm subprocess."""
