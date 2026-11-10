@@ -39,6 +39,7 @@ from lsst.ts.xml.sal_enums import State
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
+from .model import Model
 from .watcher_utils import AlarmInfo, AlarmRuleInfo
 
 # URL suffix for the SquadCast Incident Webhook API
@@ -154,12 +155,20 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
         self.alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
 
+        # The Model for the AlarmRuleRunner alarms.
+        self.model: Model | None = None
+
     @staticmethod
     def get_config_pkg():
         return "ts_config_ocs"
 
     async def close_tasks(self):
         await super().close_tasks()
+
+        if self.model is not None:
+            self.model.disable()
+            await self.model.close()
+            self.model = None
 
         # Stop all background tasks. Use a shallow copy because the tasks get
         # popped from the dict during iteration.
@@ -281,6 +290,8 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         await self._create_and_start_subprocesses()
 
+        await self._setup_alarm_rule_runner_alarms()
+
     async def _create_and_start_subprocesses(self):
         for index, rule in enumerate(self.config.rules, start=1):
             alarm_rule_config = copy.deepcopy(self.config)
@@ -314,6 +325,25 @@ class WatcherCsc(salobj.ConfigurableCsc):
                 salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
             )
             self.log.debug(f"Configured AlarmRule:{index}.")
+
+    async def _setup_alarm_rule_runner_alarms(self) -> None:
+        alarm_rule_runner_config = copy.deepcopy(self.config)
+        alarm_rule_runner_config.rules = [
+            {
+                "classname": "Heartbeat",
+                "configs": [{"name": f"AlarmRule:{index}"} for index in self.alarm_rules_info.keys()],
+            }
+        ]
+        self.log.debug(f"Adding AlarmRuleRunner alarms for config {alarm_rule_runner_config}.")
+
+        self.model = Model(
+            domain=self.domain,
+            config=alarm_rule_runner_config,
+            alarm_callback=self.output_alarm_for_alarm_rule_runner,
+            log=self.log,
+        )
+        await self.model.start_task
+        await self.model.enable()
 
     async def output_alarm(self, alarm_info, force_output=False):
         """Output the alarm event for one alarm_info instance."""
