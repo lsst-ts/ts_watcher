@@ -158,6 +158,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # The Model for the AlarmRuleRunner alarms.
         self.model: Model | None = None
 
+        # Make the AlarmRuleRunner heartbeat task stop if set to True. To be
+        # used by unit tests only.
+        self.halt_heartbeat_after_startup = False
+
     @staticmethod
     def get_config_pkg():
         return "ts_config_ocs"
@@ -299,9 +303,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
             classname = alarm_rule_config.rules[0]["classname"]
             self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
-            process = await asyncio.create_subprocess_exec(
-                SCRIPT_NAME, classname, str(index), stdin=asyncio.subprocess.PIPE
-            )
+            args = [SCRIPT_NAME, classname, str(index)]
+            if self.halt_heartbeat_after_startup:
+                args.append("--halt_heartbeat_after_startup")
+            process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
 
             if index not in self.alarm_rules_info:
                 self.alarm_rules_info[index] = AlarmRuleInfo(
