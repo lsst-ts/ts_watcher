@@ -1,0 +1,1 @@
+Made sure the Model gets restarted in AlarmRuleRunner.
