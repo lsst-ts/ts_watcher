@@ -130,6 +130,32 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
                 assert self.rule_runner._heartbeat_task.done()
                 assert self.rule_runner._run_task.done()
                 assert self.rule_runner.model is None
+
+                # Execute and validate do_run again.
+                await self.rule_runner_remote.cmd_run.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.RUNNING.value
+                assert not self.rule_runner._heartbeat_task.done()
+                assert not self.rule_runner._run_task.done()
+                assert self.rule_runner.model is not None
+                assert len(self.rule_runner.model.rules) == 2
+
+                # Execute and validate do_stop again.
+                await self.rule_runner_remote.cmd_stop.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPING.value
+                async with asyncio.timeout(LONG_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPED.value
+
+                # Validate cleanup again.
+                assert self.rule_runner._heartbeat_task.done()
+                assert self.rule_runner._run_task.done()
+                assert self.rule_runner.model is None
         except asyncio.CancelledError:
             pass
 
