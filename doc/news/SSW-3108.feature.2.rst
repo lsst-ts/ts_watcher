@@ -1,0 +1,1 @@
+Added a command line option to stop the heartbeat task in AlarmRuleRunner.

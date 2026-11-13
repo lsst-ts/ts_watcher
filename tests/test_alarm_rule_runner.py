@@ -55,12 +55,16 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
         await salobj.delete_kafka_topics()
 
     @contextlib.asynccontextmanager
-    async def make_component_and_remote(self) -> AsyncGenerator[None, None]:
+    async def make_component_and_remote(
+        self, halt_heartbeat_after_startup=False
+    ) -> AsyncGenerator[None, None]:
         index = next(self._index_iter)
         configpath = pathlib.Path(__file__).resolve().parent / "data" / "config" / "csc"
 
         async with (
-            watcher.AlarmRuleRunner(rule_name="Heartbeat", index=index) as self.rule_runner,
+            watcher.AlarmRuleRunner(
+                rule_name="Heartbeat", index=index, halt_heartbeat_after_startup=halt_heartbeat_after_startup
+            ) as self.rule_runner,
             salobj.Remote(
                 domain=self.rule_runner.domain, name="AlarmRule", index=index
             ) as self.rule_runner_remote,
@@ -123,6 +127,32 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
                     assert data.state == AlarmRuleState.STOPPED.value
 
                 # Validate cleanup.
+                assert self.rule_runner._heartbeat_task.done()
+                assert self.rule_runner._run_task.done()
+                assert self.rule_runner.model is None
+
+                # Execute and validate do_run again.
+                await self.rule_runner_remote.cmd_run.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.RUNNING.value
+                assert not self.rule_runner._heartbeat_task.done()
+                assert not self.rule_runner._run_task.done()
+                assert self.rule_runner.model is not None
+                assert len(self.rule_runner.model.rules) == 2
+
+                # Execute and validate do_stop again.
+                await self.rule_runner_remote.cmd_stop.set_start(timeout=STD_TIMEOUT)
+                await asyncio.sleep(MINIMAL_WAIT)
+                async with asyncio.timeout(STD_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPING.value
+                async with asyncio.timeout(LONG_TIMEOUT):
+                    data = await self.rule_runner_remote.evt_state.next(flush=False)
+                    assert data.state == AlarmRuleState.STOPPED.value
+
+                # Validate cleanup again.
                 assert self.rule_runner._heartbeat_task.done()
                 assert self.rule_runner._run_task.done()
                 assert self.rule_runner.model is None
@@ -282,3 +312,20 @@ class AlarmRuleRunnerTestCase(unittest.IsolatedAsyncioTestCase):
             await self.rule_runner.do_stop(self.stop_data)
 
             await self.wait_for_state_events([AlarmRuleState.STOPPING])
+
+    async def test_heartbeat(self):
+        async with self.make_component_and_remote(halt_heartbeat_after_startup=True):
+            await self.rule_runner.do_configure(self.config_data)
+            asyncio.create_task(self.rule_runner.do_run(self.run_data))
+
+            await self.wait_for_state_events([AlarmRuleState.CONFIGURED, AlarmRuleState.RUNNING])
+
+            assert not self.rule_runner._should_produce_heartbeats
+
+        async with self.make_component_and_remote():
+            await self.rule_runner.do_configure(self.config_data)
+            asyncio.create_task(self.rule_runner.do_run(self.run_data))
+
+            await self.wait_for_state_events([AlarmRuleState.CONFIGURED, AlarmRuleState.RUNNING])
+
+            assert self.rule_runner._should_produce_heartbeats

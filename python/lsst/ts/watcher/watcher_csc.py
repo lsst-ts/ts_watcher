@@ -39,6 +39,7 @@ from lsst.ts.xml.sal_enums import State
 
 from . import __version__
 from .config_schema import CONFIG_SCHEMA
+from .model import Model
 from .watcher_utils import AlarmInfo, AlarmRuleInfo
 
 # URL suffix for the SquadCast Incident Webhook API
@@ -154,12 +155,29 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.alarm_rule_remote.evt_logLevel.callback = self.evt_logLevel_callback
         self.alarm_rule_remote.evt_logMessage.callback = self.evt_logMessage_callback
 
+        # The Model for the AlarmRuleRunner alarms.
+        self.model: Model | None = None
+
+        # Make the AlarmRuleRunner heartbeat task stop if set to True. To be
+        # used by unit tests only.
+        self.halt_heartbeat_after_startup = False
+
     @staticmethod
     def get_config_pkg():
         return "ts_config_ocs"
 
     async def close_tasks(self):
         await super().close_tasks()
+
+        if self.model is not None:
+            self.model.disable()
+            await self.model.close()
+            self.model = None
+
+        # Stop all background tasks. Use a shallow copy because the tasks get
+        # popped from the dict during iteration.
+        for task_name in self._tasks.copy():
+            await self._stop_task(task_name)
 
         # Command all remotes to stop and stop the remotes themselves as well
         # as the subprocesses.
@@ -206,19 +224,22 @@ class WatcherCsc(salobj.ConfigurableCsc):
             self.log.debug(f"AlarmRule:{index} is running.")
 
     async def end_start(self, data):
-        if ACK_IN_PROGRESS_TASK not in self._tasks:
+        await self._stop_task(ACK_IN_PROGRESS_TASK)
+
+    async def _stop_task(self, task_name: str) -> None:
+        if task_name not in self._tasks:
             return
 
-        self._tasks[ACK_IN_PROGRESS_TASK].cancel()
+        self._tasks[task_name].cancel()
 
         try:
-            await self._tasks[ACK_IN_PROGRESS_TASK]
+            await self._tasks[task_name]
         except asyncio.CancelledError:
             pass
         except Exception:
-            self.log.exception("Error stopping ack in progress task.")
+            self.log.exception(f"Error stopping {task_name} task.")
         finally:
-            self._tasks.pop(ACK_IN_PROGRESS_TASK, None)
+            self._tasks.pop(task_name, None)
 
     async def _cmd_start_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
         """Continuously send in progress acknowledgements.
@@ -252,7 +273,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             for alarm_info_name in self.alarms_info:
                 alarm_info = self.alarms_info[alarm_info_name]
                 alarm_info.severity = AlarmSeverity.NONE
-                await self.output_alarm(alarm_info, force_output=False)
+                await self.output_alarm(alarm_info)
 
     async def end_enable(self, data):
         await super().end_enable(data)
@@ -271,36 +292,65 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
             config.escalation_url = self.escalation_endpoint_url
 
-        for index, rule in enumerate(config.rules, start=1):
-            alarm_rule_config = copy.deepcopy(config)
+        await self._create_and_start_subprocesses()
+
+        await self._setup_alarm_rule_runner_alarms()
+
+    async def _create_and_start_subprocesses(self):
+        for index, rule in enumerate(self.config.rules, start=1):
+            alarm_rule_config = copy.deepcopy(self.config)
             alarm_rule_config.rules = [rule]
-            alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
 
-            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {rule['classname']}.")
-            process = await asyncio.create_subprocess_exec(
-                SCRIPT_NAME, rule["classname"], str(index), stdin=asyncio.subprocess.PIPE
-            )
+            classname = alarm_rule_config.rules[0]["classname"]
+            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
+            args = [SCRIPT_NAME, classname, str(index)]
+            if self.halt_heartbeat_after_startup:
+                args.append("--halt_heartbeat_after_startup")
+            process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
 
-            self.alarm_rules_info[index] = AlarmRuleInfo(
-                classname=rule["classname"],
-                config=alarm_rule_config,
-                process=process,
-                rule_names=[],
-            )
+            if index not in self.alarm_rules_info:
+                self.alarm_rules_info[index] = AlarmRuleInfo(
+                    classname=classname,
+                    config=alarm_rule_config,
+                    process=process,
+                    rule_names=[],
+                )
+            else:
+                self.alarm_rules_info[index].process = process
 
-            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {rule['classname']}.")
+            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
             data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
             while data.salIndex != index:
                 data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
             self.log.debug(f"AlarmRule:{index} heartbeat received.")
 
-            self.log.debug(f"Configuring AlarmRule:{index} for rule {rule['classname']}.")
+            self.log.debug(f"Configuring AlarmRule:{index} for rule {classname}.")
+            alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
             await self.alarm_rule_remote.cmd_configure.set_start(
                 salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
             )
             self.log.debug(f"Configured AlarmRule:{index}.")
 
-    async def output_alarm(self, alarm_info, force_output=True):
+    async def _setup_alarm_rule_runner_alarms(self) -> None:
+        alarm_rule_runner_config = copy.deepcopy(self.config)
+        alarm_rule_runner_config.rules = [
+            {
+                "classname": "Heartbeat",
+                "configs": [{"name": f"AlarmRule:{index}"} for index in self.alarm_rules_info.keys()],
+            }
+        ]
+        self.log.debug(f"Adding AlarmRuleRunner alarms for config {alarm_rule_runner_config}.")
+
+        self.model = Model(
+            domain=self.domain,
+            config=alarm_rule_runner_config,
+            alarm_callback=self.output_alarm_for_alarm_rule_runner,
+            log=self.log,
+        )
+        await self.model.start_task
+        await self.model.enable()
+
+    async def output_alarm(self, alarm_info, force_output=False):
         """Output the alarm event for one alarm_info instance."""
         if self.summary_state != salobj.State.ENABLED:
             return
@@ -326,13 +376,38 @@ class WatcherCsc(salobj.ConfigurableCsc):
             force_output=force_output,
         )
 
+    async def output_alarm_for_alarm_rule_runner(self, alarm, force_output=False):
+        """Output the alarm event for one alarm rule runner instance."""
+        if self.summary_state != salobj.State.ENABLED:
+            return
+
+        await self.evt_alarm.set_write(
+            name=alarm.name,
+            severity=alarm.severity,
+            reason=alarm.reason,
+            maxSeverity=alarm.max_severity,
+            acknowledged=alarm.acknowledged,
+            acknowledgedBy=alarm.acknowledged_by,
+            mutedSeverity=alarm.muted_severity,
+            mutedBy=alarm.muted_by,
+            escalatedId=alarm.escalated_id,
+            timestampSeverityOldest=alarm.timestamp_severity_oldest,
+            timestampMaxSeverity=alarm.timestamp_max_severity,
+            timestampAcknowledged=alarm.timestamp_acknowledged,
+            timestampAutoAcknowledge=alarm.timestamp_auto_acknowledge,
+            timestampAutoUnacknowledge=alarm.timestamp_auto_unacknowledge,
+            timestampEscalate=alarm.timestamp_escalate,
+            timestampUnmute=alarm.timestamp_unmute,
+            force_output=force_output,
+        )
+
     async def output_alarms(self):
         """Output the alarm events for all alarms."""
         async with self.alarms_lock:
             for alarm_name in self.alarms_info:
                 alarm_info = self.alarms_info[alarm_name]
                 self.log.debug(f"Outputting alarm {alarm_info.name}")
-                await self.output_alarm(alarm_info)
+                await self.output_alarm(alarm_info, force_output=True)
                 await asyncio.sleep(0.001)
 
     async def find_remotes_for_rule_regex(self, name_regex):
@@ -518,7 +593,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             await alarm_info.set_from_data(data)
 
             if self.summary_state == salobj.State.ENABLED:
-                await self.output_alarm(alarm_info, force_output=False)
+                await self.output_alarm(alarm_info)
 
     async def evt_logLevel_callback(self, data):
         """Handle logLevel event from the alarm subprocess."""

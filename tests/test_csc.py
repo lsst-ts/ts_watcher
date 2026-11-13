@@ -256,6 +256,38 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert len(self.csc.alarms_info) == 0
             assert len(self.csc.alarm_rules_info) == 0
 
+    async def test_alarm_rule_runners_heartbeat_stops(self):
+        async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
+            # Start in STANDBY state. No AlarmRules configured and no alarms
+            # received. Make sure that the AlarmRuleRunner heartbeat stops.
+            self.csc.halt_heartbeat_after_startup = True
+            assert self.csc.summary_state == sal_enums.State.STANDBY
+            await self.assert_next_summary_state(sal_enums.State.STANDBY)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 0
+
+            # Send start; AlarmRules configured but no alarms received.
+            await self.remote.cmd_start.set_start(
+                configurationOverride="two_scriptqueue_enabled.yaml", timeout=STD_TIMEOUT
+            )
+            assert self.csc.summary_state == sal_enums.State.DISABLED
+            await self.assert_next_summary_state(sal_enums.State.DISABLED)
+            assert len(self.csc.alarms_info) == 0
+            assert len(self.csc.alarm_rules_info) == 1
+
+            # Send enable; AlarmRules configured and alarms received.
+            await self.remote.cmd_enable.start(timeout=STD_TIMEOUT)
+            assert self.csc.summary_state == sal_enums.State.ENABLED
+            await self.assert_next_summary_state(sal_enums.State.ENABLED)
+            await self.csc.all_alarm_rules_received.wait()
+            await self.check_all_alarms_events_are_none()
+            assert len(self.csc.alarms_info) == 2
+            assert len(self.csc.alarm_rules_info) == 1
+
+            await self.assert_next_alarm(severity=AlarmSeverity.NONE)
+            await self.assert_next_alarm(severity=AlarmSeverity.NONE)
+            await self.assert_next_alarm(severity=AlarmSeverity.CRITICAL)
+
     async def test_escalation_success(self):
         await self.check_escalation()
 
@@ -841,7 +873,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert post_args["json"]["message_text"] == "alarm:Enabled.ATDome:0 severity=4 FAULT state"
             # The POST response contains three additional keys
             # (user_id, date_begin, date_end) that will vary from
-            # test to test.  The are removed from this expected value
+            # test to test. They are removed from this expected value
             # and the mock_post.call_args dict.
             expected = {
                 "url": "https://fake.url.com/narrativelog/messages",
