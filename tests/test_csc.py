@@ -260,7 +260,6 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         async with self.make_csc(config_dir=TEST_CONFIG_DIR, initial_state=salobj.State.STANDBY):
             # Start in STANDBY state. No AlarmRules configured and no alarms
             # received. Make sure that the AlarmRuleRunner heartbeat stops.
-            self.csc.halt_heartbeat_after_startup = True
             assert self.csc.summary_state == sal_enums.State.STANDBY
             await self.assert_next_summary_state(sal_enums.State.STANDBY)
             assert len(self.csc.alarms_info) == 0
@@ -284,8 +283,7 @@ class CscTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             assert len(self.csc.alarms_info) == 2
             assert len(self.csc.alarm_rules_info) == 1
 
-            await self.assert_next_alarm(severity=AlarmSeverity.NONE)
-            await self.assert_next_alarm(severity=AlarmSeverity.NONE)
+            await self.csc.alarm_rule_remote.cmd_stop.set_start(salIndex=1, timeout=STD_TIMEOUT)
             await self.assert_next_alarm(severity=AlarmSeverity.CRITICAL)
 
     async def test_escalation_success(self):

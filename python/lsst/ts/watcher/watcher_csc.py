@@ -158,10 +158,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # The Model for the AlarmRuleRunner alarms.
         self.model: Model | None = None
 
-        # Make the AlarmRuleRunner heartbeat task stop if set to True. To be
-        # used by unit tests only.
-        self.halt_heartbeat_after_startup = False
-
     @staticmethod
     def get_config_pkg():
         return "ts_config_ocs"
@@ -184,9 +180,15 @@ class WatcherCsc(salobj.ConfigurableCsc):
         for index in self.alarm_rules_info:
             alarm_rule_info = self.alarm_rules_info[index]
 
-            self.log.debug(f"Stopping AlarmRule:{index} for rule {alarm_rule_info.classname}.")
-            await self.alarm_rule_remote.cmd_stop.set_start(salIndex=index, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} is stopped.")
+            # Stop the subprocess if not already stopped. Note that here it is
+            # necessary to explicitly check for None, becasue `not` also is
+            # True when the process cleanly exited with returncode == 0.
+            if alarm_rule_info.process.returncode is None:
+                self.log.debug(f"Stopping AlarmRule:{index} for rule {alarm_rule_info.classname}.")
+                await self.alarm_rule_remote.cmd_stop.set_start(salIndex=index, timeout=STD_TIMEOUT)
+                self.log.debug(f"AlarmRule:{index} is stopped.")
+            else:
+                self.log.debug(f"AlarmRule:{index} already is stopped.")
 
             process = alarm_rule_info.process
             self.log.debug(
@@ -304,8 +306,6 @@ class WatcherCsc(salobj.ConfigurableCsc):
             classname = alarm_rule_config.rules[0]["classname"]
             self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
             args = [SCRIPT_NAME, classname, str(index)]
-            if self.halt_heartbeat_after_startup:
-                args.append("--halt_heartbeat_after_startup")
             process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
 
             if index not in self.alarm_rules_info:
