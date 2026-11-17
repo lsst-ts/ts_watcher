@@ -8,6 +8,33 @@ Version History
 
 .. towncrier release notes start
 
+v2.3.0 (2026-11-17)
+===================
+
+New Features
+------------
+
+- Added setting up AlarmRuleRunner heartbeat alarms in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Added a function to emit AlarmRuleRunner alarms to the Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+
+
+Bug Fixes
+---------
+
+- Made sure the Model gets restarted in AlarmRuleRunner. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Extracted creation of subprocess to a new method in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Inverted force_output for sending alarms in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Improved stopping of background tasks in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Added unit test for missing heartbeats from AlarmRuleRunner in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Simplified the function for starting subprocesses in Watcher CSC. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+- Added default for pytest asyncio_default_fixture_loop_scope in pyproject.toml. (`SSW-3108 <https://rubinobs.atlassian.net//browse/SSW-3108>`_)
+
+
 v2.2.2 (2026-10-28)
 ===================
 
