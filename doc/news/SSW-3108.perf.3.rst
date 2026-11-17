@@ -1,1 +1,0 @@
-Inverted force_output for sending alarms in Watcher CSC.
