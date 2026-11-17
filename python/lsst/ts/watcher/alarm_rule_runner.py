@@ -106,7 +106,8 @@ class AlarmRuleRunner(salobj.Controller):
         while self._should_produce_heartbeats:
             try:
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
-                await self.evt_heartbeat.write()
+                if self.salinfo.isopen:
+                    await self.evt_heartbeat.write()
             except asyncio.CancelledError:
                 self._should_produce_heartbeats = False
             except Exception:
@@ -138,7 +139,8 @@ class AlarmRuleRunner(salobj.Controller):
         if self.state != state:
             self.log.info(f"Transitioning from {self.state.name} to {state.name}.")
             self.state = state
-            await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
+            if self.salinfo.isopen:
+                await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
             self.log.debug(f"Done transitioning to {state.name}.")
 
     async def start(self) -> None:
