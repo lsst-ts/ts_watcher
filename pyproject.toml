@@ -25,6 +25,7 @@ run_alarm_rule_runner = "lsst.ts.watcher:run_alarm_rule_runner"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [project.optional-dependencies]
 dev = ["documenteer[pipelines]"]
