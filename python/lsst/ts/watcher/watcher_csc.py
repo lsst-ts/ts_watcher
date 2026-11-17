@@ -210,9 +210,9 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def begin_start(self, data):
         if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
             raise salobj.ExpectedError(
-                "Watcher is already executing a start command. "
+                "Watcher is currently executing a start or standby command. "
                 "Sometimes this process can take a while to finish as the "
-                "Watcher needs to start several subprocesses."
+                "Watcher needs to manage several subprocesses."
             )
 
         self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
