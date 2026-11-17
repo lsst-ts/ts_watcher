@@ -273,8 +273,42 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
             await asyncio.sleep(0.5)
 
+    async def _cmd_standby_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
+        """Continuously send in progress acknowledgements.
+
+        This coroutine is supposed to run in the background while the start
+        command is running to make sure it is continuously informing the
+        requestor that the command is still active. This is required because
+        the start command may take a long time to execute as it performs
+        several tasks. Instead of providing a really long timeout, it is
+        more robust to simply continuously send in progress. If the CSC gets
+        stuck or crashes the ack's will stop and the command will timeout.
+
+        Parameters
+        ----------
+        data : `salobj.type_hints.BaseMsgType`
+            Command payload.
+        """
+        while True:
+            await self.cmd_standby.ack_in_progress(
+                data, timeout=PROCESS_COMM_TIMEOUT, result="Standby command still in progress."
+            )
+            await asyncio.sleep(0.5)
+
     async def begin_standby(self, data) -> None:
-        await self.close_alarm_rule_tasks()
+        if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
+            raise salobj.ExpectedError(
+                "Watcher is currently executing a start or standby command. "
+                "Sometimes this process can take a while to finish as the "
+                "Watcher needs to manage several subprocesses."
+            )
+
+        self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_standby_ack_in_progress(data))
+
+        try:
+            await self.close_alarm_rule_tasks()
+        finally:
+            await self._stop_task(ACK_IN_PROGRESS_TASK)
 
     async def begin_disable(self, data) -> None:
         if self.summary_state == State.ENABLED:
