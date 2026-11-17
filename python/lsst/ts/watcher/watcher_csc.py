@@ -162,8 +162,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def get_config_pkg():
         return "ts_config_ocs"
 
-    async def close_tasks(self):
-        await super().close_tasks()
+    async def close_alarm_rule_tasks(self):
 
         if self.model is not None:
             self.model.disable()
@@ -266,7 +265,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
             await asyncio.sleep(0.5)
 
     async def begin_standby(self, data) -> None:
-        await self.close_tasks()
+        await self.close_alarm_rule_tasks()
 
     async def begin_disable(self, data) -> None:
         if self.summary_state == State.ENABLED:
@@ -606,6 +605,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.log.debug(
             f"Received logMessage event for {data.salIndex=} with {data.message=}, {data.traceback=}"
         )
+
+    async def close_tasks(self) -> None:
+        await self.close_alarm_rule_tasks()
+        await super().close_tasks()
 
 
 def run_watcher():
