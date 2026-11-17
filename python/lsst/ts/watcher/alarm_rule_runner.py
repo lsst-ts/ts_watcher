@@ -165,6 +165,10 @@ class AlarmRuleRunner(salobj.Controller):
 
     async def _run(self) -> None:
         """Run the alarm rule."""
+        if self._heartbeat_task.done():
+            self._should_produce_heartbeats = True
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         try:
             await self._set_state(AlarmRuleState.RUNNING)
             self._should_be_running = asyncio.Future()
