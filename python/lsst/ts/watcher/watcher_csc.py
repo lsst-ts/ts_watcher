@@ -217,15 +217,24 @@ class WatcherCsc(salobj.ConfigurableCsc):
 
         self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
 
-        await super().begin_start(data)
+        try:
+            await super().begin_start(data)
 
-        for index in self.alarm_rules_info:
-            self.log.debug(f"Running AlarmRule:{index}.")
-            await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} is running.")
-
-    async def end_start(self, data):
-        await self._stop_task(ACK_IN_PROGRESS_TASK)
+            for index in self.alarm_rules_info:
+                self.log.debug(f"Running AlarmRule:{index}.")
+                await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
+                self.log.debug(f"AlarmRule:{index} is running.")
+        except Exception:
+            self.log.exception("Failed to configure or run alarm rule; closing tasks.")
+            await self.close_alarm_rule_tasks()
+            raise
+        except asyncio.CancelledError:
+            self.log.warning("Begin start cancelled; closing tasks.")
+            await self.close_alarm_rule_tasks()
+            raise
+        finally:
+            self.log.debug("Stopping ack in progress task.")
+            await self._stop_task(ACK_IN_PROGRESS_TASK)
 
     async def _stop_task(self, task_name: str) -> None:
         if task_name not in self._tasks:
