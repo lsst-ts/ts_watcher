@@ -124,7 +124,8 @@ class MTImageIngestionLag(BaseRule):
 
         # Get the visitId of the imageInOODS event.
         if (obs_id := getattr(data, "obsid", None)) is not None:
-            self.ingested_image_visit_id = int(obs_id)
+            _, _, oods_image_date, oods_image_number = obs_id.split("_")
+            self.ingested_image_visit_id = int(int(oods_image_date) * 1e5 + int(oods_image_number))
 
         self.log.debug(f"{self.camera_visit_id=}, {self.ingested_image_visit_id=}.")
 
