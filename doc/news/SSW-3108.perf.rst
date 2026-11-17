@@ -1,0 +1,1 @@
+Added default for pytest asyncio_default_fixture_loop_scope in pyproject.toml.

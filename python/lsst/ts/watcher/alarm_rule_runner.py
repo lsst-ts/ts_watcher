@@ -69,6 +69,7 @@ class AlarmRuleRunner(salobj.Controller):
 
         self.rule_name = rule_name
         self.model: Model | None = None
+        self.config: types.SimpleNamespace | None = None
 
         self._run_task: asyncio.Future = utils.make_done_future()
         self._close_task: asyncio.Future = utils.make_done_future()
@@ -105,7 +106,8 @@ class AlarmRuleRunner(salobj.Controller):
         while self._should_produce_heartbeats:
             try:
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
-                await self.evt_heartbeat.write()
+                if self.salinfo.isopen:
+                    await self.evt_heartbeat.write()
             except asyncio.CancelledError:
                 self._should_produce_heartbeats = False
             except Exception:
@@ -137,7 +139,8 @@ class AlarmRuleRunner(salobj.Controller):
         if self.state != state:
             self.log.info(f"Transitioning from {self.state.name} to {state.name}.")
             self.state = state
-            await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
+            if self.salinfo.isopen:
+                await self.evt_state.set_write(alarmName=self.rule_name, state=state.value)
             self.log.debug(f"Done transitioning to {state.name}.")
 
     async def start(self) -> None:
@@ -164,9 +167,17 @@ class AlarmRuleRunner(salobj.Controller):
 
     async def _run(self) -> None:
         """Run the alarm rule."""
+        if self._heartbeat_task.done():
+            self._should_produce_heartbeats = True
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         try:
             await self._set_state(AlarmRuleState.RUNNING)
             self._should_be_running = asyncio.Future()
+
+            if not self.model:
+                await self.start_model()
+
             await self.model.enable()
             await self._should_be_running
         except asyncio.CancelledError:
@@ -235,25 +246,31 @@ class AlarmRuleRunner(salobj.Controller):
 
         try:
             config_dict_from_yaml = yaml.safe_load(config_yaml)
-            config = types.SimpleNamespace(**config_dict_from_yaml)
-            self.escalation_endpoint_url = config.escalation_url
+            self.config = types.SimpleNamespace(**config_dict_from_yaml)
+            self.escalation_endpoint_url = self.config.escalation_url
 
             # Only keep the rule for which this AlarmRuleRunner was created.
-            config.rules = [rule for rule in config.rules if rule["classname"] == self.rule_name]
-            self.model = Model(
-                domain=self.domain,
-                config=config,
-                alarm_callback=self.output_alarm,
-                log=self.log,
-            )
-
-            await self.model.start_task
+            self.config.rules = [rule for rule in self.config.rules if rule["classname"] == self.rule_name]
+            await self.start_model()
         except Exception as e:
             errmsg = f"config({config_yaml}) failed"
             full_errmsg = f"{errmsg}: {e}"  # includes the exception
             self.log.exception(errmsg)
             await self._set_state(AlarmRuleState.CONFIGURE_FAILED)
             raise salobj.ExpectedError(full_errmsg) from e
+
+        await self._set_state(AlarmRuleState.CONFIGURED)
+        await asyncio.sleep(MINIMAL_WAIT)
+
+    async def start_model(self) -> None:
+        self.model = Model(
+            domain=self.domain,
+            config=self.config,
+            alarm_callback=self.output_alarm,
+            log=self.log,
+        )
+
+        await self.model.start_task
 
         # Prepare and send the description event.
         rule_names = []
@@ -265,9 +282,6 @@ class AlarmRuleRunner(salobj.Controller):
             description=f"AlarmRule:{self.salinfo.index} for {self.rule_name}",
             remotes=",".join(rule_names),
         )
-
-        await self._set_state(AlarmRuleState.CONFIGURED)
-        await asyncio.sleep(MINIMAL_WAIT)
 
     @contextlib.asynccontextmanager
     async def _faling(self) -> typing.AsyncGenerator[None, None]:
@@ -297,10 +311,10 @@ class AlarmRuleRunner(salobj.Controller):
         await self.cmd_run.ack_in_progress(data=data, timeout=ACK_IN_PROGRESS_WAIT_TIME)
         self.log.debug("Done sending cmd_run.ack_in_progress")
 
-        expected_state = AlarmRuleState.CONFIGURED
-        if self.state != expected_state:
+        expected_states = [AlarmRuleState.CONFIGURED, AlarmRuleState.STOPPED]
+        if self.state not in expected_states:
             raise UnexpectedAlarmRuleStateError(
-                f"Invalid AlarmRule state {self.state.name}; expected {expected_state.name}."
+                f"Invalid AlarmRule state {self.state.name}; expected one of {expected_states}."
             )
 
         self._run_task = asyncio.create_task(self._run())
