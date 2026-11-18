@@ -1,1 +1,0 @@
-Updated the error message in ``begin_start`` when there is a background ack task in progress.

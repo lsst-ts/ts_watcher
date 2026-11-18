@@ -1,1 +1,0 @@
-Refactored ``_create_and_start_subprocesses`` to start up to 5 alarm rules concurrently, using an async semaphore to limit the number of concurrent tasks.
