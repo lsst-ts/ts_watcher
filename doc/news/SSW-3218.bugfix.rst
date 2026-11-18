@@ -1,1 +1,0 @@
-Renamed ``WatcherCsc.close_tasks`` to ``WatcherCsc.close_alarm_rule_tasks`` so it no longer conflicts with the parent class method.

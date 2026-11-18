@@ -1,1 +1,0 @@
-Fixed how the ``MTImageIngestionLag`` rule parses ``obsid`` from the ``imageInOODS`` event.

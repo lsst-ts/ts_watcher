@@ -8,6 +8,31 @@ Version History
 
 .. towncrier release notes start
 
+v2.3.1 (2026-11-18)
+===================
+
+New Features
+------------
+
+- Refactored ``close_alarm_rule_tasks`` to send all the stop commands first and then wait for the processes to finish, instead of waiting for each process to finish one at a time. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+- Refactored ``_create_and_start_subprocesses`` to start up to 5 alarm rules concurrently, using an async semaphore to limit the number of concurrent tasks. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+
+
+Bug Fixes
+---------
+
+- Moved the call to stop the in-progress background task to the ``begin_start`` method, fixing an issue where the background task continued to run when there was an error running the alarm rules. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+- Added a ``_cmd_standby_ack_in_progress`` method and called it in ``begin_standby`` to ensure the command stays alive while in progress. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+- Fixed how the ``MTImageIngestionLag`` rule parses ``obsid`` from the ``imageInOODS`` event. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+- Renamed ``WatcherCsc.close_tasks`` to ``WatcherCsc.close_alarm_rule_tasks`` so it no longer conflicts with the parent class method. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Updated the error message in ``begin_start`` when there is a background ack task in progress. (`SSW-3218 <https://rubinobs.atlassian.net//browse/SSW-3218>`_)
+
+
 v2.3.0 (2026-11-17)
 ===================
 

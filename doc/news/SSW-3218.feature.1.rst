@@ -1,1 +1,0 @@
-Refactored ``close_alarm_rule_tasks`` to send all the stop commands first and then wait for the processes to finish, instead of waiting for each process to finish one at a time.
