@@ -131,6 +131,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # Lock to protect access to self.alarms.
         self.alarms_lock = asyncio.Lock()
 
+        self.start_tasks_semaphore = asyncio.Semaphore(5)
+
+        self._alarm_rule_indices = []
+
         # Keep track of the number of alarm rules for unit tests.
         self.number_of_enabled_alarm_rules = 0
         # Event to set when the number of distinct received alarms equals the
@@ -341,14 +345,22 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await self._setup_alarm_rule_runner_alarms()
 
     async def _create_and_start_subprocesses(self):
+
+        start_tasks = []
+        self._alarm_rule_indices = []
+        self.alarm_rule_remote.evt_heartbeat.flush()
+
         for index, rule in enumerate(self.config.rules, start=1):
             alarm_rule_config = copy.deepcopy(self.config)
             alarm_rule_config.rules = [rule]
 
             classname = alarm_rule_config.rules[0]["classname"]
-            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
-            args = [SCRIPT_NAME, classname, str(index)]
-            process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
+
+            async with self.start_tasks_semaphore:
+                self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
+                args = [SCRIPT_NAME, classname, str(index)]
+
+                process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
 
             if index not in self.alarm_rules_info:
                 self.alarm_rules_info[index] = AlarmRuleInfo(
@@ -360,13 +372,45 @@ class WatcherCsc(salobj.ConfigurableCsc):
             else:
                 self.alarm_rules_info[index].process = process
 
-            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
-            data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            while data.salIndex != index:
-                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} heartbeat received.")
+            start_tasks.append(
+                asyncio.create_task(
+                    self._configure_alarm_rule(
+                        index=index, classname=classname, alarm_rule_config=alarm_rule_config
+                    )
+                )
+            )
 
-            self.log.debug(f"Configuring AlarmRule:{index} for rule {classname}.")
+            failed_tasks = [task for task in start_tasks if task.done() and task.exception() is not None]
+
+            if failed_tasks:
+                self.log.error(f"{len(failed_tasks)} configure task failed; stopping.")
+                for task in start_tasks:
+                    if task.done():
+                        continue
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                await failed_tasks[0]
+
+        await asyncio.gather(*start_tasks)
+
+    async def _configure_alarm_rule(self, index, classname, alarm_rule_config):
+
+        async with self.start_tasks_semaphore:
+            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
+
+            if index not in self._alarm_rule_indices:
+                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=False, timeout=STD_TIMEOUT)
+                while data.salIndex != index and index not in self._alarm_rule_indices:
+                    if data.salIndex not in self._alarm_rule_indices:
+                        self._alarm_rule_indices.append(data.salIndex)
+                    data = await self.alarm_rule_remote.evt_heartbeat.next(flush=False, timeout=STD_TIMEOUT)
+
+            self.log.debug(
+                f"AlarmRule:{index} heartbeat received. Configuring AlarmRule:{index} for rule {classname}."
+            )
             alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
             await self.alarm_rule_remote.cmd_configure.set_start(
                 salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
