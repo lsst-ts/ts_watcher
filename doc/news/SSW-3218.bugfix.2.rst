@@ -1,0 +1,1 @@
+Added a ``_cmd_standby_ack_in_progress`` method and called it in ``begin_standby`` to ensure the command stays alive while in progress.

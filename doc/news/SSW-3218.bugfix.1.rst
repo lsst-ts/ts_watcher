@@ -1,0 +1,1 @@
+Moved the call to stop the in-progress background task to the ``begin_start`` method, fixing an issue where the background task continued to run when there was an error running the alarm rules.
