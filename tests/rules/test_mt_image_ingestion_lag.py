@@ -122,7 +122,7 @@ class MTImageIngestionLagTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def send_image_in_oods_event(self) -> None:
         topic = getattr(self.mtaos, "evt_imageInOODS")
-        obs_id = f"{self._date_string}{self._image_sequence:05d}"
+        obs_id = f"MC_O_{self._date_string}_{self._image_sequence:05d}"
         await watcher.write_and_wait(self.model, topic, obsid=obs_id)
 
     async def send_end_readout_event(self) -> None:

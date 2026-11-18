@@ -131,6 +131,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         # Lock to protect access to self.alarms.
         self.alarms_lock = asyncio.Lock()
 
+        self.start_tasks_semaphore = asyncio.Semaphore(5)
+
+        self._alarm_rule_indices = []
+
         # Keep track of the number of alarm rules for unit tests.
         self.number_of_enabled_alarm_rules = 0
         # Event to set when the number of distinct received alarms equals the
@@ -162,8 +166,7 @@ class WatcherCsc(salobj.ConfigurableCsc):
     def get_config_pkg():
         return "ts_config_ocs"
 
-    async def close_tasks(self):
-        await super().close_tasks()
+    async def close_alarm_rule_tasks(self):
 
         if self.model is not None:
             self.model.disable()
@@ -190,12 +193,18 @@ class WatcherCsc(salobj.ConfigurableCsc):
             else:
                 self.log.debug(f"AlarmRule:{index} already is stopped.")
 
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
             process = alarm_rule_info.process
             self.log.debug(
                 f"Waiting for alarm rule process {process.pid} for rule {alarm_rule_info.classname} to exit."
             )
-            while process.returncode is None:
-                await asyncio.sleep(0.1)
+            try:
+                async with asyncio.timeout(STD_TIMEOUT):
+                    await process.wait()
+            except asyncio.TimeoutError:
+                self.log.warning("Timeout waiting for process to finish; terminating and continuing.")
+                process.terminate()
             self.log.debug(f"Alarm rule process {process.pid} exited with code {process.returncode}.")
 
         self.alarm_rules_info = {}
@@ -211,22 +220,31 @@ class WatcherCsc(salobj.ConfigurableCsc):
     async def begin_start(self, data):
         if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
             raise salobj.ExpectedError(
-                "Watcher is already executing a start command. "
+                "Watcher is currently executing a start or standby command. "
                 "Sometimes this process can take a while to finish as the "
-                "Watcher needs to start several subprocesses."
+                "Watcher needs to manage several subprocesses."
             )
 
         self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_start_ack_in_progress(data))
 
-        await super().begin_start(data)
+        try:
+            await super().begin_start(data)
 
-        for index in self.alarm_rules_info:
-            self.log.debug(f"Running AlarmRule:{index}.")
-            await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} is running.")
-
-    async def end_start(self, data):
-        await self._stop_task(ACK_IN_PROGRESS_TASK)
+            for index in self.alarm_rules_info:
+                self.log.debug(f"Running AlarmRule:{index}.")
+                await self.alarm_rule_remote.cmd_run.set_start(salIndex=index, timeout=STD_TIMEOUT)
+                self.log.debug(f"AlarmRule:{index} is running.")
+        except Exception:
+            self.log.exception("Failed to configure or run alarm rule; closing tasks.")
+            await self.close_alarm_rule_tasks()
+            raise
+        except asyncio.CancelledError:
+            self.log.warning("Begin start cancelled; closing tasks.")
+            await self.close_alarm_rule_tasks()
+            raise
+        finally:
+            self.log.debug("Stopping ack in progress task.")
+            await self._stop_task(ACK_IN_PROGRESS_TASK)
 
     async def _stop_task(self, task_name: str) -> None:
         if task_name not in self._tasks:
@@ -265,8 +283,42 @@ class WatcherCsc(salobj.ConfigurableCsc):
             )
             await asyncio.sleep(0.5)
 
+    async def _cmd_standby_ack_in_progress(self, data: salobj.type_hints.BaseMsgType) -> None:
+        """Continuously send in progress acknowledgements.
+
+        This coroutine is supposed to run in the background while the start
+        command is running to make sure it is continuously informing the
+        requestor that the command is still active. This is required because
+        the start command may take a long time to execute as it performs
+        several tasks. Instead of providing a really long timeout, it is
+        more robust to simply continuously send in progress. If the CSC gets
+        stuck or crashes the ack's will stop and the command will timeout.
+
+        Parameters
+        ----------
+        data : `salobj.type_hints.BaseMsgType`
+            Command payload.
+        """
+        while True:
+            await self.cmd_standby.ack_in_progress(
+                data, timeout=PROCESS_COMM_TIMEOUT, result="Standby command still in progress."
+            )
+            await asyncio.sleep(0.5)
+
     async def begin_standby(self, data) -> None:
-        await self.close_tasks()
+        if ACK_IN_PROGRESS_TASK in self._tasks and not self._tasks[ACK_IN_PROGRESS_TASK].done():
+            raise salobj.ExpectedError(
+                "Watcher is currently executing a start or standby command. "
+                "Sometimes this process can take a while to finish as the "
+                "Watcher needs to manage several subprocesses."
+            )
+
+        self._tasks[ACK_IN_PROGRESS_TASK] = asyncio.create_task(self._cmd_standby_ack_in_progress(data))
+
+        try:
+            await self.close_alarm_rule_tasks()
+        finally:
+            await self._stop_task(ACK_IN_PROGRESS_TASK)
 
     async def begin_disable(self, data) -> None:
         if self.summary_state == State.ENABLED:
@@ -299,14 +351,22 @@ class WatcherCsc(salobj.ConfigurableCsc):
         await self._setup_alarm_rule_runner_alarms()
 
     async def _create_and_start_subprocesses(self):
+
+        start_tasks = []
+        self._alarm_rule_indices = []
+        self.alarm_rule_remote.evt_heartbeat.flush()
+
         for index, rule in enumerate(self.config.rules, start=1):
             alarm_rule_config = copy.deepcopy(self.config)
             alarm_rule_config.rules = [rule]
 
             classname = alarm_rule_config.rules[0]["classname"]
-            self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
-            args = [SCRIPT_NAME, classname, str(index)]
-            process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
+
+            async with self.start_tasks_semaphore:
+                self.log.debug(f"Starting subprocess for AlarmRuleRunner:{index} for rule {classname}.")
+                args = [SCRIPT_NAME, classname, str(index)]
+
+                process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
 
             if index not in self.alarm_rules_info:
                 self.alarm_rules_info[index] = AlarmRuleInfo(
@@ -318,13 +378,45 @@ class WatcherCsc(salobj.ConfigurableCsc):
             else:
                 self.alarm_rules_info[index].process = process
 
-            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
-            data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            while data.salIndex != index:
-                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=True, timeout=STD_TIMEOUT)
-            self.log.debug(f"AlarmRule:{index} heartbeat received.")
+            start_tasks.append(
+                asyncio.create_task(
+                    self._configure_alarm_rule(
+                        index=index, classname=classname, alarm_rule_config=alarm_rule_config
+                    )
+                )
+            )
 
-            self.log.debug(f"Configuring AlarmRule:{index} for rule {classname}.")
+            failed_tasks = [task for task in start_tasks if task.done() and task.exception() is not None]
+
+            if failed_tasks:
+                self.log.error(f"{len(failed_tasks)} configure task failed; stopping.")
+                for task in start_tasks:
+                    if task.done():
+                        continue
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                await failed_tasks[0]
+
+        await asyncio.gather(*start_tasks)
+
+    async def _configure_alarm_rule(self, index, classname, alarm_rule_config):
+
+        async with self.start_tasks_semaphore:
+            self.log.debug(f"Waiting for AlarmRule:{index} heartbeat for rule {classname}.")
+
+            if index not in self._alarm_rule_indices:
+                data = await self.alarm_rule_remote.evt_heartbeat.next(flush=False, timeout=STD_TIMEOUT)
+                while data.salIndex != index and index not in self._alarm_rule_indices:
+                    if data.salIndex not in self._alarm_rule_indices:
+                        self._alarm_rule_indices.append(data.salIndex)
+                    data = await self.alarm_rule_remote.evt_heartbeat.next(flush=False, timeout=STD_TIMEOUT)
+
+            self.log.debug(
+                f"AlarmRule:{index} heartbeat received. Configuring AlarmRule:{index} for rule {classname}."
+            )
             alarm_rule_config_str = yaml.dump(vars(alarm_rule_config))
             await self.alarm_rule_remote.cmd_configure.set_start(
                 salIndex=index, config=alarm_rule_config_str, timeout=STD_TIMEOUT
@@ -606,6 +698,10 @@ class WatcherCsc(salobj.ConfigurableCsc):
         self.log.debug(
             f"Received logMessage event for {data.salIndex=} with {data.message=}, {data.traceback=}"
         )
+
+    async def close_tasks(self) -> None:
+        await self.close_alarm_rule_tasks()
+        await super().close_tasks()
 
 
 def run_watcher():
