@@ -193,12 +193,18 @@ class WatcherCsc(salobj.ConfigurableCsc):
             else:
                 self.log.debug(f"AlarmRule:{index} already is stopped.")
 
+        for index in self.alarm_rules_info:
+            alarm_rule_info = self.alarm_rules_info[index]
             process = alarm_rule_info.process
             self.log.debug(
                 f"Waiting for alarm rule process {process.pid} for rule {alarm_rule_info.classname} to exit."
             )
-            while process.returncode is None:
-                await asyncio.sleep(0.1)
+            try:
+                async with asyncio.timeout(STD_TIMEOUT):
+                    await process.wait()
+            except asyncio.TimeoutError:
+                self.log.warning("Timeout waiting for process to finish; terminating and continuing.")
+                process.terminate()
             self.log.debug(f"Alarm rule process {process.pid} exited with code {process.returncode}.")
 
         self.alarm_rules_info = {}
