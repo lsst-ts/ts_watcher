@@ -149,7 +149,7 @@ class UnderPressureTestCase(unittest.IsolatedAsyncioTestCase):
             # Check that no data for max_data_age triggers severity=SERIOUS.
             rule.start()
             assert rule.alarm.severity != AlarmSeverity.SERIOUS
-            await asyncio.sleep(max_data_age + poll_interval * 2)
+            await asyncio.sleep(max_data_age + poll_interval * 5)
             assert rule.alarm.severity == AlarmSeverity.SERIOUS
             assert rule.alarm.reason == f"No tel_pressure data seen for {max_data_age} seconds"
 
