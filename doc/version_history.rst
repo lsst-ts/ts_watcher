@@ -8,6 +8,15 @@ Version History
 
 .. towncrier release notes start
 
+v2.3.2 (2026-11-19)
+===================
+
+Bug Fixes
+---------
+
+- Fixed a bug where no telemetry seen was reported while telemetry was received. (`OSW-2688 <https://rubinobs.atlassian.net//browse/OSW-2688>`_)
+
+
 v2.3.1 (2026-11-18)
 ===================
 
